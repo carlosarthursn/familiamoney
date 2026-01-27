@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save } from 'lucide-react';
+import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
@@ -59,7 +59,9 @@ export function ProfileSettings() {
         toast.error('Erro ao vincular perfil.');
         return;
       }
-      toast.success('ID vinculado! Certifique-se que o outro usuário também vinculou o seu.');
+      
+      // A mensagem agora pode ser mais amigável
+      toast.success('Vinculado com sucesso!');
     } finally {
       setLoading(false);
       setLinkedUserId('');
@@ -144,10 +146,17 @@ export function ProfileSettings() {
         </div>
 
         {isLinked ? (
-          <div className="space-y-4">
-            <div className="p-3 bg-muted/50 rounded-lg border border-dashed">
-              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Vinculado a:</p>
-              <p className="text-xs font-mono break-all text-foreground">{profile?.linked_user_id}</p>
+          <div className="space-y-4 animate-fade-in">
+            <div className="p-4 bg-primary/5 rounded-xl border border-primary/20 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Heart className="h-5 w-5 text-primary fill-primary/20" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Vinculado a:</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {profile?.partnerName || 'Carregando...'}
+                </p>
+              </div>
             </div>
             
             <Button 

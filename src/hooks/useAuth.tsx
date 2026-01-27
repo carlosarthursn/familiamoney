@@ -3,11 +3,11 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
 
 interface Profile {
   name?: string;
   linked_user_id?: string | null;
+  partnerName?: string | null;
 }
 
 interface AuthContextType {
@@ -33,16 +33,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (currentUser: User) => {
     const metadata = currentUser.user_metadata || {};
     
+    // 1. Busca o perfil do próprio usuário
     const { data: dbProfile } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', currentUser.id)
       .maybeSingle();
     
-    // Prioridade: Nome no banco > Metadados > Prefixo do Email
+    const linkedId = metadata.linked_user_id || null;
+    let partnerName = null;
+
+    // 2. Se houver um ID vinculado, busca o nome desse parceiro
+    if (linkedId) {
+      const { data: partnerProfile } = await supabase
+        .from('profiles')
+        .select('name, email')
+        .eq('user_id', linkedId)
+        .maybeSingle();
+      
+      if (partnerProfile) {
+        partnerName = (partnerProfile as any).name || partnerProfile.email?.split('@')[0] || 'Parceiro';
+      }
+    }
+    
     setProfile({
       name: (dbProfile as any)?.name || metadata.name || dbProfile?.email?.split('@')[0] || 'Usuário',
-      linked_user_id: metadata.linked_user_id || null
+      linked_user_id: linkedId,
+      partnerName
     });
   };
 
@@ -91,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     if (!error) {
-      // Tenta criar o perfil inicial na tabela pública
       const { data: { user: newUser } } = await supabase.auth.getUser();
       if (newUser) {
         await supabase.from('profiles').upsert({
@@ -127,7 +143,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: { name?: string; linked_user_id?: string | null }) => {
     if (!user) return { error: new Error('Usuário não logado') };
 
-    // 1. Atualiza metadados do Auth
     const { data, error } = await supabase.auth.updateUser({
       data: { 
         ...(updates.name && { name: updates.name }),
@@ -137,7 +152,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) return { error: error as Error };
 
-    // 2. Sincroniza com a tabela pública de perfis
     const profileUpdates: any = {};
     if (updates.name) profileUpdates.name = updates.name;
     
