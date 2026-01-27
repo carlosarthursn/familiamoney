@@ -10,6 +10,7 @@ import { AnalysisView } from '@/components/AnalysisView';
 import { CalendarView } from '@/components/CalendarView';
 import { ReportsView } from '@/components/ReportsView';
 import { ProfileSettings } from '@/components/ProfileSettings';
+import { PlanningView } from '@/components/PlanningView'; // New Import
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -75,6 +76,8 @@ export default function Dashboard() {
             <AnalysisView selectedDate={selectedDate} />
           </div>
         );
+      case 'planning': // New Case
+        return <PlanningView />;
       case 'reports':
         return <ReportsView />;
       case 'profile':

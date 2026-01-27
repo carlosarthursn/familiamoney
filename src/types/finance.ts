@@ -27,6 +27,23 @@ export interface CategoryInfo {
   icon: string;
 }
 
+// New types for planning features
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string; // YYYY-MM-DD
+}
+
+export interface WishlistItem {
+  id: string;
+  name: string;
+  price: number;
+  priority: 'high' | 'medium' | 'low';
+  link?: string;
+}
+
 export const EXPENSE_CATEGORIES: CategoryInfo[] = [
   { id: 'food', label: 'Alimentação', icon: 'Utensils' },
   { id: 'rent', label: 'Aluguel', icon: 'House' },
