@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -78,6 +78,9 @@ export function AddTransactionSheet() {
       <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl flex flex-col p-0 overflow-hidden">
         <SheetHeader className="px-6 pt-6 pb-2">
           <SheetTitle className="text-xl">Nova Movimentação</SheetTitle>
+          <SheetDescription className="sr-only">
+            Adicione detalhes sobre sua nova receita ou despesa.
+          </SheetDescription>
         </SheetHeader>
         
         <div className="flex-1 overflow-y-auto px-6 pb-24">
