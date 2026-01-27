@@ -1,24 +1,28 @@
 -- Adiciona a coluna 'name' para armazenar o nome de exibição do usuário
 ALTER TABLE public.profiles
-ADD COLUMN name text;
+ADD COLUMN IF NOT EXISTS name text;
 
 -- Adiciona a coluna 'linked_user_id' para vincular contas (compartilhamento)
 ALTER TABLE public.profiles
-ADD COLUMN linked_user_id uuid REFERENCES auth.users(id);
+ADD COLUMN IF NOT EXISTS linked_user_id uuid REFERENCES auth.users(id);
 
 -- Cria um índice para a coluna linked_user_id para buscas mais rápidas
-CREATE INDEX profiles_linked_user_id_idx ON public.profiles (linked_user_id);
+CREATE INDEX IF NOT EXISTS profiles_linked_user_id_idx ON public.profiles (linked_user_id);
 
--- Atualiza a política RLS (Row Level Security) para permitir que usuários vejam o nome e o linked_user_id de outros usuários (necessário para buscar o nome do parceiro)
--- Assumindo que a política de SELECT já existe. Se não existir, ela deve ser criada.
--- Se a política de SELECT for restritiva, o fetchProfile pode falhar.
--- Vamos garantir que a política de SELECT permita a leitura básica de perfis.
+-- RLS Policy: Permite que usuários autenticados atualizem seu próprio perfil
+-- Se a política já existir, esta instrução pode falhar ou ser redundante, mas é crucial para a funcionalidade.
+-- Você deve garantir que esta política esteja ativa no seu ambiente Supabase.
+DROP POLICY IF EXISTS "Allow authenticated users to update their own profile" ON public.profiles;
+CREATE POLICY "Allow authenticated users to update their own profile"
+ON public.profiles
+FOR UPDATE USING (
+  auth.uid() = user_id
+);
 
--- Exemplo de política RLS (se necessário, você deve aplicá-la no seu ambiente Supabase):
-/*
+-- RLS Policy: Permite que usuários autenticados vejam todos os perfis (necessário para buscar o nome do parceiro)
+DROP POLICY IF EXISTS "Allow authenticated users to view all profiles" ON public.profiles;
 CREATE POLICY "Allow authenticated users to view all profiles"
 ON public.profiles
 FOR SELECT USING (
   auth.role() = 'authenticated'
 );
-*/
