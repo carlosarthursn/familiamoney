@@ -9,6 +9,10 @@ interface UseTransactionsOptions {
   filterCategories?: string[]; 
 }
 
+interface TransactionWithAuthor extends Transaction {
+  author_name?: string;
+}
+
 export function useTransactions({ selectedDate, filterCategories }: UseTransactionsOptions = {}) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
@@ -17,22 +21,20 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-  // Criamos uma lista de IDs: o meu + o vinculado (se existir)
   const userIds = [user?.id].filter(Boolean) as string[];
-  if (profile?.linked_user_id) {
-    if (!userIds.includes(profile.linked_user_id)) {
-      userIds.push(profile.linked_user_id);
-    }
+  if (profile?.linked_user_id && !userIds.includes(profile.linked_user_id)) {
+    userIds.push(profile.linked_user_id);
   }
 
   const queryKey = ['transactions', userIds.join(','), monthStart, monthEnd];
 
   const transactionsQuery = useQuery({
     queryKey: queryKey,
-    queryFn: async (): Promise<Transaction[]> => {
+    queryFn: async (): Promise<TransactionWithAuthor[]> => {
       if (userIds.length === 0) return [];
       
-      const { data, error } = await supabase
+      // 1. Buscar transações
+      const { data: transactions, error: tError } = await supabase
         .from('transactions')
         .select('*')
         .in('user_id', userIds)
@@ -40,8 +42,29 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         .lte('date', monthEnd)
         .order('date', { ascending: false });
 
-      if (error) throw error;
-      return data as Transaction[];
+      if (tError) throw tError;
+
+      // 2. Buscar nomes dos perfis para mapear
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, email')
+        .in('user_id', userIds);
+
+      const profileMap = (profiles || []).reduce((acc, p) => {
+        // Se for o usuário atual, usa o nome do perfil do contexto
+        if (p.user_id === user?.id) {
+          acc[p.user_id] = 'Você';
+        } else {
+          // Para o parceiro, usa o prefixo do email como fallback
+          acc[p.user_id] = p.email?.split('@')[0] || 'Parceiro';
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      return (transactions as Transaction[]).map(t => ({
+        ...t,
+        author_name: profileMap[t.user_id] || 'Usuário'
+      }));
     },
     enabled: !!user,
   });
