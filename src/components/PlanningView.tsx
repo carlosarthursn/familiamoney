@@ -6,17 +6,17 @@ import { DollarSign, ListChecks, Target, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlanning } from '@/hooks/usePlanning';
 import { toast } from 'sonner';
+import { AddGoalSheet } from './AddGoalSheet';
+import { AddWishItemSheet } from './AddWishItemSheet';
 
 // Componente auxiliar para exibir quando não há itens
-function EmptyState({ icon: Icon, title, description, onAdd }: { icon: React.ElementType, title: string, description: string, onAdd: () => void }) {
+function EmptyState({ icon: Icon, title, description, trigger }: { icon: React.ElementType, title: string, description: string, trigger: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/50 rounded-xl border border-dashed border-border">
       <Icon className="h-8 w-8 text-muted-foreground mb-3" />
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
       <p className="text-xs text-muted-foreground mb-4">{description}</p>
-      <Button variant="secondary" size="sm" onClick={onAdd}>
-        <Plus className="h-4 w-4 mr-1" /> Adicionar
-      </Button>
+      {trigger}
     </div>
   );
 }
@@ -31,15 +31,6 @@ export function PlanningView() {
     deleteItem 
   } = usePlanning();
 
-  // TODO: Implement AddGoalSheet and AddWishItemSheet
-  const handleAddGoal = () => {
-    toast.info("Funcionalidade de adicionar meta em desenvolvimento.");
-  };
-  
-  const handleAddWishItem = () => {
-    toast.info("Funcionalidade de adicionar item em desenvolvimento.");
-  };
-  
   const handleDeleteGoal = (id: string) => {
     deleteGoal.mutate(id, {
       onSuccess: () => toast.success('Meta removida'),
@@ -65,9 +56,7 @@ export function PlanningView() {
             <Target className="h-5 w-5 text-primary" />
             Metas de Poupança
           </h3>
-          <Button variant="ghost" size="sm" className="text-primary h-8" onClick={handleAddGoal}>
-            <Plus className="h-4 w-4 mr-1" /> Nova
-          </Button>
+          <AddGoalSheet />
         </div>
         
         {isLoadingGoals ? (
@@ -79,7 +68,7 @@ export function PlanningView() {
             icon={Target} 
             title="Nenhuma meta definida" 
             description="Comece a planejar seu futuro financeiro."
-            onAdd={handleAddGoal}
+            trigger={<AddGoalSheet />}
           />
         ) : (
           <div className="space-y-3">
@@ -97,9 +86,7 @@ export function PlanningView() {
             <ListChecks className="h-5 w-5 text-primary" />
             Lista de Desejos
           </h3>
-          <Button variant="ghost" size="sm" className="text-primary h-8" onClick={handleAddWishItem}>
-            <Plus className="h-4 w-4 mr-1" /> Adicionar
-          </Button>
+          <AddWishItemSheet />
         </div>
         
         {isLoadingWishList ? (
@@ -111,7 +98,7 @@ export function PlanningView() {
             icon={ListChecks} 
             title="Lista de desejos vazia" 
             description="Adicione itens que você planeja comprar."
-            onAdd={handleAddWishItem}
+            trigger={<AddWishItemSheet />}
           />
         ) : (
           <div className="space-y-3">
