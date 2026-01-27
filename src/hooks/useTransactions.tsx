@@ -22,11 +22,13 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
   const userIds = [user?.id].filter(Boolean) as string[];
-  if (profile?.linked_user_id && !userIds.includes(profile.linked_user_id)) {
-    userIds.push(profile.linked_user_id);
+  const linkedId = profile?.linked_user_id;
+  
+  if (linkedId && !userIds.includes(linkedId)) {
+    userIds.push(linkedId);
   }
 
-  const queryKey = ['transactions', userIds.join(','), monthStart, monthEnd];
+  const queryKey = ['transactions', userIds.sort().join(','), monthStart, monthEnd];
 
   const transactionsQuery = useQuery({
     queryKey: queryKey,
@@ -43,7 +45,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
       if (tError) throw tError;
 
-      // Buscamos todos os campos disponíveis na tabela profiles para evitar o erro 400
+      // Tentamos buscar os nomes na tabela profiles
       const { data: profiles } = await supabase
         .from('profiles')
         .select('*')
@@ -53,16 +55,26 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         if (p.user_id === user?.id) {
           acc[p.user_id] = 'Você';
         } else {
-          // Tenta pegar 'name', se não existir, usa o prefixo do email
           acc[p.user_id] = (p as any).name || p.email?.split('@')[0] || 'Parceiro';
         }
         return acc;
       }, {} as Record<string, string>);
 
-      return (transactions as Transaction[]).map(t => ({
-        ...t,
-        author_name: profileMap[t.user_id] || 'Usuário'
-      }));
+      return (transactions as Transaction[]).map(t => {
+        let author = profileMap[t.user_id];
+        
+        // Se não achou no map mas o ID é do parceiro vinculado
+        if (!author && t.user_id === linkedId) {
+          author = profile?.partnerName || 'Parceiro';
+        } else if (!author) {
+          author = t.user_id === user?.id ? 'Você' : 'Usuário';
+        }
+
+        return {
+          ...t,
+          author_name: author
+        };
+      });
     },
     enabled: !!user,
   });
