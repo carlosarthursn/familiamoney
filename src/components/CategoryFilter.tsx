@@ -15,7 +15,7 @@ export function CategoryFilter({ selectedCategories, onCategoriesChange }: Categ
         type="multiple" 
         value={selectedCategories} 
         onValueChange={onCategoriesChange}
-        className="flex flex-wrap justify-start gap-1.5"
+        className="flex flex-wrap justify-start gap-2"
       >
         {EXPENSE_CATEGORIES.map((cat) => {
           const IconComponent = getCategoryIcon(cat.icon);
@@ -26,13 +26,13 @@ export function CategoryFilter({ selectedCategories, onCategoriesChange }: Categ
               key={cat.id} 
               value={cat.id} 
               className={cn(
-                "flex items-center gap-1.5 px-2 py-1 h-8 rounded-lg border text-[10px] transition-all",
+                "flex items-center gap-1.5 px-3 py-1 h-9 rounded-xl border text-xs transition-all touch-target",
                 isSelected 
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted text-muted-foreground border-transparent"
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
               )}
             >
-              <IconComponent className="h-3 w-3" />
+              <IconComponent className="h-4 w-4" />
               <span className="font-medium">{cat.label}</span>
             </ToggleGroupItem>
           );

@@ -53,7 +53,7 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
       <h2 className="text-lg font-bold">Análise de {monthYear}</h2>
 
       {/* Category Filter */}
-      <div className="bg-card rounded-xl p-3 shadow-card">
+      <div className="bg-card rounded-xl p-4 shadow-card"> {/* Aumentando o padding aqui */}
         <CategoryFilter 
           selectedCategories={selectedCategories}
           onCategoriesChange={setSelectedCategories}
@@ -61,7 +61,7 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
       </div>
 
       {/* Net Flow Summary */}
-      <div className="bg-card rounded-xl p-3 shadow-card">
+      <div className="bg-card rounded-xl p-4 shadow-card"> {/* Aumentando o padding aqui */}
         <h3 className="text-xs font-semibold mb-1 text-muted-foreground uppercase tracking-wider">Fluxo Líquido</h3>
         <div className="flex items-center justify-between">
           <p className={cn(
@@ -84,14 +84,14 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
 
       {/* Charts Grid - Compact for mobile */}
       <div className="grid grid-cols-1 gap-4">
-        <div className="bg-card rounded-xl p-3 shadow-card">
+        <div className="bg-card rounded-xl p-4 shadow-card"> {/* Aumentando o padding aqui */}
           <h3 className="text-sm font-semibold mb-2">Comparativo</h3>
           <div className="h-32">
             <MonthlyChart income={totalIncome} expenses={totalExpenses} />
           </div>
         </div>
 
-        <div className="bg-card rounded-xl p-3 shadow-card">
+        <div className="bg-card rounded-xl p-4 shadow-card"> {/* Aumentando o padding aqui */}
           <h3 className="text-sm font-semibold mb-2">Gastos por Categoria</h3>
           <ExpenseChart expensesByCategory={expensesByCategory} />
         </div>

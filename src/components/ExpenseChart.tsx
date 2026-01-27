@@ -35,23 +35,23 @@ export function ExpenseChart({ expensesByCategory }: ExpenseChartProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">
+      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
         <p>Sem despesas este mês</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="h-40">
+    <div className="space-y-4">
+      <div className="h-48"> {/* Aumentando a altura do container */}
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               cx="50%"
               cy="50%"
-              innerRadius={35}
-              outerRadius={55}
+              innerRadius={50} // Aumentando o raio interno
+              outerRadius={75} // Aumentando o raio externo
               paddingAngle={4}
               dataKey="value"
             >
@@ -65,17 +65,17 @@ export function ExpenseChart({ expensesByCategory }: ExpenseChartProps) {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-        {data.slice(0, 6).map((item, index) => (
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        {data.slice(0, 8).map((item, index) => (
           <div key={item.category} className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
               <div 
-                className="h-2 w-2 rounded-full shrink-0" 
+                className="h-2.5 w-2.5 rounded-full shrink-0" 
                 style={{ backgroundColor: COLORS[index % COLORS.length] }}
               />
-              <span className="text-[10px] text-muted-foreground truncate">{item.name}</span>
+              <span className="text-xs text-muted-foreground truncate">{item.name}</span>
             </div>
-            <span className="text-[10px] font-medium">{formatCurrency(item.value)}</span>
+            <span className="text-xs font-medium">{formatCurrency(item.value)}</span>
           </div>
         ))}
       </div>
