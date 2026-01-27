@@ -4,7 +4,12 @@ import { Transaction, TransactionInsert } from '@/types/finance';
 import { useAuth } from './useAuth';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
-export function useTransactions(selectedDate?: Date) {
+interface UseTransactionsOptions {
+  selectedDate?: Date;
+  filterCategories?: string[];
+}
+
+export function useTransactions({ selectedDate, filterCategories }: UseTransactionsOptions = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
@@ -12,17 +17,26 @@ export function useTransactions(selectedDate?: Date) {
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
+  const queryKey = ['transactions', user?.id, monthStart, monthEnd, filterCategories];
+
   const transactionsQuery = useQuery({
-    queryKey: ['transactions', user?.id, monthStart, monthEnd],
+    queryKey: queryKey,
     queryFn: async (): Promise<Transaction[]> => {
       if (!user) return [];
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('transactions')
         .select('*')
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .order('date', { ascending: false });
+
+      // Apply category filter if provided and not empty
+      if (filterCategories && filterCategories.length > 0) {
+        query = query.in('category', filterCategories);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Transaction[];
@@ -47,6 +61,7 @@ export function useTransactions(selectedDate?: Date) {
       return data;
     },
     onSuccess: () => {
+      // Invalidate all transaction queries to refresh data everywhere
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
@@ -61,11 +76,16 @@ export function useTransactions(selectedDate?: Date) {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate all transaction queries to refresh data everywhere
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 
   const transactions = transactionsQuery.data || [];
+  
+  // Note: totalIncome and balance calculations are only accurate if NO category filter is applied, 
+  // as the filter only applies to the fetched transactions. 
+  // Since the filter is intended for expense analysis, we will calculate totals based on the filtered set.
   
   const totalIncome = transactions
     .filter(t => t.type === 'income')

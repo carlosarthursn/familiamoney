@@ -1,10 +1,13 @@
+import { useState, useEffect } from 'react';
 import { MonthlyChart } from './MonthlyChart';
 import { ExpenseChart } from './ExpenseChart';
+import { CategoryFilter } from './CategoryFilter';
 import { useTransactions } from '@/hooks/useTransactions';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { EXPENSE_CATEGORIES } from '@/types/finance';
 
 interface AnalysisViewProps {
   selectedDate: Date;
@@ -18,13 +21,24 @@ function formatCurrency(value: number): string {
 }
 
 export function AnalysisView({ selectedDate }: AnalysisViewProps) {
+  // Inicializa o filtro com TODAS as categorias de despesa
+  const initialCategories = EXPENSE_CATEGORIES.map(c => c.id);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
+
+  // Se o usuário não selecionou nenhuma categoria, tratamos como se todas estivessem selecionadas
+  const categoriesToFilter = selectedCategories.length > 0 ? selectedCategories : initialCategories;
+
   const { 
     isLoading, 
     totalIncome, 
     totalExpenses, 
     balance,
     expensesByCategory,
-  } = useTransactions(selectedDate);
+  } = useTransactions({ 
+    selectedDate,
+    // Passamos apenas as categorias de despesa selecionadas para o filtro
+    filterCategories: categoriesToFilter,
+  });
 
   const monthYear = format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR });
 
@@ -41,6 +55,14 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">Análise de {monthYear}</h2>
+
+      {/* Category Filter */}
+      <div className="bg-card rounded-xl p-4 shadow-card">
+        <CategoryFilter 
+          selectedCategories={selectedCategories}
+          onCategoriesChange={setSelectedCategories}
+        />
+      </div>
 
       {/* Net Flow Summary (Funnel/Flow concept) */}
       <div className="bg-card rounded-xl p-4 shadow-card">
@@ -64,6 +86,9 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
             `Receitas: ${formatCurrency(totalIncome)} | Despesas: ${formatCurrency(totalExpenses)}` :
             'Sem dados para calcular o fluxo.'
           }
+        </p>
+        <p className="text-xs text-muted-foreground mt-1 italic">
+          * Análise baseada nas categorias selecionadas.
         </p>
       </div>
 
