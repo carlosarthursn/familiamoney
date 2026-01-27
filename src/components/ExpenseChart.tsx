@@ -5,16 +5,17 @@ interface ExpenseChartProps {
   expensesByCategory: Record<string, number>;
 }
 
+// Cores ajustadas para serem mais vibrantes e modernas
 const COLORS = [
-  'hsl(168, 60%, 42%)',
-  'hsl(0, 70%, 55%)',
-  'hsl(38, 92%, 50%)',
-  'hsl(145, 60%, 45%)',
-  'hsl(220, 70%, 50%)',
-  'hsl(280, 60%, 50%)',
-  'hsl(30, 80%, 50%)',
-  'hsl(190, 70%, 45%)',
-  'hsl(340, 60%, 50%)',
+  'hsl(168, 65%, 45%)', // Primary
+  'hsl(0, 75%, 58%)',   // Destructive
+  'hsl(38, 92%, 55%)',  // Warning
+  'hsl(145, 65%, 48%)', // Success
+  'hsl(220, 70%, 55%)', // Blue
+  'hsl(280, 60%, 55%)', // Purple
+  'hsl(30, 80%, 55%)',  // Orange
+  'hsl(190, 70%, 50%)', // Cyan
+  'hsl(340, 60%, 55%)', // Pink
 ];
 
 function formatCurrency(value: number): string {
