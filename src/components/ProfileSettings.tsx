@@ -87,6 +87,13 @@ export function ProfileSettings() {
     }
   };
 
+  const sqlCommand = `DROP POLICY IF EXISTS "Users can view own or linked transactions" ON transactions;
+CREATE POLICY "Users can view own or linked transactions" ON transactions 
+FOR SELECT USING (
+  auth.uid() = user_id OR 
+  (auth.jwt() -> 'user_metadata' ->> 'linked_user_id') = user_id::text
+);`;
+
   return (
     <div className="space-y-6">
       {/* Name Edit Section */}
@@ -156,13 +163,8 @@ export function ProfileSettings() {
                 Ação Necessária
               </div>
               <p>Para ver as despesas do parceiro, você deve rodar este comando no <b>SQL Editor</b> do seu Supabase:</p>
-              <pre className="bg-black/10 p-2 rounded overflow-x-auto font-mono text-[9px] select-all">
-                DROP POLICY IF EXISTS "Users can view own or linked transactions" ON transactions;
-                CREATE POLICY "Users can view own or linked transactions" ON transactions 
-                FOR SELECT USING (
-                  auth.uid() = user_id OR 
-                  (auth.jwt() -> 'user_metadata' ->> 'linked_user_id') = user_id::text
-                );
+              <pre className="bg-black/10 p-2 rounded overflow-x-auto font-mono text-[9px] select-all whitespace-pre-wrap">
+                {sqlCommand}
               </pre>
             </div>
 
