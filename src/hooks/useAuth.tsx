@@ -5,7 +5,10 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 
-type Profile = Tables<'profiles'> & { name?: string; linked_user_id?: string };
+interface Profile {
+  name?: string;
+  linked_user_id?: string | null;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -27,27 +30,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
+  const fetchProfile = async (currentUser: User) => {
+    // Buscamos primeiro nos metadados (que sempre funcionam)
+    const metadata = currentUser.user_metadata || {};
+    
+    // Tentamos buscar na tabela profiles apenas o que existir lá (sem quebrar se colunas faltarem)
+    const { data: dbProfile } = await supabase
       .from('profiles')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', currentUser.id)
       .maybeSingle();
     
-    if (error) {
-      console.error('Error fetching profile:', error);
-    }
-    
-    // Fallback para o nome nos metadados
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    const metadataName = currentUser?.user_metadata?.name;
-    
-    setProfile(data ? { ...data, name: data.name || metadataName } : { name: metadataName } as any);
+    setProfile({
+      name: metadata.name || dbProfile?.email?.split('@')[0] || 'Usuário',
+      linked_user_id: metadata.linked_user_id || null
+    });
   };
 
   const refreshProfile = async () => {
-    if (user) {
-      await fetchProfile(user.id);
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      setUser(currentUser);
+      await fetchProfile(currentUser);
     }
   };
 
@@ -59,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser);
         
         if (currentUser) {
-          await fetchProfile(currentUser.id);
+          await fetchProfile(currentUser);
         } else {
           setProfile(null);
         }
@@ -71,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      if (currentUser) fetchProfile(currentUser.id);
+      if (currentUser) fetchProfile(currentUser);
       setLoading(false);
     });
 
@@ -79,23 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { name },
       },
     });
-
-    if (!error && data.user) {
-      await supabase
-        .from('profiles')
-        .upsert({ 
-          user_id: data.user.id,
-          name: name
-        } as any, { onConflict: 'user_id' });
-    }
-
     return { error: error as Error | null };
   };
 
@@ -121,26 +115,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: { name?: string; linked_user_id?: string | null }) => {
     if (!user) return { error: new Error('Usuário não logado') };
 
-    if (updates.name) {
-      await supabase.auth.updateUser({
-        data: { name: updates.name }
-      });
+    // Salvamos tudo nos metadados do Auth, que não dependem de tabelas extras
+    const { data, error } = await supabase.auth.updateUser({
+      data: { 
+        ...(updates.name && { name: updates.name }),
+        linked_user_id: updates.linked_user_id 
+      }
+    });
+
+    if (error) return { error: error as Error };
+
+    if (data.user) {
+      setUser(data.user);
+      await fetchProfile(data.user);
     }
-
-    // Usamos upsert para garantir que o registro exista
-    const { error: dbError } = await supabase
-      .from('profiles')
-      .upsert({ 
-        ...updates,
-        user_id: user.id,
-      } as any, { onConflict: 'user_id' });
-
-    if (dbError) {
-      console.error('Database error:', dbError);
-      return { error: dbError };
-    }
-
-    await refreshProfile();
+    
     return { error: null };
   };
 

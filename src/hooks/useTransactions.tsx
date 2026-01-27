@@ -17,7 +17,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-  // Lista de IDs para buscar transações (o meu + o do parceiro se existir)
+  // IDs: meu ID + ID vinculado (buscado do perfil/metadados)
   const userIds = [user?.id].filter((id): id is string => !!id);
   if (profile?.linked_user_id && !userIds.includes(profile.linked_user_id)) {
     userIds.push(profile.linked_user_id);
