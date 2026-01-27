@@ -33,7 +33,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     queryFn: async (): Promise<TransactionWithAuthor[]> => {
       if (userIds.length === 0) return [];
       
-      // 1. Buscar transações
       const { data: transactions, error: tError } = await supabase
         .from('transactions')
         .select('*')
@@ -44,19 +43,17 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
       if (tError) throw tError;
 
-      // 2. Buscar nomes dos perfis para mapear
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, email')
+        .select('user_id, email, name' as any)
         .in('user_id', userIds);
 
       const profileMap = (profiles || []).reduce((acc, p) => {
-        // Se for o usuário atual, usa o nome do perfil do contexto
         if (p.user_id === user?.id) {
           acc[p.user_id] = 'Você';
         } else {
-          // Para o parceiro, usa o prefixo do email como fallback
-          acc[p.user_id] = p.email?.split('@')[0] || 'Parceiro';
+          // Prioridade: Nome configurado > Prefixo do e-mail
+          acc[p.user_id] = (p as any).name || p.email?.split('@')[0] || 'Parceiro';
         }
         return acc;
       }, {} as Record<string, string>);

@@ -31,18 +31,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (currentUser: User) => {
-    // Buscamos primeiro nos metadados (que sempre funcionam)
     const metadata = currentUser.user_metadata || {};
     
-    // Tentamos buscar na tabela profiles apenas o que existir lá (sem quebrar se colunas faltarem)
     const { data: dbProfile } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', currentUser.id)
       .maybeSingle();
     
+    // Prioridade: Nome no banco > Metadados > Prefixo do Email
     setProfile({
-      name: metadata.name || dbProfile?.email?.split('@')[0] || 'Usuário',
+      name: (dbProfile as any)?.name || metadata.name || dbProfile?.email?.split('@')[0] || 'Usuário',
       linked_user_id: metadata.linked_user_id || null
     });
   };
@@ -90,6 +89,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { name },
       },
     });
+    
+    if (!error) {
+      // Tenta criar o perfil inicial na tabela pública
+      const { data: { user: newUser } } = await supabase.auth.getUser();
+      if (newUser) {
+        await supabase.from('profiles').upsert({
+          user_id: newUser.id,
+          email: email,
+          name: name
+        } as any);
+      }
+    }
+    
     return { error: error as Error | null };
   };
 
@@ -115,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: { name?: string; linked_user_id?: string | null }) => {
     if (!user) return { error: new Error('Usuário não logado') };
 
-    // Salvamos tudo nos metadados do Auth, que não dependem de tabelas extras
+    // 1. Atualiza metadados do Auth
     const { data, error } = await supabase.auth.updateUser({
       data: { 
         ...(updates.name && { name: updates.name }),
@@ -124,6 +136,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) return { error: error as Error };
+
+    // 2. Sincroniza com a tabela pública de perfis
+    const profileUpdates: any = {};
+    if (updates.name) profileUpdates.name = updates.name;
+    
+    if (Object.keys(profileUpdates).length > 0) {
+      await supabase
+        .from('profiles')
+        .update(profileUpdates)
+        .eq('user_id', user.id);
+    }
 
     if (data.user) {
       setUser(data.user);
