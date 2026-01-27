@@ -9,8 +9,6 @@ interface UseTransactionsOptions {
   filterCategories?: string[]; 
 }
 
-export type TransactionWithAuthor = Transaction & { author_name?: string };
-
 export function useTransactions({ selectedDate, filterCategories }: UseTransactionsOptions = {}) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
@@ -19,6 +17,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
+  // Lista de IDs para buscar transações (o meu + o do parceiro se existir)
   const userIds = [user?.id].filter((id): id is string => !!id);
   if (profile?.linked_user_id && !userIds.includes(profile.linked_user_id)) {
     userIds.push(profile.linked_user_id);
@@ -28,20 +27,9 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const transactionsQuery = useQuery({
     queryKey: queryKey,
-    queryFn: async (): Promise<TransactionWithAuthor[]> => {
+    queryFn: async (): Promise<Transaction[]> => {
       if (userIds.length === 0) return [];
       
-      // Buscar nomes dos usuários para mapear depois
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, name')
-        .in('user_id', userIds);
-
-      const nameMap = (profiles || []).reduce((acc, p) => {
-        acc[p.user_id] = (p as any).name || 'Usuário';
-        return acc;
-      }, {} as Record<string, string>);
-
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -51,11 +39,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         .order('date', { ascending: false });
 
       if (error) throw error;
-
-      return (data as Transaction[]).map(t => ({
-        ...t,
-        author_name: nameMap[t.user_id] || 'Usuário'
-      }));
+      return data as Transaction[];
     },
     enabled: userIds.length > 0,
   });

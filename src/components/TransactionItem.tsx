@@ -41,10 +41,12 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
           <p className="text-xs text-muted-foreground">
             {format(new Date(transaction.date), "dd 'de' MMM", { locale: ptBR })}
           </p>
-          {transaction.author_name && (
+          {transaction.user_id && (
             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
               <User className="h-2 w-2" />
-              <span className="truncate max-w-[60px]">{transaction.author_name}</span>
+              <span className="truncate max-w-[60px]">
+                {transaction.user_id.slice(0, 4)}...
+              </span>
             </div>
           )}
         </div>
