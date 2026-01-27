@@ -6,8 +6,8 @@ import { TransactionList } from '@/components/TransactionList';
 import { AddTransactionSheet } from '@/components/AddTransactionSheet';
 import { BottomNav } from '@/components/BottomNav';
 import { MonthSelector } from '@/components/MonthSelector';
-import { ExpenseChart } from '@/components/ExpenseChart';
-import { MonthlyChart } from '@/components/MonthlyChart';
+import { AnalysisView } from '@/components/AnalysisView';
+import { CalendarView } from '@/components/CalendarView';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,7 +25,6 @@ export default function Dashboard() {
     totalIncome, 
     totalExpenses, 
     balance,
-    expensesByCategory,
     deleteTransaction 
   } = useTransactions(selectedDate);
 
@@ -46,6 +45,10 @@ export default function Dashboard() {
       case 'home':
         return (
           <div className="space-y-6 animate-fade-in">
+            <MonthSelector 
+              currentDate={selectedDate} 
+              onDateChange={setSelectedDate} 
+            />
             <BalanceCard 
               balance={balance} 
               income={totalIncome} 
@@ -77,24 +80,27 @@ export default function Dashboard() {
             />
           </div>
         );
+        
+      case 'calendar':
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <CalendarView 
+              selectedDate={selectedDate} 
+              onDateChange={setSelectedDate} 
+            />
+          </div>
+        );
 
-      case 'charts':
+      case 'analysis':
         return (
           <div className="space-y-6 animate-fade-in">
             <MonthSelector 
               currentDate={selectedDate} 
               onDateChange={setSelectedDate} 
             />
-            
-            <div className="bg-card rounded-xl p-4 shadow-card">
-              <h3 className="font-semibold mb-4">Receitas vs Despesas</h3>
-              <MonthlyChart income={totalIncome} expenses={totalExpenses} />
-            </div>
-
-            <div className="bg-card rounded-xl p-4 shadow-card">
-              <h3 className="font-semibold mb-4">Despesas por Categoria</h3>
-              <ExpenseChart expensesByCategory={expensesByCategory} />
-            </div>
+            <AnalysisView 
+              selectedDate={selectedDate} 
+            />
           </div>
         );
 
@@ -123,6 +129,9 @@ export default function Dashboard() {
             </Button>
           </div>
         );
+        
+      default:
+        return null;
     }
   };
 

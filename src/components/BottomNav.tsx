@@ -1,4 +1,4 @@
-import { Home, History, PieChart, User } from 'lucide-react';
+import { Home, History, PieChart, User, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BottomNavProps {
@@ -8,8 +8,9 @@ interface BottomNavProps {
 
 const tabs = [
   { id: 'home', label: 'Início', icon: Home },
-  { id: 'history', label: 'Histórico', icon: History },
-  { id: 'charts', label: 'Gráficos', icon: PieChart },
+  { id: 'history', label: 'Transações', icon: History },
+  { id: 'calendar', label: 'Calendário', icon: CalendarDays },
+  { id: 'analysis', label: 'Análise', icon: PieChart },
   { id: 'profile', label: 'Perfil', icon: User },
 ];
 
@@ -26,7 +27,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "flex flex-col items-center gap-1 py-3 px-4 touch-target transition-colors",
+                "flex flex-col items-center gap-1 py-3 px-2 touch-target transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
