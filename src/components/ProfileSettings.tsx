@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save, AlertCircle } from 'lucide-react';
+import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
@@ -87,13 +87,6 @@ export function ProfileSettings() {
     }
   };
 
-  const sqlCommand = `DROP POLICY IF EXISTS "Users can view own or linked transactions" ON transactions;
-CREATE POLICY "Users can view own or linked transactions" ON transactions 
-FOR SELECT USING (
-  auth.uid() = user_id OR 
-  (auth.jwt() -> 'user_metadata' ->> 'linked_user_id') = user_id::text
-);`;
-
   return (
     <div className="space-y-6">
       {/* Name Edit Section */}
@@ -157,17 +150,6 @@ FOR SELECT USING (
               <p className="text-xs font-mono break-all text-foreground">{profile?.linked_user_id}</p>
             </div>
             
-            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800 text-[11px] space-y-2">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-bold">
-                <AlertCircle className="h-4 w-4" />
-                Ação Necessária
-              </div>
-              <p>Para ver as despesas do parceiro, você deve rodar este comando no <b>SQL Editor</b> do seu Supabase:</p>
-              <pre className="bg-black/10 p-2 rounded overflow-x-auto font-mono text-[9px] select-all whitespace-pre-wrap">
-                {sqlCommand}
-              </pre>
-            </div>
-
             <Button 
               variant="destructive" 
               onClick={handleUnlink} 
