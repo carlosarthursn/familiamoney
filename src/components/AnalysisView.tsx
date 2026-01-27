@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MonthlyChart } from './MonthlyChart';
 import { ExpenseChart } from './ExpenseChart';
 import { CategoryFilter } from './CategoryFilter';
@@ -21,22 +21,18 @@ function formatCurrency(value: number): string {
 }
 
 export function AnalysisView({ selectedDate }: AnalysisViewProps) {
-  // Inicializa o filtro com TODAS as categorias de despesa
   const initialCategories = EXPENSE_CATEGORIES.map(c => c.id);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
 
-  // Se o usuário não selecionou nenhuma categoria, tratamos como se todas estivessem selecionadas
   const categoriesToFilter = selectedCategories.length > 0 ? selectedCategories : initialCategories;
 
   const { 
     isLoading, 
     totalIncome, 
     totalExpenses, 
-    balance,
     expensesByCategory,
   } = useTransactions({ 
     selectedDate,
-    // Passamos apenas as categorias de despesa selecionadas para o filtro
     filterCategories: categoriesToFilter,
   });
 
@@ -44,7 +40,7 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-48">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
@@ -53,55 +49,52 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
   const netFlow = totalIncome - totalExpenses;
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold">Análise de {monthYear}</h2>
+    <div className="space-y-4 pb-4">
+      <h2 className="text-lg font-bold">Análise de {monthYear}</h2>
 
       {/* Category Filter */}
-      <div className="bg-card rounded-xl p-4 shadow-card">
+      <div className="bg-card rounded-xl p-3 shadow-card">
         <CategoryFilter 
           selectedCategories={selectedCategories}
           onCategoriesChange={setSelectedCategories}
         />
       </div>
 
-      {/* Net Flow Summary (Funnel/Flow concept) */}
-      <div className="bg-card rounded-xl p-4 shadow-card">
-        <h3 className="font-semibold mb-2 text-muted-foreground">Fluxo Líquido (Receitas - Despesas)</h3>
+      {/* Net Flow Summary */}
+      <div className="bg-card rounded-xl p-3 shadow-card">
+        <h3 className="text-xs font-semibold mb-1 text-muted-foreground uppercase tracking-wider">Fluxo Líquido</h3>
         <div className="flex items-center justify-between">
           <p className={cn(
-            "text-2xl font-bold",
+            "text-xl font-bold",
             netFlow >= 0 ? "text-success" : "text-destructive"
           )}>
             {formatCurrency(netFlow)}
           </p>
           <div className={cn(
-            "p-2 rounded-full",
+            "p-1.5 rounded-full",
             netFlow >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
           )}>
-            {netFlow >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+            {netFlow >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          {totalIncome > 0 || totalExpenses > 0 ? 
-            `Receitas: ${formatCurrency(totalIncome)} | Despesas: ${formatCurrency(totalExpenses)}` :
-            'Sem dados para calcular o fluxo.'
-          }
-        </p>
-        <p className="text-xs text-muted-foreground mt-1 italic">
-          * Análise baseada nas categorias selecionadas.
+        <p className="text-[10px] text-muted-foreground mt-1 italic">
+          * Baseado nas categorias selecionadas.
         </p>
       </div>
 
-      {/* Monthly Chart */}
-      <div className="bg-card rounded-xl p-4 shadow-card">
-        <h3 className="font-semibold mb-4">Comparativo Mensal</h3>
-        <MonthlyChart income={totalIncome} expenses={totalExpenses} />
-      </div>
+      {/* Charts Grid - Compact for mobile */}
+      <div className="grid grid-cols-1 gap-4">
+        <div className="bg-card rounded-xl p-3 shadow-card">
+          <h3 className="text-sm font-semibold mb-2">Comparativo</h3>
+          <div className="h-32">
+            <MonthlyChart income={totalIncome} expenses={totalExpenses} />
+          </div>
+        </div>
 
-      {/* Expense Category Chart */}
-      <div className="bg-card rounded-xl p-4 shadow-card">
-        <h3 className="font-semibold mb-4">Despesas por Categoria</h3>
-        <ExpenseChart expensesByCategory={expensesByCategory} />
+        <div className="bg-card rounded-xl p-3 shadow-card">
+          <h3 className="text-sm font-semibold mb-2">Gastos por Categoria</h3>
+          <ExpenseChart expensesByCategory={expensesByCategory} />
+        </div>
       </div>
     </div>
   );

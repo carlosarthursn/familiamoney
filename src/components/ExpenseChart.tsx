@@ -1,21 +1,20 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { getCategoryInfo } from '@/types/finance';
 
 interface ExpenseChartProps {
   expensesByCategory: Record<string, number>;
 }
 
-// Cores ajustadas para serem mais vibrantes e modernas
 const COLORS = [
-  'hsl(168, 65%, 45%)', // Primary
-  'hsl(0, 75%, 58%)',   // Destructive
-  'hsl(38, 92%, 55%)',  // Warning
-  'hsl(145, 65%, 48%)', // Success
-  'hsl(220, 70%, 55%)', // Blue
-  'hsl(280, 60%, 55%)', // Purple
-  'hsl(30, 80%, 55%)',  // Orange
-  'hsl(190, 70%, 50%)', // Cyan
-  'hsl(340, 60%, 55%)', // Pink
+  'hsl(168, 65%, 45%)',
+  'hsl(0, 75%, 58%)',
+  'hsl(38, 92%, 55%)',
+  'hsl(145, 65%, 48%)',
+  'hsl(220, 70%, 55%)',
+  'hsl(280, 60%, 55%)',
+  'hsl(30, 80%, 55%)',
+  'hsl(190, 70%, 50%)',
+  'hsl(340, 60%, 55%)',
 ];
 
 function formatCurrency(value: number): string {
@@ -36,50 +35,47 @@ export function ExpenseChart({ expensesByCategory }: ExpenseChartProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
+      <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">
         <p>Sem despesas este mês</p>
       </div>
     );
   }
 
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-
   return (
-    <div className="h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={50}
-            outerRadius={80}
-            paddingAngle={4}
-            dataKey="value"
-            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-            labelLine={false}
-          >
-            {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${entry.category}`} 
-                fill={COLORS[index % COLORS.length]}
-                className="stroke-background stroke-2"
-              />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="mt-4 space-y-2">
-        {data.slice(0, 5).map((item, index) => (
+    <div className="space-y-2">
+      <div className="h-40">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={35}
+              outerRadius={55}
+              paddingAngle={4}
+              dataKey="value"
+            >
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${entry.category}`} 
+                  fill={COLORS[index % COLORS.length]}
+                />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        {data.slice(0, 6).map((item, index) => (
           <div key={item.category} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
               <div 
-                className="h-3 w-3 rounded-full" 
+                className="h-2 w-2 rounded-full shrink-0" 
                 style={{ backgroundColor: COLORS[index % COLORS.length] }}
               />
-              <span className="text-sm text-muted-foreground">{item.name}</span>
+              <span className="text-[10px] text-muted-foreground truncate">{item.name}</span>
             </div>
-            <span className="text-sm font-medium">{formatCurrency(item.value)}</span>
+            <span className="text-[10px] font-medium">{formatCurrency(item.value)}</span>
           </div>
         ))}
       </div>

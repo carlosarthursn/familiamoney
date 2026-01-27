@@ -8,18 +8,14 @@ interface CategoryFilterProps {
 }
 
 export function CategoryFilter({ selectedCategories, onCategoriesChange }: CategoryFilterProps) {
-  const handleToggle = (value: string[]) => {
-    onCategoriesChange(value);
-  };
-
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium text-muted-foreground">Filtrar Despesas por Categoria</h3>
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtrar Categorias</h3>
       <ToggleGroup 
         type="multiple" 
         value={selectedCategories} 
-        onValueChange={handleToggle}
-        className="flex flex-wrap justify-start gap-2"
+        onValueChange={onCategoriesChange}
+        className="flex flex-wrap justify-start gap-1.5"
       >
         {EXPENSE_CATEGORIES.map((cat) => {
           const IconComponent = getCategoryIcon(cat.icon);
@@ -29,16 +25,15 @@ export function CategoryFilter({ selectedCategories, onCategoriesChange }: Categ
             <ToggleGroupItem 
               key={cat.id} 
               value={cat.id} 
-              aria-label={`Toggle ${cat.label}`}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 h-auto rounded-xl border transition-all touch-target",
+                "flex items-center gap-1.5 px-2 py-1 h-8 rounded-lg border text-[10px] transition-all",
                 isSelected 
-                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
-                  : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-transparent"
               )}
             >
-              <IconComponent className="h-4 w-4" />
-              <span className="text-sm font-medium">{cat.label}</span>
+              <IconComponent className="h-3 w-3" />
+              <span className="font-medium">{cat.label}</span>
             </ToggleGroupItem>
           );
         })}
