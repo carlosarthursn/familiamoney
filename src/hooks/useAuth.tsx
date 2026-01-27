@@ -32,9 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error fetching profile:', error);
     }
     
@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Escuta mudanças de estado de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
@@ -68,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Checa sessão inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       const currentUser = session?.user ?? null;
@@ -92,8 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!error && data.user) {
       await supabase
         .from('profiles')
-        .update({ name } as any)
-        .eq('user_id', data.user.id);
+        .upsert({ 
+          user_id: data.user.id,
+          name: name
+        } as any, { onConflict: 'user_id' });
     }
 
     return { error: error as Error | null };
@@ -111,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut();
     } finally {
-      // Limpa estados e recarrega a página para garantir estado limpo
       setUser(null);
       setProfile(null);
       setSession(null);
@@ -123,19 +122,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return { error: new Error('Usuário não logado') };
 
     if (updates.name) {
-      const { error: metaError } = await supabase.auth.updateUser({
+      await supabase.auth.updateUser({
         data: { name: updates.name }
       });
-      if (metaError) return { error: metaError };
     }
 
+    // Usamos upsert para garantir que o registro exista
     const { error: dbError } = await supabase
       .from('profiles')
-      .update(updates as any)
-      .eq('user_id', user.id);
+      .upsert({ 
+        ...updates,
+        user_id: user.id,
+      } as any, { onConflict: 'user_id' });
 
-    if (dbError && updates.linked_user_id) {
-      return { error: new Error('Erro ao vincular. Verifique se a tabela profiles está configurada.') };
+    if (dbError) {
+      console.error('Database error:', dbError);
+      return { error: dbError };
     }
 
     await refreshProfile();
