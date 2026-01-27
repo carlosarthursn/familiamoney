@@ -31,16 +31,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (currentUser: User) => {
-    const metadata = currentUser.user_metadata || {};
-    
-    // 1. Busca o perfil do próprio usuário
-    const { data: dbProfile } = await supabase
+    // 1. Busca o perfil do próprio usuário na tabela 'profiles'
+    const { data: dbProfile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('name, linked_user_id, email')
       .eq('user_id', currentUser.id)
       .maybeSingle();
     
-    const linkedId = metadata.linked_user_id || null;
+    if (profileError) {
+      console.error("Error fetching profile:", profileError);
+      return;
+    }
+
+    const linkedId = dbProfile?.linked_user_id || null;
     let partnerName = null;
 
     // 2. Se houver um ID vinculado, busca o nome desse parceiro
@@ -57,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     setProfile({
-      name: (dbProfile as any)?.name || metadata.name || dbProfile?.email?.split('@')[0] || 'Usuário',
+      name: (dbProfile as any)?.name || dbProfile?.email?.split('@')[0] || 'Usuário',
       linked_user_id: linkedId,
       partnerName
     });
@@ -104,7 +107,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
         }
-        // Note: We only set loading=false once in initializeAuth to avoid flicker on every state change
       }
     );
 
@@ -116,18 +118,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        data: { name },
+        data: { name }, // Still pass name to auth metadata for initial setup
       },
     });
     
     if (!error) {
       const { data: { user: newUser } } = await supabase.auth.getUser();
       if (newUser) {
-        await supabase.from('profiles').upsert({
+        // Ensure profile is created with name and email
+        const { error: profileError } = await supabase.from('profiles').upsert({
           user_id: newUser.id,
           email: email,
           name: name
         } as any);
+        
+        if (profileError) {
+          console.error("Error creating profile on sign up:", profileError);
+        }
       }
     }
     
@@ -156,29 +163,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: { name?: string; linked_user_id?: string | null }) => {
     if (!user) return { error: new Error('Usuário não logado') };
 
-    const { data, error } = await supabase.auth.updateUser({
-      data: { 
-        ...(updates.name && { name: updates.name }),
-        linked_user_id: updates.linked_user_id 
-      }
-    });
+    const profileUpdates: any = {};
+    if (updates.name !== undefined) profileUpdates.name = updates.name;
+    if (updates.linked_user_id !== undefined) profileUpdates.linked_user_id = updates.linked_user_id;
+    
+    if (Object.keys(profileUpdates).length === 0) {
+      return { error: null };
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(profileUpdates)
+      .eq('user_id', user.id);
 
     if (error) return { error: error as Error };
 
-    const profileUpdates: any = {};
-    if (updates.name) profileUpdates.name = updates.name;
-    
-    if (Object.keys(profileUpdates).length > 0) {
-      await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('user_id', user.id);
-    }
-
-    if (data.user) {
-      setUser(data.user);
-      await fetchProfile(data.user);
-    }
+    // Refresh profile data after successful update
+    await refreshProfile();
     
     return { error: null };
   };

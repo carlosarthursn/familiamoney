@@ -24,8 +24,8 @@ export default function Dashboard() {
   
   const { transactions: allTransactions, isLoading, totalIncome, totalExpenses, balance, deleteTransaction } = useTransactions({ selectedDate });
   
-  // Nome prioritário: Perfil > Metadados > Prefixo Email
-  const displayName = profile?.name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuário';
+  // Nome prioritário: Agora confiamos apenas no profile, que é atualizado após login/refresh
+  const displayName = profile?.name || 'Usuário';
 
   const handleSignOut = async () => {
     try {
