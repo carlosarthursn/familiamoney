@@ -115,6 +115,14 @@ export default {
         "scale-in": "scale-in 0.2s ease-out",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
       },
+      boxShadow: {
+        sm: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        glow: 'var(--shadow-glow)',
+        card: 'var(--shadow-md)', // Usando a nova variável
+        'card-hover': 'var(--shadow-lg)', // Usando a nova variável
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],
