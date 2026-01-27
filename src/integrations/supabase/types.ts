@@ -20,18 +20,24 @@ export type Database = {
           email: string | null
           id: string
           user_id: string
+          name: string | null // Adicionado
+          linked_user_id: string | null // Adicionado
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: string
           user_id: string
+          name?: string | null // Adicionado
+          linked_user_id?: string | null // Adicionado
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: string
           user_id?: string
+          name?: string | null // Adicionado
+          linked_user_id?: string | null // Adicionado
         }
         Relationships: []
       }
