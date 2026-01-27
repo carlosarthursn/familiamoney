@@ -17,7 +17,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-  // IDs: meu ID + ID vinculado (buscado do perfil/metadados)
+  // IDs para busca compartilhada
   const userIds = [user?.id].filter((id): id is string => !!id);
   if (profile?.linked_user_id && !userIds.includes(profile.linked_user_id)) {
     userIds.push(profile.linked_user_id);
@@ -46,21 +46,21 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const addTransaction = useMutation({
     mutationFn: async (transaction: TransactionInsert) => {
-      if (!user) throw new Error('User not authenticated');
+      if (!user) throw new Error('Usuário não autenticado');
       
-      const { data, error } = await supabase
+      // Removido o .select().single() que pode causar travamentos se o RLS estiver bloqueando a leitura
+      const { error } = await supabase
         .from('transactions')
         .insert({
           ...transaction,
           user_id: user.id,
-        })
-        .select()
-        .single();
+        });
 
       if (error) throw error;
-      return data;
+      return true;
     },
     onSuccess: () => {
+      // Força a atualização da lista imediatamente
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
