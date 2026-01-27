@@ -11,7 +11,7 @@ const tabs = [
   { id: 'history', label: 'Transações', icon: History },
   { id: 'calendar', label: 'Calendário', icon: CalendarDays },
   { id: 'analysis', label: 'Análise', icon: PieChart },
-  { id: 'reports', label: 'Relatórios', icon: BarChart3 }, // Nova aba
+  { id: 'reports', label: 'Relatórios', icon: BarChart3 },
   { id: 'profile', label: 'Perfil', icon: User },
 ];
 
@@ -31,9 +31,10 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 "flex flex-col items-center gap-1 py-3 px-2 touch-target transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
+              aria-label={tab.label}
             >
               <Icon className={cn(
-                "h-5 w-5 transition-transform",
+                "h-6 w-6 transition-transform",
                 isActive && "scale-110"
               )} />
               <span className={cn(

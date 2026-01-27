@@ -20,7 +20,7 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
   const categoryInfo = getCategoryInfo(transaction.category, transaction.type);
   const IconComponent = getCategoryIcon(categoryInfo.icon);
   const isIncome = transaction.type === 'income';
-
+  
   return (
     <div className="flex items-center gap-3 p-4 bg-card rounded-xl shadow-card group transition-all hover:shadow-card-hover">
       <div className={cn(
@@ -42,7 +42,7 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
           {transaction.description && ` • ${transaction.description}`}
         </p>
       </div>
-
+      
       <div className="flex items-center gap-2">
         <p className={cn(
           "font-semibold text-right",
@@ -55,6 +55,7 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
           <button
             onClick={() => onDelete(transaction.id)}
             className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive transition-all touch-target"
+            aria-label="Excluir transação"
           >
             <Trash2 className="h-4 w-4" />
           </button>

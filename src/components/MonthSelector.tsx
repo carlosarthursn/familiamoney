@@ -12,18 +12,18 @@ export function MonthSelector({ currentDate, onDateChange }: MonthSelectorProps)
   const handlePrevMonth = () => {
     onDateChange(subMonths(currentDate, 1));
   };
-
+  
   const handleNextMonth = () => {
     onDateChange(addMonths(currentDate, 1));
   };
-
+  
   const isCurrentMonth = format(currentDate, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
-
+  
   return (
     <div className="flex items-center justify-between">
-      <Button
-        variant="ghost"
-        size="icon"
+      <Button 
+        variant="ghost" 
+        size="icon" 
         onClick={handlePrevMonth}
         className="h-10 w-10 rounded-full touch-target"
       >
@@ -33,10 +33,10 @@ export function MonthSelector({ currentDate, onDateChange }: MonthSelectorProps)
       <h2 className="text-lg font-semibold capitalize">
         {format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
       </h2>
-
-      <Button
-        variant="ghost"
-        size="icon"
+      
+      <Button 
+        variant="ghost" 
+        size="icon" 
         onClick={handleNextMonth}
         disabled={isCurrentMonth}
         className="h-10 w-10 rounded-full touch-target"

@@ -30,7 +30,7 @@ export function BalanceCard({ balance, income, expenses }: BalanceCardProps) {
           {formatCurrency(balance)}
         </p>
       </div>
-
+      
       {/* Income/Expense Summary */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-card rounded-xl p-4 shadow-card">
@@ -44,7 +44,7 @@ export function BalanceCard({ balance, income, expenses }: BalanceCardProps) {
             {formatCurrency(income)}
           </p>
         </div>
-
+        
         <div className="bg-card rounded-xl p-4 shadow-card">
           <div className="flex items-center gap-2 mb-1">
             <div className="h-8 w-8 rounded-full gradient-expense flex items-center justify-center">

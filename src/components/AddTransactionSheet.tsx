@@ -24,9 +24,9 @@ export function AddTransactionSheet() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   
   const { addTransaction } = useTransactions();
-
+  
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-
+  
   const resetForm = () => {
     setType('expense');
     setAmount('');
@@ -34,29 +34,28 @@ export function AddTransactionSheet() {
     setDate(new Date());
     setDescription('');
   };
-
+  
   const handleSubmit = async () => {
     if (!amount || !category) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
-
+    
     const numAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(numAmount) || numAmount <= 0) {
       toast.error('Digite um valor válido');
       return;
     }
-
+    
     try {
       await addTransaction.mutateAsync({
         type,
         amount: numAmount,
         category,
-        // Ensure date is formatted correctly for Supabase
         date: format(date, 'yyyy-MM-dd'),
         description: description || undefined,
       });
-
+      
       toast.success(type === 'income' ? 'Receita adicionada!' : 'Despesa adicionada!');
       resetForm();
       setOpen(false);
@@ -64,12 +63,12 @@ export function AddTransactionSheet() {
       toast.error('Erro ao salvar transação');
     }
   };
-
+  
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button
-          size="lg"
+        <Button 
+          size="lg" 
           className="fixed bottom-24 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary hover:opacity-90 z-50"
         >
           <Plus className="h-6 w-6" />
@@ -79,13 +78,15 @@ export function AddTransactionSheet() {
         <SheetHeader className="pb-4">
           <SheetTitle className="text-xl">Nova Movimentação</SheetTitle>
         </SheetHeader>
-
         <div className="space-y-6 overflow-y-auto pb-8">
           {/* Type Toggle */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
             <button
               type="button"
-              onClick={() => { setType('expense'); setCategory(''); }}
+              onClick={() => {
+                setType('expense');
+                setCategory('');
+              }}
               className={cn(
                 "flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all touch-target",
                 type === 'expense' 
@@ -98,7 +99,10 @@ export function AddTransactionSheet() {
             </button>
             <button
               type="button"
-              onClick={() => { setType('income'); setCategory(''); }}
+              onClick={() => {
+                setType('income');
+                setCategory('');
+              }}
               className={cn(
                 "flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all touch-target",
                 type === 'income' 
@@ -110,7 +114,7 @@ export function AddTransactionSheet() {
               Receita
             </button>
           </div>
-
+          
           {/* Amount */}
           <div className="space-y-2">
             <Label className="text-muted-foreground">Valor</Label>
@@ -128,7 +132,7 @@ export function AddTransactionSheet() {
               />
             </div>
           </div>
-
+          
           {/* Category */}
           <div className="space-y-2">
             <Label className="text-muted-foreground">Categoria</Label>
@@ -142,18 +146,22 @@ export function AddTransactionSheet() {
                     onClick={() => setCategory(cat.id)}
                     className={cn(
                       "relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all touch-target",
-                      category === cat.id
-                        ? "border-primary bg-primary/5"
+                      category === cat.id 
+                        ? "border-primary bg-primary/5" 
                         : "border-transparent bg-muted hover:bg-muted/80"
                     )}
                   >
                     <IconComponent className={cn(
                       "h-5 w-5",
-                      category === cat.id ? "text-primary" : "text-muted-foreground"
+                      category === cat.id 
+                        ? "text-primary" 
+                        : "text-muted-foreground"
                     )} />
                     <span className={cn(
                       "text-xs font-medium text-center",
-                      category === cat.id ? "text-primary" : "text-muted-foreground"
+                      category === cat.id 
+                        ? "text-primary" 
+                        : "text-muted-foreground"
                     )}>
                       {cat.label}
                     </span>
@@ -165,7 +173,7 @@ export function AddTransactionSheet() {
               })}
             </div>
           </div>
-
+          
           {/* Date */}
           <div className="space-y-2">
             <Label className="text-muted-foreground">Data</Label>
@@ -193,7 +201,7 @@ export function AddTransactionSheet() {
               </PopoverContent>
             </Popover>
           </div>
-
+          
           {/* Description */}
           <div className="space-y-2">
             <Label className="text-muted-foreground">Descrição (opcional)</Label>
@@ -204,7 +212,7 @@ export function AddTransactionSheet() {
               className="min-h-[80px] touch-target"
             />
           </div>
-
+          
           {/* Submit */}
           <Button
             onClick={handleSubmit}
