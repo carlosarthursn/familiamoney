@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wallet, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Wallet, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { z } from 'zod';
@@ -11,11 +11,13 @@ import { z } from 'zod';
 const authSchema = z.object({
   email: z.string().email('Email inválido').max(255, 'Email muito longo'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres').max(100, 'Senha muito longa'),
+  name: z.string().min(2, 'Nome muito curto').max(50, 'Nome muito longo').optional(),
 });
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -24,7 +26,7 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const validation = authSchema.safeParse({ email, password });
+    const validation = authSchema.safeParse({ email, password, name: isLogin ? undefined : name });
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
@@ -35,7 +37,7 @@ export default function Auth() {
     try {
       const { error } = isLogin 
         ? await signIn(email, password)
-        : await signUp(email, password);
+        : await signUp(email, password, name);
       
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
@@ -72,6 +74,24 @@ export default function Auth() {
       {/* Form */}
       <div className="w-full max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div className="space-y-2 animate-slide-down">
+              <Label htmlFor="name" className="text-muted-foreground">Nome</Label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Seu nome"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="pl-12 h-12 touch-target"
+                  required={!isLogin}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="email" className="text-muted-foreground">Email</Label>
             <div className="relative">

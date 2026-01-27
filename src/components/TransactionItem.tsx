@@ -1,11 +1,11 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, User } from 'lucide-react';
 import { Transaction, getCategoryInfo, getCategoryIcon } from '@/types/finance';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface TransactionItemProps {
-  transaction: Transaction;
+  transaction: Transaction & { author_name?: string };
   onDelete?: (id: string) => void;
 }
 
@@ -37,10 +37,22 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
         <p className="font-medium text-foreground truncate">
           {categoryInfo.label}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {format(new Date(transaction.date), "dd 'de' MMM", { locale: ptBR })}
-          {transaction.description && ` • ${transaction.description}`}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs text-muted-foreground">
+            {format(new Date(transaction.date), "dd 'de' MMM", { locale: ptBR })}
+          </p>
+          {transaction.author_name && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
+              <User className="h-2 w-2" />
+              <span className="truncate max-w-[60px]">{transaction.author_name}</span>
+            </div>
+          )}
+        </div>
+        {transaction.description && (
+          <p className="text-[10px] text-muted-foreground truncate mt-0.5 italic">
+            {transaction.description}
+          </p>
+        )}
       </div>
       
       <div className="flex items-center gap-2">
