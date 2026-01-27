@@ -119,14 +119,14 @@ export default function Dashboard() {
   }
   
   return (
-    <div className="min-h-screen bg-background pb-24 safe-top">
-      <header className="px-6 pt-6 pb-4">
+    <div className="min-h-screen bg-background pb-24">
+      <header className="px-6 pt-6 pb-4 safe-top">
         <p className="text-muted-foreground text-sm">Olá,</p>
         <h1 className="text-xl font-bold text-foreground">
           {displayName}
         </h1>
       </header>
-      <main className="px-6">
+      <main className="px-6 pb-24">
         {renderContent()}
       </main>
       <AddTransactionSheet />

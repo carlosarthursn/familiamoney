@@ -70,7 +70,8 @@ export function AddTransactionSheet() {
       <SheetTrigger asChild>
         <Button 
           size="lg" 
-          className="fixed bottom-24 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary hover:opacity-90 z-50"
+          // Ajustando a posição para bottom-28 (7rem) para garantir que fique bem acima da barra de navegação e da safe area.
+          className="fixed bottom-28 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary hover:opacity-90 z-50"
         >
           <Plus className="h-6 w-6" />
         </Button>
@@ -157,12 +158,7 @@ export function AddTransactionSheet() {
                           : "border-transparent bg-muted/50 hover:bg-muted"
                       )}
                     >
-                      <IconComponent className={cn(
-                        "h-4 w-4",
-                        category === cat.id 
-                          ? "text-primary" 
-                          : "text-muted-foreground"
-                      )} />
+                      <IconComponent className="h-4 w-4" />
                       <span className={cn(
                         "text-[10px] font-medium text-center truncate w-full",
                         category === cat.id 
@@ -223,7 +219,7 @@ export function AddTransactionSheet() {
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10">
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10 safe-bottom">
           <Button
             onClick={handleSubmit}
             disabled={addTransaction.isPending}
