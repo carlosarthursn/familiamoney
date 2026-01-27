@@ -13,6 +13,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  updateProfile: (updates: { name?: string; linked_user_id?: string | null }) => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -84,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!error && data.user) {
-      // Garantir que o perfil seja atualizado com o nome caso o trigger não o faça
       await supabase
         .from('profiles')
         .update({ name } as any)
@@ -104,10 +104,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    // Forçar limpeza de estado local para garantir que a UI mude para Auth
+    setUser(null);
+    setProfile(null);
+    setSession(null);
+  };
+
+  const updateProfile = async (updates: { name?: string; linked_user_id?: string | null }) => {
+    if (!user) return { error: new Error('User not logged in') };
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates as any)
+      .eq('user_id', user.id);
+
+    if (!error) {
+      await refreshProfile();
+    }
+
+    return { error: error as Error | null };
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

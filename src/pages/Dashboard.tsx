@@ -9,7 +9,7 @@ import { MonthSelector } from '@/components/MonthSelector';
 import { AnalysisView } from '@/components/AnalysisView';
 import { CalendarView } from '@/components/CalendarView';
 import { ReportsView } from '@/components/ReportsView';
-import { ProfileLinker } from '@/components/ProfileLinker';
+import { ProfileSettings } from '@/components/ProfileSettings';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,13 +19,17 @@ import { ptBR } from 'date-fns/locale';
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   
   const { transactions: allTransactions, isLoading, totalIncome, totalExpenses, balance, deleteTransaction } = useTransactions({ selectedDate });
   
   const handleSignOut = async () => {
-    await signOut();
-    toast.success('Até logo!');
+    try {
+      await signOut();
+      toast.success('Até logo!');
+    } catch (error) {
+      toast.error('Erro ao sair da conta.');
+    }
   };
   
   const handleDelete = (id: string) => {
@@ -72,23 +76,26 @@ export default function Dashboard() {
         return <ReportsView />;
       case 'profile':
         return (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in pb-10">
             <div className="bg-card rounded-xl p-6 shadow-card text-center">
               <div className="h-16 w-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-primary-foreground">
-                  {user?.email?.charAt(0).toUpperCase()}
+                  {(profile?.name || user?.email)?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <p className="font-medium text-foreground">{user?.email}</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="font-bold text-lg text-foreground">{profile?.name || 'Usuário'}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <p className="text-[10px] text-muted-foreground mt-2 italic">
                 Membro desde {format(new Date(user?.created_at || Date.now()), "MMMM 'de' yyyy", { locale: ptBR })}
               </p>
             </div>
-            <ProfileLinker />
+            
+            <ProfileSettings />
+            
             <Button 
               variant="outline" 
               onClick={handleSignOut}
-              className="w-full h-12 rounded-xl touch-target"
+              className="w-full h-12 rounded-xl touch-target border-destructive/20 text-destructive hover:bg-destructive/5"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Sair da conta
@@ -113,7 +120,7 @@ export default function Dashboard() {
       <header className="px-6 pt-6 pb-4">
         <p className="text-muted-foreground text-sm">Olá,</p>
         <h1 className="text-xl font-bold text-foreground">
-          {user?.email?.split('@')[0] || 'Usuário'}
+          {profile?.name || user?.email?.split('@')[0] || 'Usuário'}
         </h1>
       </header>
       <main className="px-6">
