@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { DateRange } from 'react-day-picker';
 import { DateRangeSelector } from './DateRangeSelector';
