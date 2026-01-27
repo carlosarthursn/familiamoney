@@ -43,16 +43,17 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
       if (tError) throw tError;
 
+      // Buscamos todos os campos disponíveis na tabela profiles para evitar o erro 400
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, email, name' as any)
+        .select('*')
         .in('user_id', userIds);
 
       const profileMap = (profiles || []).reduce((acc, p) => {
         if (p.user_id === user?.id) {
           acc[p.user_id] = 'Você';
         } else {
-          // Prioridade: Nome configurado > Prefixo do e-mail
+          // Tenta pegar 'name', se não existir, usa o prefixo do email
           acc[p.user_id] = (p as any).name || p.email?.split('@')[0] || 'Parceiro';
         }
         return acc;
