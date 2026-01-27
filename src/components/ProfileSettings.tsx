@@ -21,6 +21,9 @@ export function ProfileSettings() {
 
   const currentUserId = user?.id || '';
   const isLinked = !!profile?.linked_user_id;
+  
+  // Determina o nome a ser exibido para o parceiro
+  const partnerDisplayName = profile?.partnerName || 'Parceiro (Nome não encontrado)';
 
   const handleUpdateName = async () => {
     if (!name.trim()) {
@@ -154,7 +157,7 @@ export function ProfileSettings() {
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase font-bold">Vinculado a:</p>
                 <p className="text-sm font-semibold text-foreground">
-                  {profile?.partnerName || 'Carregando...'}
+                  {partnerDisplayName}
                 </p>
               </div>
             </div>
