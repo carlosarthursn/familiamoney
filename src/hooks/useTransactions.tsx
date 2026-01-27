@@ -6,42 +6,45 @@ import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 interface UseTransactionsOptions {
   selectedDate?: Date;
-  filterCategories?: string[];
+  // Este filtro é usado principalmente para análise de despesas
+  filterCategories?: string[]; 
 }
 
 export function useTransactions({ selectedDate, filterCategories }: UseTransactionsOptions = {}) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   
   const currentDate = selectedDate || new Date();
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-  const queryKey = ['transactions', user?.id, monthStart, monthEnd, filterCategories];
+  // Determinar quais user_ids buscar
+  const userIds = [user?.id].filter((id): id is string => !!id);
+  // Se o perfil tiver um linked_user_id, adicionamos ele à lista
+  if (profile?.linked_user_id && !userIds.includes(profile.linked_user_id)) {
+    userIds.push(profile.linked_user_id);
+  }
+
+  const queryKey = ['transactions', userIds, monthStart, monthEnd];
 
   const transactionsQuery = useQuery({
     queryKey: queryKey,
     queryFn: async (): Promise<Transaction[]> => {
-      if (!user) return [];
+      if (userIds.length === 0) return [];
       
-      let query = supabase
+      // Buscamos TODAS as transações do mês para os IDs relevantes
+      const { data, error } = await supabase
         .from('transactions')
         .select('*')
+        .in('user_id', userIds) // Filtra por múltiplos user_ids
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .order('date', { ascending: false });
 
-      // Apply category filter if provided and not empty
-      if (filterCategories && filterCategories.length > 0) {
-        query = query.in('category', filterCategories);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
       return data as Transaction[];
     },
-    enabled: !!user,
+    enabled: userIds.length > 0,
   });
 
   const addTransaction = useMutation({
@@ -61,7 +64,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       return data;
     },
     onSuccess: () => {
-      // Invalidate all transaction queries to refresh data everywhere
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
@@ -76,36 +78,45 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       if (error) throw error;
     },
     onSuccess: () => {
-      // Invalidate all transaction queries to refresh data everywhere
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 
-  const transactions = transactionsQuery.data || [];
+  const allTransactions = transactionsQuery.data || [];
   
-  // Note: totalIncome and balance calculations are only accurate if NO category filter is applied, 
-  // as the filter only applies to the fetched transactions. 
-  // Since the filter is intended for expense analysis, we will calculate totals based on the filtered set.
-  
-  const totalIncome = transactions
+  // 1. Calcular Receitas Totais (sempre todas as receitas do mês)
+  const totalIncome = allTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + Number(t.amount), 0);
     
-  const totalExpenses = transactions
+  // 2. Filtrar Despesas: Aplicar o filtro de categoria APENAS nas despesas
+  const filteredExpenses = allTransactions
     .filter(t => t.type === 'expense')
+    .filter(t => !filterCategories || filterCategories.length === 0 || filterCategories.includes(t.category));
+
+  // 3. Calcular Despesas Totais (apenas as despesas filtradas)
+  const totalExpenses = filteredExpenses
     .reduce((sum, t) => sum + Number(t.amount), 0);
     
+  // 4. Calcular Saldo/Fluxo Líquido (Receitas Totais - Despesas Filtradas)
   const balance = totalIncome - totalExpenses;
 
-  const expensesByCategory = transactions
-    .filter(t => t.type === 'expense')
+  // 5. Calcular Despesas por Categoria (baseado nas despesas filtradas)
+  const expensesByCategory = filteredExpenses
     .reduce((acc, t) => {
       acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
       return acc;
     }, {} as Record<string, number>);
 
+  // 6. Transações para exibição (Todas as transações do mês, ordenadas)
+  // Nota: Para a aba Analysis, o AnalysisView usa o totalIncome e totalExpenses calculados acima.
+  // Para Home/History/Calendar, queremos todas as transações do mês.
+  const transactionsForDisplay = allTransactions;
+
+
   return {
-    transactions,
+    transactions: transactionsForDisplay,
+    allTransactions,
     isLoading: transactionsQuery.isLoading,
     error: transactionsQuery.error,
     addTransaction,

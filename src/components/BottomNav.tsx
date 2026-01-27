@@ -1,4 +1,4 @@
-import { Home, History, PieChart, User, CalendarDays } from 'lucide-react';
+import { Home, History, PieChart, User, CalendarDays, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BottomNavProps {
@@ -11,6 +11,7 @@ const tabs = [
   { id: 'history', label: 'Transações', icon: History },
   { id: 'calendar', label: 'Calendário', icon: CalendarDays },
   { id: 'analysis', label: 'Análise', icon: PieChart },
+  { id: 'reports', label: 'Relatórios', icon: BarChart3 }, // Nova aba
   { id: 'profile', label: 'Perfil', icon: User },
 ];
 

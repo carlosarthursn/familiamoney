@@ -8,6 +8,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { MonthSelector } from '@/components/MonthSelector';
 import { AnalysisView } from '@/components/AnalysisView';
 import { CalendarView } from '@/components/CalendarView';
+import { ReportsView } from '@/components/ReportsView';
+import { ProfileLinker } from '@/components/ProfileLinker'; // Importando ProfileLinker
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,14 +21,16 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
   const { user, signOut } = useAuth();
+  
+  // Usamos o hook sem filtro de categoria para as abas Home, History e Calendar
   const { 
-    transactions, 
+    transactions: allTransactions, // Renomeado para clareza
     isLoading, 
     totalIncome, 
     totalExpenses, 
     balance,
     deleteTransaction 
-  } = useTransactions(selectedDate);
+  } = useTransactions({ selectedDate });
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,7 +62,7 @@ export default function Dashboard() {
             <div>
               <h2 className="text-lg font-semibold mb-3">Últimas transações</h2>
               <TransactionList 
-                transactions={transactions.slice(0, 5)} 
+                transactions={allTransactions.slice(0, 5)}
                 isLoading={isLoading}
                 onDelete={handleDelete}
               />
@@ -74,7 +78,7 @@ export default function Dashboard() {
               onDateChange={setSelectedDate} 
             />
             <TransactionList 
-              transactions={transactions} 
+              transactions={allTransactions}
               isLoading={isLoading}
               onDelete={handleDelete}
             />
@@ -92,6 +96,7 @@ export default function Dashboard() {
         );
 
       case 'analysis':
+        // AnalysisView gerencia seu próprio useTransactions com filtro
         return (
           <div className="space-y-6 animate-fade-in">
             <MonthSelector 
@@ -102,6 +107,11 @@ export default function Dashboard() {
               selectedDate={selectedDate} 
             />
           </div>
+        );
+        
+      case 'reports':
+        return (
+          <ReportsView />
         );
 
       case 'profile':
@@ -118,6 +128,8 @@ export default function Dashboard() {
                 Membro desde {format(new Date(user?.created_at || Date.now()), "MMMM 'de' yyyy", { locale: ptBR })}
               </p>
             </div>
+            
+            <ProfileLinker /> {/* Novo componente de vinculação */}
 
             <Button
               variant="outline"
