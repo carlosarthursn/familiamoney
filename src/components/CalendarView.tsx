@@ -4,6 +4,7 @@ import { format, isSameDay, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransactions } from '@/hooks/useTransactions';
 import { Loader2 } from 'lucide-react';
+import { TransactionList } from './TransactionList'; // Importando TransactionList
 
 interface CalendarViewProps {
   selectedDate: Date;
@@ -12,7 +13,7 @@ interface CalendarViewProps {
 
 export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) {
   // useTransactions fetches data based on the month of selectedDate
-  const { transactions, isLoading } = useTransactions(selectedDate);
+  const { transactions, isLoading, deleteTransaction } = useTransactions(selectedDate);
 
   // Calculate days with transactions for highlighting
   const daysWithTransactions = useMemo(() => {
@@ -23,6 +24,7 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
       dates.add(t.date); 
     });
     // Convert 'yyyy-MM-dd' strings to Date objects for react-day-picker modifiers
+    // We need to ensure the date string is treated as UTC midnight to avoid timezone issues when comparing dates
     return Array.from(dates).map(d => new Date(d + 'T00:00:00')); 
   }, [transactions, isLoading]);
 
@@ -44,28 +46,37 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
   const transactionsForSelectedDay = transactions.filter(t => 
     isSameDay(new Date(t.date + 'T00:00:00'), selectedDate)
   );
+  
+  const handleDelete = (id: string) => {
+    deleteTransaction.mutate(id, {
+      onSuccess: () => toast.success('Transação removida'),
+      onError: () => toast.error('Erro ao remover'),
+    });
+  };
 
   return (
-    <div className="bg-card rounded-xl p-4 shadow-card">
-      <Calendar
-        mode="single"
-        month={startOfMonth(selectedDate)} // Control the displayed month based on selectedDate
-        onMonthChange={handleMonthChange}
-        selected={selectedDate}
-        onSelect={(date) => {
-          if (date) {
-            onDateChange(date);
-          }
-        }}
-        locale={ptBR}
-        className="w-full p-0"
-        modifiers={modifiers}
-        modifiersClassNames={modifiersClassNames}
-        disabled={(date) => date > new Date()} // Disable future dates
-      />
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl p-4 shadow-card">
+        <Calendar
+          mode="single"
+          month={startOfMonth(selectedDate)} // Control the displayed month based on selectedDate
+          onMonthChange={handleMonthChange}
+          selected={selectedDate}
+          onSelect={(date) => {
+            if (date) {
+              onDateChange(date);
+            }
+          }}
+          locale={ptBR}
+          className="w-full p-0"
+          modifiers={modifiers}
+          modifiersClassNames={modifiersClassNames}
+          disabled={(date) => date > new Date()} // Disable future dates
+        />
+      </div>
       
-      <div className="mt-4 pt-4 border-t">
-        <h3 className="font-semibold mb-2">
+      <div className="bg-card rounded-xl p-4 shadow-card">
+        <h3 className="font-semibold mb-3">
           Transações em {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
         </h3>
         
@@ -73,12 +84,11 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
           <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
           </div>
-        ) : transactionsForSelectedDay.length > 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {transactionsForSelectedDay.length} transação(ões) encontrada(s).
-          </p>
         ) : (
-          <p className="text-sm text-muted-foreground">Nenhuma transação neste dia.</p>
+          <TransactionList 
+            transactions={transactionsForSelectedDay} 
+            onDelete={handleDelete}
+          />
         )}
       </div>
     </div>

@@ -52,6 +52,7 @@ export function AddTransactionSheet() {
         type,
         amount: numAmount,
         category,
+        // Ensure date is formatted correctly for Supabase
         date: format(date, 'yyyy-MM-dd'),
         description: description || undefined,
       });
