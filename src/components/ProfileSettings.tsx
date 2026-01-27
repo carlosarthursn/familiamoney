@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save } from 'lucide-react';
+import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
@@ -41,7 +40,6 @@ export function ProfileSettings() {
   };
 
   const handleLink = async () => {
-    // Validar se é um UUID válido (formato simples)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
     if (!linkedUserId || !uuidRegex.test(linkedUserId)) {
@@ -56,15 +54,12 @@ export function ProfileSettings() {
 
     setLoading(true);
     try {
-      // Tentamos vincular diretamente. Se a tabela permitir, o vínculo será feito.
       const { error } = await updateProfile({ linked_user_id: linkedUserId });
-
       if (error) {
-        toast.error('Erro ao vincular perfil. Verifique se as colunas name e linked_user_id existem na tabela profiles.');
+        toast.error('Erro ao vincular perfil.');
         return;
       }
-
-      toast.success('ID vinculado! Agora vocês compartilham a mesma conta.');
+      toast.success('ID vinculado! Certifique-se que o outro usuário também vinculou o seu.');
     } finally {
       setLoading(false);
       setLinkedUserId('');
@@ -88,7 +83,7 @@ export function ProfileSettings() {
       navigator.clipboard.writeText(currentUserId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      toast.success('Seu ID copiado!');
+      toast.success('ID copiado!');
     }
   };
 
@@ -135,7 +130,7 @@ export function ProfileSettings() {
             <Input 
               value={currentUserId} 
               readOnly 
-              className="flex-1 bg-muted text-xs truncate" 
+              className="flex-1 bg-muted text-[10px] truncate" 
             />
             <Button 
               variant="secondary" 
@@ -149,16 +144,33 @@ export function ProfileSettings() {
         </div>
 
         {isLinked ? (
-          <div className="space-y-2">
+          <div className="space-y-4">
             <div className="p-3 bg-muted/50 rounded-lg border border-dashed">
               <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Vinculado a:</p>
               <p className="text-xs font-mono break-all text-foreground">{profile?.linked_user_id}</p>
             </div>
+            
+            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800 text-[11px] space-y-2">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-bold">
+                <AlertCircle className="h-4 w-4" />
+                Ação Necessária
+              </div>
+              <p>Para ver as despesas do parceiro, você deve rodar este comando no <b>SQL Editor</b> do seu Supabase:</p>
+              <pre className="bg-black/10 p-2 rounded overflow-x-auto font-mono text-[9px] select-all">
+                DROP POLICY IF EXISTS "Users can view own or linked transactions" ON transactions;
+                CREATE POLICY "Users can view own or linked transactions" ON transactions 
+                FOR SELECT USING (
+                  auth.uid() = user_id OR 
+                  (auth.jwt() -> 'user_metadata' ->> 'linked_user_id') = user_id::text
+                );
+              </pre>
+            </div>
+
             <Button 
               variant="destructive" 
               onClick={handleUnlink} 
               disabled={loading}
-              className="w-full h-10 rounded-lg touch-target mt-2"
+              className="w-full h-10 rounded-lg touch-target"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Desvincular'}
             </Button>
@@ -182,9 +194,6 @@ export function ProfileSettings() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground italic">
-              * Ao vincular, as transações de ambos serão exibidas juntas.
-            </p>
           </div>
         )}
       </div>
