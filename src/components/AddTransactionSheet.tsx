@@ -74,155 +74,162 @@ export function AddTransactionSheet() {
           <Plus className="h-6 w-6" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl safe-bottom">
-        <SheetHeader className="pb-4">
+      <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl flex flex-col p-0 overflow-hidden">
+        <SheetHeader className="px-6 pt-6 pb-2">
           <SheetTitle className="text-xl">Nova Movimentação</SheetTitle>
         </SheetHeader>
-        <div className="space-y-6 overflow-y-auto pb-8">
-          {/* Type Toggle */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
-            <button
-              type="button"
-              onClick={() => {
-                setType('expense');
-                setCategory('');
-              }}
-              className={cn(
-                "flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all touch-target",
-                type === 'expense' 
-                  ? "bg-destructive text-destructive-foreground shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <TrendingDown className="h-4 w-4" />
-              Despesa
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setType('income');
-                setCategory('');
-              }}
-              className={cn(
-                "flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all touch-target",
-                type === 'income' 
-                  ? "bg-success text-success-foreground shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <TrendingUp className="h-4 w-4" />
-              Receita
-            </button>
-          </div>
-          
-          {/* Amount */}
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Valor</Label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                R$
-              </span>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0,00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="pl-12 h-14 text-2xl font-bold touch-target"
+        
+        <div className="flex-1 overflow-y-auto px-6 pb-24">
+          <div className="space-y-4 py-2">
+            {/* Type Toggle */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setType('expense');
+                  setCategory('');
+                }}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-all text-sm",
+                  type === 'expense' 
+                    ? "bg-destructive text-destructive-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <TrendingDown className="h-4 w-4" />
+                Despesa
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setType('income');
+                  setCategory('');
+                }}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-all text-sm",
+                  type === 'income' 
+                    ? "bg-success text-success-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <TrendingUp className="h-4 w-4" />
+                Receita
+              </button>
+            </div>
+            
+            {/* Amount */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Valor</Label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                  R$
+                </span>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="pl-12 h-12 text-xl font-bold rounded-xl"
+                />
+              </div>
+            </div>
+            
+            {/* Category */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Categoria</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {categories.map((cat) => {
+                  const IconComponent = getCategoryIcon(cat.icon);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setCategory(cat.id)}
+                      className={cn(
+                        "relative flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all",
+                        category === cat.id 
+                          ? "border-primary bg-primary/5" 
+                          : "border-transparent bg-muted/50 hover:bg-muted"
+                      )}
+                    >
+                      <IconComponent className={cn(
+                        "h-4 w-4",
+                        category === cat.id 
+                          ? "text-primary" 
+                          : "text-muted-foreground"
+                      )} />
+                      <span className={cn(
+                        "text-[10px] font-medium text-center truncate w-full",
+                        category === cat.id 
+                          ? "text-primary" 
+                          : "text-muted-foreground"
+                      )}>
+                        {cat.label}
+                      </span>
+                      {category === cat.id && (
+                        <div className="absolute top-1 right-1">
+                          <Check className="h-3 w-3 text-primary" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Date */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Data</Label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left h-11 text-sm rounded-xl"
+                  >
+                    <CalendarIcon className="mr-3 h-4 w-4 text-muted-foreground" />
+                    {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(d) => {
+                      if (d) setDate(d);
+                      setDatePickerOpen(false);
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Descrição (opcional)</Label>
+              <Textarea
+                placeholder="Adicione uma nota..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="min-h-[60px] text-sm rounded-xl resize-none"
               />
             </div>
           </div>
-          
-          {/* Category */}
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Categoria</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {categories.map((cat) => {
-                const IconComponent = getCategoryIcon(cat.icon);
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setCategory(cat.id)}
-                    className={cn(
-                      "relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all touch-target",
-                      category === cat.id 
-                        ? "border-primary bg-primary/5" 
-                        : "border-transparent bg-muted hover:bg-muted/80"
-                    )}
-                  >
-                    <IconComponent className={cn(
-                      "h-5 w-5",
-                      category === cat.id 
-                        ? "text-primary" 
-                        : "text-muted-foreground"
-                    )} />
-                    <span className={cn(
-                      "text-xs font-medium text-center",
-                      category === cat.id 
-                        ? "text-primary" 
-                        : "text-muted-foreground"
-                    )}>
-                      {cat.label}
-                    </span>
-                    {category === cat.id && (
-                      <Check className="absolute top-1 right-1 h-3 w-3 text-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          
-          {/* Date */}
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Data</Label>
-            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left h-12 touch-target"
-                >
-                  <CalendarIcon className="mr-3 h-4 w-4 text-muted-foreground" />
-                  {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => {
-                    if (d) setDate(d);
-                    setDatePickerOpen(false);
-                  }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          
-          {/* Description */}
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Descrição (opcional)</Label>
-            <Textarea
-              placeholder="Adicione uma nota..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[80px] touch-target"
-            />
-          </div>
-          
-          {/* Submit */}
+        </div>
+
+        {/* Action Button at the bottom */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10">
           <Button
             onClick={handleSubmit}
             disabled={addTransaction.isPending}
             className={cn(
-              "w-full h-14 text-base font-semibold rounded-xl touch-target",
+              "w-full h-12 text-base font-semibold rounded-xl shadow-lg",
               type === 'income' ? "gradient-income" : "gradient-expense"
             )}
           >
-            {addTransaction.isPending ? 'Salvando...' : 'Salvar'}
+            {addTransaction.isPending ? 'Salvando...' : 'Salvar Movimentação'}
           </Button>
         </div>
       </SheetContent>
