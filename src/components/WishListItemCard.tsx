@@ -1,10 +1,11 @@
 import { WishlistItem } from '@/types/finance';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tag, Link, ShoppingBag } from 'lucide-react';
+import { Link, ShoppingBag, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WishListItemCardProps {
   item: WishlistItem;
+  onDelete: (id: string) => void;
 }
 
 function formatCurrency(value: number): string {
@@ -20,13 +21,13 @@ const priorityMap = {
   low: { label: 'Baixa', color: 'bg-primary/10 text-primary', icon: '...' },
 };
 
-export function WishListItemCard({ item }: WishListItemCardProps) {
+export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
   const priority = priorityMap[item.priority];
 
   return (
-    <Card className="shadow-card p-4">
+    <Card className="shadow-card p-4 group transition-all hover:shadow-card-hover">
       <CardContent className="p-0 flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
             <ShoppingBag className="h-5 w-5 text-muted-foreground" />
           </div>
@@ -51,9 +52,19 @@ export function WishListItemCard({ item }: WishListItemCardProps) {
           </div>
         </div>
         
-        <p className="font-bold text-lg text-foreground shrink-0">
-          {formatCurrency(item.price)}
-        </p>
+        <div className="flex items-center gap-2 shrink-0">
+          <p className="font-bold text-lg text-foreground">
+            {formatCurrency(item.price)}
+          </p>
+          
+          <button
+            onClick={() => onDelete(item.id)}
+            className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive transition-all touch-target"
+            aria-label="Excluir item"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </CardContent>
     </Card>
   );
