@@ -8,7 +8,7 @@ import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save } from 'lu
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
-  const { user, profile, updateProfile, refreshProfile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
   const [name, setName] = useState('');
   const [linkedUserId, setLinkedUserId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,33 +41,30 @@ export function ProfileSettings() {
   };
 
   const handleLink = async () => {
-    if (!linkedUserId || linkedUserId === currentUserId) {
-      toast.error('ID inválido ou é o seu próprio ID.');
+    // Validar se é um UUID válido (formato simples)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!linkedUserId || !uuidRegex.test(linkedUserId)) {
+      toast.error('Por favor, insira um ID de usuário válido.');
+      return;
+    }
+
+    if (linkedUserId === currentUserId) {
+      toast.error('Você não pode vincular o seu próprio ID.');
       return;
     }
 
     setLoading(true);
     try {
-      const { data: targetProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('user_id', linkedUserId)
-        .single();
-
-      if (fetchError || !targetProfile) {
-        toast.error('ID de usuário não encontrado.');
-        setLoading(false);
-        return;
-      }
-
+      // Tentamos vincular diretamente. Se a tabela permitir, o vínculo será feito.
       const { error } = await updateProfile({ linked_user_id: linkedUserId });
 
       if (error) {
-        toast.error('Erro ao vincular perfil: ' + error.message);
+        toast.error('Erro ao vincular perfil. Verifique se as colunas name e linked_user_id existem na tabela profiles.');
         return;
       }
 
-      toast.success('Perfil vinculado! As transações serão compartilhadas.');
+      toast.success('ID vinculado! Agora vocês compartilham a mesma conta.');
     } finally {
       setLoading(false);
       setLinkedUserId('');
@@ -153,14 +150,15 @@ export function ProfileSettings() {
 
         {isLinked ? (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Vinculado a: <span className="font-mono text-foreground break-all">{profile?.linked_user_id}</span>
-            </p>
+            <div className="p-3 bg-muted/50 rounded-lg border border-dashed">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Vinculado a:</p>
+              <p className="text-xs font-mono break-all text-foreground">{profile?.linked_user_id}</p>
+            </div>
             <Button 
               variant="destructive" 
               onClick={handleUnlink} 
               disabled={loading}
-              className="w-full h-10 rounded-lg touch-target"
+              className="w-full h-10 rounded-lg touch-target mt-2"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Desvincular'}
             </Button>
@@ -179,11 +177,14 @@ export function ProfileSettings() {
               <Button 
                 onClick={handleLink} 
                 disabled={loading}
-                className="h-10 rounded-lg touch-target"
+                className="h-10 rounded-lg touch-target shrink-0"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               </Button>
             </div>
+            <p className="text-[10px] text-muted-foreground italic">
+              * Ao vincular, as transações de ambos serão exibidas juntas.
+            </p>
           </div>
         )}
       </div>
