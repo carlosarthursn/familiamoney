@@ -23,6 +23,9 @@ export default function Dashboard() {
   
   const { transactions: allTransactions, isLoading, totalIncome, totalExpenses, balance, deleteTransaction } = useTransactions({ selectedDate });
   
+  // Nome prioritário: Perfil > Metadados > Prefixo Email
+  const displayName = profile?.name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuário';
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -80,10 +83,10 @@ export default function Dashboard() {
             <div className="bg-card rounded-xl p-6 shadow-card text-center">
               <div className="h-16 w-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-primary-foreground">
-                  {(profile?.name || user?.email)?.charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <p className="font-bold text-lg text-foreground">{profile?.name || 'Usuário'}</p>
+              <p className="font-bold text-lg text-foreground">{displayName}</p>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
               <p className="text-[10px] text-muted-foreground mt-2 italic">
                 Membro desde {format(new Date(user?.created_at || Date.now()), "MMMM 'de' yyyy", { locale: ptBR })}
@@ -95,7 +98,7 @@ export default function Dashboard() {
             <Button 
               variant="outline" 
               onClick={handleSignOut}
-              className="w-full h-12 rounded-xl touch-target border-destructive/20 text-destructive hover:bg-destructive/5"
+              className="w-full h-12 rounded-xl touch-target border-destructive/20 text-destructive hover:bg-destructive/5 mt-4"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Sair da conta
@@ -120,7 +123,7 @@ export default function Dashboard() {
       <header className="px-6 pt-6 pb-4">
         <p className="text-muted-foreground text-sm">Olá,</p>
         <h1 className="text-xl font-bold text-foreground">
-          {profile?.name || user?.email?.split('@')[0] || 'Usuário'}
+          {displayName}
         </h1>
       </header>
       <main className="px-6">

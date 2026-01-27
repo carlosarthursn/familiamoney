@@ -35,7 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching profile:', error);
     }
-    setProfile(data || null);
+    
+    // Fallback para o nome nos metadados se a tabela profiles falhar ou estiver vazia
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    const metadataName = currentUser?.user_metadata?.name;
+    
+    setProfile(data ? { ...data, name: data.name || metadataName } : { name: metadataName } as any);
   };
 
   const refreshProfile = async () => {
@@ -46,30 +51,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         
         if (currentUser) {
-          fetchProfile(currentUser.id);
+          await fetchProfile(currentUser.id);
         } else {
           setProfile(null);
         }
         setLoading(false);
       }
     );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setSession(session);
-      setUser(currentUser);
-      
-      if (currentUser) {
-        fetchProfile(currentUser.id);
-      }
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -80,11 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       options: {
         data: { name },
-        emailRedirectTo: `${window.location.origin}/`,
       },
     });
 
     if (!error && data.user) {
+      // Tenta atualizar a tabela profiles, mas não trava se falhar
       await supabase
         .from('profiles')
         .update({ name } as any)
@@ -104,25 +98,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    // Forçar limpeza de estado local para garantir que a UI mude para Auth
     setUser(null);
     setProfile(null);
     setSession(null);
+    window.location.href = '/'; // Força redirecionamento para limpar tudo
   };
 
   const updateProfile = async (updates: { name?: string; linked_user_id?: string | null }) => {
-    if (!user) return { error: new Error('User not logged in') };
+    if (!user) return { error: new Error('Usuário não logado') };
 
-    const { error } = await supabase
+    // 1. Sempre tenta atualizar os metadados do usuário para o Nome (isso sempre funciona)
+    if (updates.name) {
+      const { error: metaError } = await supabase.auth.updateUser({
+        data: { name: updates.name }
+      });
+      if (metaError) return { error: metaError };
+    }
+
+    // 2. Tenta atualizar a tabela profiles (pode falhar se as colunas não existirem)
+    const { error: dbError } = await supabase
       .from('profiles')
       .update(updates as any)
       .eq('user_id', user.id);
 
-    if (!error) {
-      await refreshProfile();
+    // Se o erro for de coluna inexistente, vamos ignorar se for apenas o nome, 
+    // mas avisar se for o ID de vínculo
+    if (dbError && updates.linked_user_id) {
+      return { error: new Error('A tabela profiles precisa das colunas name e linked_user_id para o compartilhamento funcionar.') };
     }
 
-    return { error: error as Error | null };
+    await refreshProfile();
+    return { error: null };
   };
 
   return (
