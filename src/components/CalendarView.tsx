@@ -4,7 +4,8 @@ import { format, isSameDay, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransactions } from '@/hooks/useTransactions';
 import { Loader2 } from 'lucide-react';
-import { TransactionList } from './TransactionList'; // Importando TransactionList
+import { TransactionList } from './TransactionList';
+import { toast } from 'sonner';
 
 interface CalendarViewProps {
   selectedDate: Date;
@@ -13,7 +14,7 @@ interface CalendarViewProps {
 
 export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) {
   // useTransactions fetches data based on the month of selectedDate
-  const { transactions, isLoading, deleteTransaction } = useTransactions(selectedDate);
+  const { transactions, isLoading, deleteTransaction } = useTransactions({ selectedDate });
 
   // Calculate days with transactions for highlighting
   const daysWithTransactions = useMemo(() => {
