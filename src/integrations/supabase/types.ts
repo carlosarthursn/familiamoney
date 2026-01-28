@@ -19,18 +19,54 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          linked_user_id: string | null
+          name: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: string
+          linked_user_id?: string | null
+          name?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: string
+          linked_user_id?: string | null
+          name?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      savings_goals: {
+        Row: {
+          created_at: string
+          currentAmount: number
+          id: string
+          name: string
+          targetAmount: number
+          targetDate: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currentAmount?: number
+          id?: string
+          name: string
+          targetAmount?: number
+          targetDate: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currentAmount?: number
+          id?: string
+          name?: string
+          targetAmount?: number
+          targetDate?: string
           user_id?: string
         }
         Relationships: []
@@ -64,6 +100,36 @@ export type Database = {
           description?: string | null
           id?: string
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wishlist_items: {
+        Row: {
+          created_at: string
+          id: string
+          link: string | null
+          name: string
+          price: number
+          priority: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          name: string
+          price?: number
+          priority?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          name?: string
+          price?: number
+          priority?: string
           user_id?: string
         }
         Relationships: []
