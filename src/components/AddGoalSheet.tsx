@@ -18,7 +18,10 @@ import { cn } from '@/lib/utils';
 
 const goalSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
-  targetAmount: z.string().refine(val => !isNaN(parseFloat(val.replace(',', '.')) && parseFloat(val.replace(',', '.')) > 0), {
+  targetAmount: z.string().refine(val => {
+    const num = parseFloat(val.replace(',', '.'));
+    return !isNaN(num) && num > 0;
+  }, {
     message: 'Valor alvo deve ser um número positivo',
   }),
   targetDate: z.date({

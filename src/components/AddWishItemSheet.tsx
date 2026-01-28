@@ -15,7 +15,10 @@ import { cn } from '@/lib/utils';
 
 const wishItemSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
-  price: z.string().refine(val => !isNaN(parseFloat(val.replace(',', '.')) && parseFloat(val.replace(',', '.')) > 0), {
+  price: z.string().refine(val => {
+    const num = parseFloat(val.replace(',', '.'));
+    return !isNaN(num) && num > 0;
+  }, {
     message: 'Preço deve ser um número positivo',
   }),
   priority: z.enum(['high', 'medium', 'low'], {

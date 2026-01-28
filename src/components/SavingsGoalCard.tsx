@@ -46,7 +46,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
           </span>
         </div>
         
-        <Progress value={progress} className="h-2" indicatorClassName={isComplete ? "bg-success" : "bg-primary"} />
+        <Progress value={progress} className={`h-2 ${isComplete ? '[&>div]:bg-success' : ''}`} />
         
         <div className="flex justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
