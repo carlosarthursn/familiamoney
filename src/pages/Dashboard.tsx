@@ -8,9 +8,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { MonthSelector } from '@/components/MonthSelector';
 import { AnalysisView } from '@/components/AnalysisView';
 import { CalendarView } from '@/components/CalendarView';
-import { ReportsView } from '@/components/ReportsView';
 import { ProfileSettings } from '@/components/ProfileSettings';
-import { PlanningView } from '@/components/PlanningView'; // New Import
+import { PlanningView } from '@/components/PlanningView';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -56,13 +55,6 @@ export default function Dashboard() {
             </div>
           </div>
         );
-      case 'history':
-        return (
-          <div className="space-y-4 animate-fade-in">
-            <MonthSelector currentDate={selectedDate} onDateChange={setSelectedDate} />
-            <TransactionList transactions={allTransactions} isLoading={isLoading} onDelete={handleDelete} />
-          </div>
-        );
       case 'calendar':
         return (
           <div className="space-y-4 animate-fade-in">
@@ -74,12 +66,15 @@ export default function Dashboard() {
           <div className="space-y-6 animate-fade-in">
             <MonthSelector currentDate={selectedDate} onDateChange={setSelectedDate} />
             <AnalysisView selectedDate={selectedDate} />
+            {/* Lista de transações do mês integrada */}
+            <div className="bg-card rounded-xl p-4 shadow-card">
+              <h3 className="text-sm font-semibold mb-3">Transações do Mês</h3>
+              <TransactionList transactions={allTransactions} isLoading={isLoading} onDelete={handleDelete} />
+            </div>
           </div>
         );
-      case 'planning': // New Case
+      case 'planning':
         return <PlanningView />;
-      case 'reports':
-        return <ReportsView />;
       case 'profile':
         return (
           <div className="space-y-6 animate-fade-in pb-10">
