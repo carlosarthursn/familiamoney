@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 1. Busca o perfil do próprio usuário na tabela 'profiles'
     const { data: dbProfile, error: profileError } = await supabase
       .from('profiles')
-      .select('name, linked_user_id, email')
+      .select('*')
       .eq('user_id', currentUser.id)
       .maybeSingle();
     
@@ -43,24 +43,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const linkedId = dbProfile?.linked_user_id || null;
+    const profileData = dbProfile as { name?: string; linked_user_id?: string; email?: string } | null;
+    const linkedId = profileData?.linked_user_id || null;
     let partnerName = null;
 
     // 2. Se houver um ID vinculado, busca o nome desse parceiro
     if (linkedId) {
       const { data: partnerProfile } = await supabase
         .from('profiles')
-        .select('name, email')
+        .select('*')
         .eq('user_id', linkedId)
         .maybeSingle();
       
-      if (partnerProfile) {
-        partnerName = (partnerProfile as any).name || partnerProfile.email?.split('@')[0] || 'Parceiro';
+      const partnerData = partnerProfile as { name?: string; email?: string } | null;
+      if (partnerData) {
+        partnerName = partnerData.name || partnerData.email?.split('@')[0] || 'Parceiro';
       }
     }
     
     setProfile({
-      name: (dbProfile as any)?.name || dbProfile?.email?.split('@')[0] || 'Usuário',
+      name: profileData?.name || profileData?.email?.split('@')[0] || 'Usuário',
       linked_user_id: linkedId,
       partnerName
     });
