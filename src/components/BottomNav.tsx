@@ -1,4 +1,4 @@
-import { Home, History, PieChart, User, CalendarDays, BarChart3, Target } from 'lucide-react';
+import { Home, PieChart, User, CalendarDays, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BottomNavProps {
@@ -8,18 +8,16 @@ interface BottomNavProps {
 
 const tabs = [
   { id: 'home', label: 'Início', icon: Home },
-  { id: 'history', label: 'Transações', icon: History },
   { id: 'calendar', label: 'Calendário', icon: CalendarDays },
   { id: 'analysis', label: 'Análise', icon: PieChart },
-  { id: 'planning', label: 'Planejar', icon: Target }, // New tab
-  { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+  { id: 'planning', label: 'Planejar', icon: Target },
   { id: 'profile', label: 'Perfil', icon: User },
 ];
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-bottom z-40">
-      <div className="flex items-center justify-around max-w-lg mx-auto px-2">
+      <div className="flex items-center justify-around max-w-lg mx-auto px-4">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -29,7 +27,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "flex flex-col items-center gap-1 py-3 px-1 touch-target transition-colors",
+                "flex flex-col items-center gap-1 py-3 px-3 touch-target transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
               aria-label={tab.label}

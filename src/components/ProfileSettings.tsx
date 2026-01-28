@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, UserPlus, Loader2, Copy, Check, User as UserIcon, Save, Heart } from 'lucide-react';
+import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
   const { user, profile, updateProfile } = useAuth();
   const [name, setName] = useState('');
-  const [linkedUserId, setLinkedUserId] = useState('');
+  const [partnerEmail, setPartnerEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (profile?.name) {
@@ -19,11 +19,11 @@ export function ProfileSettings() {
     }
   }, [profile]);
 
-  const currentUserId = user?.id || '';
+  const currentUserEmail = user?.email || '';
   const isLinked = !!profile?.linked_user_id;
   
   // Determina o nome a ser exibido para o parceiro
-  const partnerDisplayName = profile?.partnerName || 'Parceiro (Nome não encontrado)';
+  const partnerDisplayName = profile?.partnerName || 'Parceiro';
 
   const handleUpdateName = async () => {
     if (!name.trim()) {
@@ -43,31 +43,47 @@ export function ProfileSettings() {
   };
 
   const handleLink = async () => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
-    if (!linkedUserId || !uuidRegex.test(linkedUserId)) {
-      toast.error('Por favor, insira um ID de usuário válido.');
+    if (!partnerEmail || !emailRegex.test(partnerEmail)) {
+      toast.error('Por favor, insira um email válido.');
       return;
     }
 
-    if (linkedUserId === currentUserId) {
-      toast.error('Você não pode vincular o seu próprio ID.');
+    if (partnerEmail.toLowerCase() === currentUserEmail.toLowerCase()) {
+      toast.error('Você não pode vincular seu próprio email.');
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await updateProfile({ linked_user_id: linkedUserId });
+      // Buscar o user_id pelo email na tabela profiles
+      const { data: partnerProfile, error: searchError } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('email', partnerEmail.toLowerCase())
+        .maybeSingle();
+
+      if (searchError) {
+        toast.error('Erro ao buscar parceiro.');
+        return;
+      }
+
+      if (!partnerProfile) {
+        toast.error('Nenhum usuário encontrado com esse email.');
+        return;
+      }
+
+      const { error } = await updateProfile({ linked_user_id: partnerProfile.user_id });
       if (error) {
         toast.error('Erro ao vincular perfil.');
         return;
       }
       
-      // A mensagem agora pode ser mais amigável
       toast.success('Vinculado com sucesso!');
     } finally {
       setLoading(false);
-      setLinkedUserId('');
+      setPartnerEmail('');
     }
   };
 
@@ -80,15 +96,6 @@ export function ProfileSettings() {
       toast.error('Erro ao desvincular perfil.');
     } else {
       toast.success('Perfil desvinculado.');
-    }
-  };
-
-  const handleCopy = () => {
-    if (currentUserId) {
-      navigator.clipboard.writeText(currentUserId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast.success('ID copiado!');
     }
   };
 
@@ -128,25 +135,6 @@ export function ProfileSettings() {
           <Link className="h-5 w-5 text-primary" />
           Compartilhar Conta
         </h3>
-        
-        <div className="space-y-2">
-          <Label className="text-muted-foreground">Seu ID (envie para o parceiro)</Label>
-          <div className="flex gap-2">
-            <Input 
-              value={currentUserId} 
-              readOnly 
-              className="flex-1 bg-muted text-[10px] truncate" 
-            />
-            <Button 
-              variant="secondary" 
-              size="icon" 
-              onClick={handleCopy}
-              className="h-10 w-10 shrink-0"
-            >
-              {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
 
         {isLinked ? (
           <div className="space-y-4 animate-fade-in">
@@ -173,13 +161,14 @@ export function ProfileSettings() {
           </div>
         ) : (
           <div className="space-y-2">
-            <Label htmlFor="linked-id" className="text-muted-foreground">ID do Parceiro</Label>
+            <Label htmlFor="partner-email" className="text-muted-foreground">Email do Parceiro</Label>
             <div className="flex gap-2">
               <Input
-                id="linked-id"
-                placeholder="Cole o ID aqui"
-                value={linkedUserId}
-                onChange={(e) => setLinkedUserId(e.target.value)}
+                id="partner-email"
+                type="email"
+                placeholder="email@exemplo.com"
+                value={partnerEmail}
+                onChange={(e) => setPartnerEmail(e.target.value)}
                 className="flex-1 h-10 touch-target"
               />
               <Button 
@@ -190,6 +179,9 @@ export function ProfileSettings() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               </Button>
             </div>
+            <p className="text-[10px] text-muted-foreground">
+              Digite o email da pessoa com quem deseja compartilhar.
+            </p>
           </div>
         )}
       </div>
