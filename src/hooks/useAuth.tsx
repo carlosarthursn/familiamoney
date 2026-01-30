@@ -31,41 +31,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (currentUser: User) => {
-    // 1. Busca o perfil do próprio usuário na tabela 'profiles'
-    const { data: dbProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .maybeSingle();
-    
-    if (profileError) {
-      console.error("Error fetching profile:", profileError);
-      return;
-    }
-
-    const profileData = dbProfile as { name?: string; linked_user_id?: string; email?: string } | null;
-    const linkedId = profileData?.linked_user_id || null;
-    let partnerName = null;
-
-    // 2. Se houver um ID vinculado, busca o nome desse parceiro
-    if (linkedId) {
-      const { data: partnerProfile } = await supabase
+    try {
+      // 1. Busca o perfil do próprio usuário na tabela 'profiles'
+      const { data: dbProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('user_id', linkedId)
+        .select('name, email, linked_user_id, user_id')
+        .eq('user_id', currentUser.id)
         .maybeSingle();
       
-      const partnerData = partnerProfile as { name?: string; email?: string } | null;
-      if (partnerData) {
-        partnerName = partnerData.name || partnerData.email?.split('@')[0] || 'Parceiro';
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+        setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null });
+        return;
       }
+
+      if (!dbProfile) {
+        // Perfil não existe ainda, usar dados básicos
+        setProfile({ 
+          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário', 
+          linked_user_id: null, 
+          partnerName: null 
+        });
+        return;
+      }
+
+      const profileData = dbProfile as { name?: string; linked_user_id?: string; email?: string };
+      const linkedId = profileData?.linked_user_id || null;
+      let partnerName: string | null = null;
+
+      // 2. Se houver um ID vinculado, busca o nome desse parceiro
+      if (linkedId) {
+        const { data: partnerProfile } = await supabase
+          .from('profiles')
+          .select('name, email')
+          .eq('user_id', linkedId)
+          .maybeSingle();
+        
+        const partnerData = partnerProfile as { name?: string; email?: string } | null;
+        if (partnerData) {
+          partnerName = partnerData.name || partnerData.email?.split('@')[0] || 'Parceiro';
+        }
+      }
+      
+      setProfile({
+        name: profileData?.name || profileData?.email?.split('@')[0] || 'Usuário',
+        linked_user_id: linkedId,
+        partnerName
+      });
+    } catch (error) {
+      console.error("Error in fetchProfile:", error);
+      setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null });
     }
-    
-    setProfile({
-      name: profileData?.name || profileData?.email?.split('@')[0] || 'Usuário',
-      linked_user_id: linkedId,
-      partnerName
-    });
   };
 
   const refreshProfile = async () => {
