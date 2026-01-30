@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -99,9 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(initialSession);
         const currentUser = initialSession?.user ?? null;
         setUser(currentUser);
-        
+
+        // Não bloqueie a tela de carregamento esperando chamadas ao banco.
+        // Se houver lentidão/erro no perfil, o app continua e o perfil atualiza depois.
         if (currentUser) {
-          await fetchProfile(currentUser);
+          void fetchProfile(currentUser);
         } else {
           setProfile(null);
         }
@@ -119,9 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
+
+        // Garante que qualquer mudança de auth (login/logout) destrave o app.
+        setLoading(false);
         
         if (currentUser) {
-          await fetchProfile(currentUser);
+          void fetchProfile(currentUser);
         } else {
           setProfile(null);
         }
