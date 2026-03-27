@@ -17,7 +17,7 @@ const tabs = [
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-bottom z-40">
-      <div className="flex items-center justify-around max-w-lg mx-auto px-4">
+      <div className="grid grid-cols-5 max-w-lg mx-auto h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -27,7 +27,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "flex flex-col items-center gap-1 py-3 px-3 touch-target transition-colors",
+                "flex flex-col items-center justify-center gap-1 transition-colors relative",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
               aria-label={tab.label}
@@ -37,11 +37,14 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 isActive && "scale-110"
               )} />
               <span className={cn(
-                "text-xs font-medium",
-                isActive && "font-semibold"
+                "text-[10px] font-medium",
+                isActive && "font-bold"
               )}>
                 {tab.label}
               </span>
+              {isActive && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full shadow-glow" />
+              )}
             </button>
           );
         })}

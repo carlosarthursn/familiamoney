@@ -23,7 +23,7 @@ export function Header({
   const avatarUrl = profile?.avatar_url;
 
   return (
-    <header className="bg-primary text-primary-foreground pt-14 pb-5 px-6 safe-top shadow-lg">
+    <header className="bg-primary text-primary-foreground pt-20 pb-6 px-6 safe-top shadow-lg">
       <div className="flex items-center justify-between">
         {/* Profile Info Section */}
         <div className="flex items-center gap-3 overflow-hidden">
@@ -50,7 +50,7 @@ export function Header({
         </div>
 
         {/* Action Icons */}
-        <div className="flex items-center gap-1 shrink-0 ml-2">
+        <div className="flex items-center gap-2 shrink-0 ml-2">
           <button 
             onClick={() => setShowBalance(!showBalance)}
             className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"
