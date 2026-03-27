@@ -30,12 +30,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (currentUser: User) => {
-    // Busca o perfil de forma assíncrona sem travar a UI
     try {
-      const { data: dbProfile } = await supabase
+      const { data: dbProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', currentUser.id)
+        .eq('id', currentUser.id)
         .maybeSingle();
       
       if (dbProfile) {
@@ -46,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: partner } = await supabase
             .from('profiles')
             .select('name, email')
-            .eq('user_id', profileData.linked_user_id)
+            .eq('id', profileData.linked_user_id)
             .maybeSingle();
           if (partner) pName = (partner as any).name || (partner as any).email?.split('@')[0];
         }
@@ -58,18 +57,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: Number(profileData.monthly_budget) || 0
         });
       } else {
-        // Se não existir, define o básico e tenta criar em silêncio
-        setProfile({ name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário', monthly_budget: 0 });
-        
-        supabase.from('profiles').upsert({
+        // Se o perfil não existe, cria agora mesmo
+        const newProfile = {
           id: currentUser.id,
           user_id: currentUser.id,
           email: currentUser.email,
-          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
+          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário',
           monthly_budget: 0
-        } as any).catch(() => {});
+        };
+
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert(newProfile);
+
+        if (!insertError) {
+          setProfile({
+            name: newProfile.name,
+            monthly_budget: 0
+          });
+        } else {
+          // Fallback local se o banco falhar
+          setProfile({ name: newProfile.name, monthly_budget: 0 });
+        }
       }
     } catch (e) {
+      console.error("Erro ao gerenciar perfil:", e);
       setProfile({ name: currentUser.email?.split('@')[0] || 'Usuário' });
     }
   };
@@ -81,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         if (currentSession?.user) {
-          fetchProfile(currentSession.user);
+          await fetchProfile(currentSession.user);
         }
       } catch (e) {
         console.error("Auth init error:", e);
@@ -92,13 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       const newUser = newSession?.user ?? null;
       setUser(newUser);
       
       if (newUser) {
-        fetchProfile(newUser);
+        await fetchProfile(newUser);
       } else {
         setProfile(null);
       }
@@ -109,7 +121,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
-    // Não bloqueia o loading global aqui, usa o loading local do formulário
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -117,18 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     if (error) return { error };
-
-    if (data.user) {
-      // Tenta criar o perfil sem esperar a resposta para não travar
-      supabase.from('profiles').upsert({
-        id: data.user.id,
-        user_id: data.user.id,
-        email,
-        name,
-        monthly_budget: 0
-      } as any).catch(() => {});
-    }
-    
     return { error: null };
   };
 
@@ -147,8 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (updates: any) => {
     if (!user) return { error: new Error('Unauthorized') };
-    const { error } = await supabase.from('profiles').update(updates).eq('user_id', user.id);
-    if (!error) fetchProfile(user);
+    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+    if (!error) await fetchProfile(user);
     return { error: error as Error | null };
   };
 
