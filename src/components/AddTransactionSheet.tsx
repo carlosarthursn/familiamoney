@@ -63,7 +63,8 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Lendo com Gemini 1.5 Flash...');
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Tentando o modelo com prefixo completo para evitar o erro 404
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
       const imagePart = await fileToGenerativePart(file);
       
       const allowedCategories = categories.map(c => c.id).join(', ');
@@ -95,7 +96,7 @@ export function AddTransactionSheet() {
       console.error('ERRO IA:', error);
       let userMessage = 'Falha técnica ao acessar o Gemini 1.5 Flash.';
       if (error.message?.includes('404')) {
-        userMessage = 'Erro 404: O modelo gemini-1.5-flash não foi encontrado ou não está disponível para esta chave.';
+        userMessage = 'Erro 404: Verifique se a API "Generative Language API" está ativada no seu Google Cloud Console.';
       }
       toast.error(userMessage, { id: toastId, duration: 6000 });
     } finally {
