@@ -8,6 +8,7 @@ import { usePlanning } from '@/hooks/usePlanning';
 import { toast } from 'sonner';
 import { AddGoalSheet } from './AddGoalSheet';
 import { AddWishItemSheet } from './AddWishItemSheet';
+import { BudgetSheet } from './BudgetSheet';
 
 // Componente auxiliar para exibir quando não há itens
 function EmptyState({ icon: Icon, title, description, trigger }: { icon: React.ElementType, title: string, description: string, trigger: React.ReactNode }) {
@@ -109,7 +110,7 @@ export function PlanningView() {
         )}
       </div>
 
-      {/* Budgeting Section (Fixed/Variable Expenses) */}
+      {/* Budgeting Section */}
       <div className="space-y-4">
         <h3 className="font-semibold flex items-center gap-2 text-lg">
           <DollarSign className="h-5 w-5 text-primary" />
@@ -120,12 +121,10 @@ export function PlanningView() {
             <CardTitle className="text-base">Gastos Fixos vs Variáveis</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Aqui você poderá definir orçamentos para suas categorias de despesas fixas e variáveis e acompanhar seu progresso.
+            <p className="text-sm text-muted-foreground mb-3">
+              Defina limites mensais por categoria e acompanhe seus gastos.
             </p>
-            <Button variant="secondary" className="mt-3 w-full">
-              Configurar Orçamento
-            </Button>
+            <BudgetSheet />
           </CardContent>
         </Card>
       </div>

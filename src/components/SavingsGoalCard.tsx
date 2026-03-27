@@ -26,9 +26,9 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
   return (
     <Card className="shadow-card group transition-all hover:shadow-card-hover">
       <CardHeader className="pb-2 flex flex-row items-start justify-between">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Target className="h-5 w-5 text-primary" />
-          {goal.name}
+        <CardTitle className="text-base font-semibold flex items-center gap-2 truncate">
+          <Target className="h-4 w-4 text-primary shrink-0" />
+          <span className="truncate">{goal.name}</span>
         </CardTitle>
         <button
           onClick={() => onDelete(goal.id)}
@@ -39,7 +39,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
         </button>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex justify-between text-sm">
+        <div className="flex justify-between text-xs">
           <span className="text-muted-foreground">Progresso:</span>
           <span className={cn("font-medium", isComplete ? "text-success" : "text-primary")}>
             {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}

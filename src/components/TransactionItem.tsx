@@ -24,11 +24,11 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
   return (
     <div className="flex items-center gap-3 p-4 bg-card rounded-xl shadow-card group transition-all hover:shadow-card-hover">
       <div className={cn(
-        "h-12 w-12 rounded-xl flex items-center justify-center shrink-0",
+        "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
         isIncome ? "bg-success/10" : "bg-destructive/10"
       )}>
         <IconComponent className={cn(
-          "h-5 w-5",
+          "h-4 w-4",
           isIncome ? "text-success" : "text-destructive"
         )} />
       </div>
@@ -62,9 +62,9 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
         )}
       </div>
       
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 shrink-0">
         <p className={cn(
-          "font-semibold text-right",
+          "font-semibold text-sm text-right whitespace-nowrap",
           isIncome ? "text-success" : "text-destructive"
         )}>
           {isIncome ? '+' : '-'}{formatCurrency(Number(transaction.amount))}

@@ -53,7 +53,7 @@ export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
         </div>
         
         <div className="flex items-center gap-2 shrink-0">
-          <p className="font-bold text-lg text-foreground">
+          <p className="font-bold text-sm text-foreground whitespace-nowrap">
             {formatCurrency(item.price)}
           </p>
           
