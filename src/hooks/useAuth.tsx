@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     try {
+      // Tenta buscar o perfil
       const { data: dbProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profileData = dbProfile as any;
         let pName: string | null = null;
 
+        // Busca o nome do parceiro se houver vínculo
         if (profileData.linked_user_id) {
           const { data: partner } = await supabase
             .from('profiles')
@@ -59,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: Number(profileData.monthly_budget) || 0
         });
       } else {
-        // Criar perfil básico se não existir
+        // Se não existir perfil, cria um básico para que o RLS funcione
         const newProfile = {
           id: currentUser.id,
           user_id: currentUser.id,
@@ -68,13 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: 0
         };
 
-        await supabase.from('profiles').insert(newProfile);
+        await supabase.from('profiles').upsert(newProfile);
         setProfile({ name: newProfile.name, monthly_budget: 0 });
       }
     } catch (e) {
-      console.error("Erro ao buscar perfil:", e);
-      // Fallback para não travar a aplicação
-      setProfile({ name: currentUser.email?.split('@')[0] || 'Usuário', monthly_budget: 0 });
+      console.error("Auth: Erro ao carregar perfil:", e);
     }
   }, []);
 
@@ -82,21 +82,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initAuth = async () => {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!mounted) return;
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!mounted) return;
 
+      if (currentSession) {
         setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        if (currentSession?.user) {
-          await fetchProfile(currentSession.user);
-        }
-      } catch (e) {
-        console.error("Auth init error:", e);
-      } finally {
-        if (mounted) setLoading(false);
+        setUser(currentSession.user);
+        await fetchProfile(currentSession.user);
       }
+      setLoading(false);
     };
 
     initAuth();
@@ -123,29 +117,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
+    return supabase.auth.signUp({
       email,
       password,
       options: { data: { name } }
     });
-    return { error: error as Error | null };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+    return supabase.auth.signInWithPassword({ email, password });
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setSession(null);
     window.location.replace('/');
   };
 
   const updateProfile = async (updates: any) => {
-    if (!user) return { error: new Error('Unauthorized') };
+    if (!user) return { error: new Error('Não autenticado') };
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
     if (!error) await fetchProfile(user);
     return { error: error as Error | null };
@@ -174,6 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  if (!context) throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   return context;
 }

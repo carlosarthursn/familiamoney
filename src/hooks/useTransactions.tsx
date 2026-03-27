@@ -11,79 +11,61 @@ interface UseTransactionsOptions {
   filterCategories?: string[]; 
 }
 
-interface TransactionWithAuthor extends Transaction {
-  author_name?: string;
-}
-
 export function useTransactions({ selectedDate, filterCategories }: UseTransactionsOptions = {}) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   
   const currentDate = selectedDate || new Date();
-  
-  // Define o intervalo do mês usando o formato ISO padrão do banco
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-01');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-  const currentUserId = user?.id;
-
-  const queryKey = ['transactions', currentUserId, monthStart, monthEnd];
+  const userId = user?.id;
 
   const transactionsQuery = useQuery({
-    queryKey: queryKey,
-    queryFn: async (): Promise<TransactionWithAuthor[]> => {
-      if (!currentUserId) return [];
+    queryKey: ['transactions', userId, monthStart, monthEnd],
+    queryFn: async () => {
+      if (!userId) return [];
       
-      // Buscamos as transações sem filtros complexos de ID no JS, 
-      // deixando o RLS do banco fazer o trabalho de segurança.
-      const { data: transactions, error: tError } = await supabase
+      // Busca direta. O RLS do Supabase garante que você só veja o que tem permissão.
+      const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .order('date', { ascending: false });
 
-      if (tError) {
-        console.error('Erro ao buscar transações:', tError);
-        throw tError;
+      if (error) {
+        console.error('Erro ao buscar transações:', error);
+        throw error;
       }
 
-      // Buscar perfis para identificar quem fez a transação (Você ou Parceiro)
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, name, email');
-
-      const profileMap = (profiles || []).reduce((acc, p) => {
-        acc[p.user_id] = p.name || p.email?.split('@')[0] || 'Usuário';
-        return acc;
-      }, {} as Record<string, string>);
-
-      return (transactions || []).map(t => ({
+      return (data || []).map(t => ({
         ...t,
         amount: Number(t.amount),
-        author_name: t.user_id === currentUserId ? 'Você' : (profileMap[t.user_id] || 'Parceiro')
+        author_name: t.user_id === userId ? 'Você' : 'Parceiro'
       }));
     },
-    enabled: !!currentUserId,
-    staleTime: 0, // Garante que os dados não fiquem "velhos" no cache
+    enabled: !!userId,
+    staleTime: 0,
+    gcTime: 0, // Não mantém lixo em cache para garantir atualização real
   });
 
   const addTransaction = useMutation({
     mutationFn: async (transaction: TransactionInsert) => {
-      if (!currentUserId) throw new Error('Usuário não autenticado');
+      if (!userId) throw new Error('Usuário não autenticado');
       
       const { error } = await supabase
         .from('transactions')
         .insert({
           ...transaction,
-          user_id: currentUserId,
+          user_id: userId,
         });
 
       if (error) throw error;
       return true;
     },
     onSuccess: () => {
-      // Invalida todas as queries relacionadas a transações para forçar o refresh
+      // Invalida o cache IMEDIATAMENTE após adicionar
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dateRangeTransactions'] });
     },
@@ -91,11 +73,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const deleteTransaction = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -103,39 +81,35 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     },
   });
 
-  const allTransactions = transactionsQuery.data || [];
+  const transactions = transactionsQuery.data || [];
   
-  const totalIncome = allTransactions
+  const totalIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
     
-  const totalExpensesAll = allTransactions
+  const totalExpensesAll = transactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const filteredExpenses = allTransactions
+  const filteredExpenses = transactions
     .filter(t => t.type === 'expense')
     .filter(t => !filterCategories || filterCategories.length === 0 || filterCategories.includes(t.category));
 
-  const totalExpenses = filteredExpenses
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const personalExpenses = allTransactions
-    .filter(t => t.type === 'expense' && t.user_id === currentUserId)
+  const totalExpenses = filteredExpenses.reduce((sum, t) => sum + t.amount, 0);
+  const personalExpenses = transactions
+    .filter(t => t.type === 'expense' && t.user_id === userId)
     .reduce((sum, t) => sum + t.amount, 0);
     
   const balance = totalIncome - totalExpensesAll;
 
-  const expensesByCategory = filteredExpenses
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
+  const expensesByCategory = filteredExpenses.reduce((acc, t) => {
+    acc[t.category] = (acc[t.category] || 0) + t.amount;
+    return acc;
+  }, {} as Record<string, number>);
 
   return {
-    transactions: allTransactions,
+    transactions,
     isLoading: transactionsQuery.isLoading,
-    isError: transactionsQuery.isError,
     addTransaction,
     deleteTransaction,
     totalIncome,
