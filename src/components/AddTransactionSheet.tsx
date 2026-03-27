@@ -6,23 +6,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera } from 'lucide-react';
-import { format, parse } from 'date-fns';
+import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
-import { createWorker } from 'tesseract.js';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  food: ['MERCADO', 'SUPERMERCADO', 'RESTAURANTE', 'LANCHONETE', 'IFOOD', 'PADARIA', 'AÇOUGUE', 'ALIMENTOS', 'BEBIDAS', 'LANCHE', 'PIZZA'],
-  transport: ['POSTO', 'GASOLINA', 'UBER', '99APP', 'ESTACIONAMENTO', 'PEDAGIO', 'COMBUSTIVEL', 'AUTO'],
-  health: ['FARMACIA', 'DROGARIA', 'HOSPITAL', 'CLINICA', 'EXAME', 'MEDICAMENTO', 'SAUDE'],
-  leisure: ['CINEMA', 'SHOW', 'TEATRO', 'BAR', 'PUB', 'ENTRETENIMENTO'],
-  bills: ['LUZ', 'AGUA', 'INTERNET', 'TELEFONE', 'CONDOMINIO', 'IPTU', 'ENERGIA', 'SANEAMENTO'],
-  shopping: ['LOJA', 'SHOPPING', 'VESTUARIO', 'CALÇADO', 'ELETRONICO', 'MAGAZINE', 'DEPARTAMENTO'],
-};
+// Chave fornecida pelo usuário
+const GEMINI_API_KEY = "AIzaSyAGJBKwhjhES8w22jphdURI9530pkQZ7BQ";
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
@@ -46,98 +41,65 @@ export function AddTransactionSheet() {
     setDate(new Date());
     setDescription('');
   };
+
+  // Função para converter arquivo em base64 para a IA
+  const fileToGenerativePart = async (file: File) => {
+    const base64EncodedDataPromise = new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+    return {
+      inlineData: { data: await base64EncodedDataPromise as string, mimeType: file.type },
+    };
+  };
   
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Analisando nota fiscal...');
+    const toastId = toast.loading('A Inteligência Artificial está lendo sua nota...');
 
     try {
-      const worker = await createWorker('por');
-      const { data: { text } } = await worker.recognize(file);
-      await worker.terminate();
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const imagePart = await fileToGenerativePart(file);
 
-      const upperText = text.toUpperCase();
-      const lines = upperText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const prompt = `Analise esta imagem de nota fiscal ou recibo e extraia os dados para um sistema financeiro. 
+      Retorne APENAS um objeto JSON puro (sem markdown) com este formato:
+      {
+        "amount": number (valor total da nota),
+        "category": string (escolha a melhor entre: food, transport, health, leisure, bills, shopping, other),
+        "date": string (formato YYYY-MM-DD),
+        "description": string (Nome do estabelecimento + resumo curto do que foi comprado)
+      }
+      Se não encontrar a data, use a data de hoje. Se não tiver certeza da categoria, use 'other'.`;
+
+      const result = await model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      const text = response.text();
       
-      console.log('--- OCR LINES ---', lines);
+      // Limpa possíveis marcações de markdown que a IA possa colocar
+      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const data = JSON.parse(jsonStr);
 
-      // Regex para valores monetários (ex: 57,00 ou 1.234,56)
-      const moneyRegex = /(\d{1,3}(?:[\.,\s]\d{3})*[\.,]\d{2})/g;
-      
-      let detectedAmount = 0;
-      let foundByKeyword = false;
-
-      // 1. Busca por palavras-chave de TOTAL
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.includes('TOTAL') || line.includes('VALOR A PAGAR') || line.includes('PAGAR') || line.includes('SUBTOTAL')) {
-          // Tenta achar o valor na mesma linha ou nas próximas 2
-          const searchArea = lines.slice(i, i + 3).join(' ');
-          const matches = searchArea.match(moneyRegex);
-          
-          if (matches) {
-            // Pega o maior valor encontrado perto da palavra TOTAL
-            const values = matches.map(m => parseFloat(m.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')));
-            const maxInArea = Math.max(...values);
-            if (maxInArea > 0) {
-              detectedAmount = maxInArea;
-              foundByKeyword = true;
-              break;
-            }
-          }
-        }
+      if (data.amount) {
+        setAmount(data.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
       }
-
-      // 2. Se não achou por palavra-chave, pega o maior valor da nota (ignorando números gigantes como CNPJ)
-      if (!foundByKeyword) {
-        const allMatches = upperText.match(moneyRegex);
-        if (allMatches) {
-          const allValues = allMatches
-            .map(m => parseFloat(m.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')))
-            .filter(v => v < 5000); // Filtro de segurança para evitar CNPJ/Inscrições
-          
-          if (allValues.length > 0) {
-            detectedAmount = Math.max(...allValues);
-          }
-        }
-      }
-
-      if (detectedAmount > 0) {
-        const formatted = detectedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-        setAmount(formatted);
-        toast.success(`Valor identificado: R$ ${formatted}`, { id: toastId });
-      } else {
-        toast.error('Não consegui ler o valor total. Tente focar no final da nota.', { id: toastId });
-      }
-
-      // Detecção de Data
-      const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
-      const dateMatch = upperText.match(dateRegex);
-      if (dateMatch) {
+      if (data.category) setCategory(data.category);
+      if (data.description) setDescription(data.description);
+      if (data.date) {
         try {
-          const day = dateMatch[1];
-          const month = dateMatch[2];
-          let year = dateMatch[3];
-          if (year.length === 2) year = '20' + year;
-          const parsedDate = parse(`${day}/${month}/${year}`, 'dd/MM/yyyy', new Date());
-          if (!isNaN(parsedDate.getTime())) setDate(parsedDate);
-        } catch (e) {}
-      }
-
-      // Sugestão de Categoria
-      for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-        if (keywords.some(kw => upperText.includes(kw))) {
-          setCategory(catId);
-          break;
+          setDate(parseISO(data.date));
+        } catch (e) {
+          setDate(new Date());
         }
       }
 
+      toast.success('Nota lida com sucesso pela IA!', { id: toastId });
     } catch (error) {
-      console.error('Erro no OCR:', error);
-      toast.error('Erro ao processar imagem.', { id: toastId });
+      console.error('Erro na IA Gemini:', error);
+      toast.error('A IA falhou ao ler a nota. Tente novamente ou digite manualmente.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -186,7 +148,10 @@ export function AddTransactionSheet() {
       </SheetTrigger>
       <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl flex flex-col p-0 overflow-hidden">
         <SheetHeader className="px-6 pt-6 pb-2">
-          <SheetTitle className="text-xl">Nova Movimentação</SheetTitle>
+          <SheetTitle className="text-xl flex items-center gap-2">
+            Nova Movimentação
+            <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+          </SheetTitle>
           <SheetDescription className="sr-only">
             Adicione detalhes sobre sua nova receita ou despesa.
           </SheetDescription>
@@ -230,20 +195,25 @@ export function AddTransactionSheet() {
               </button>
             </div>
 
-            {/* Scan Button - More prominent */}
+            {/* AI Scan Button */}
             <Button
               type="button"
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
               disabled={isScanning}
-              className="w-full h-12 border-dashed border-primary/40 text-primary hover:bg-primary/5 rounded-xl flex items-center justify-center gap-2"
+              className="w-full h-14 border-2 border-dashed border-primary/40 text-primary hover:bg-primary/5 rounded-xl flex flex-col items-center justify-center gap-0"
             >
               {isScanning ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Camera className="h-5 w-5" />
+                <>
+                  <div className="flex items-center gap-2">
+                    <Camera className="h-5 w-5" />
+                    <span className="font-bold">Escanear com I.A.</span>
+                  </div>
+                  <span className="text-[10px] opacity-70">Valor, data e categoria automáticos</span>
+                </>
               )}
-              <span className="font-semibold">Escanear Nota Fiscal</span>
             </Button>
             <input
               type="file"
@@ -340,9 +310,9 @@ export function AddTransactionSheet() {
             
             {/* Description */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Descrição (opcional)</Label>
+              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Descrição / Estabelecimento</Label>
               <Textarea
-                placeholder="Adicione uma nota..."
+                placeholder="Ex: Almoço no Restaurante X"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="min-h-[60px] text-sm rounded-xl resize-none"
@@ -365,7 +335,7 @@ export function AddTransactionSheet() {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Salvando...
               </div>
-            ) : 'Salvar Movimentação'}
+            ) : 'Confirmar e Salvar'}
           </Button>
         </div>
       </SheetContent>
