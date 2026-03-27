@@ -58,45 +58,44 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('A Inteligência Artificial está analisando a imagem...');
+    const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
-      const prompt = `Analise esta imagem de nota fiscal, cupom ou recibo.
-      Extraia os dados e retorne EXATAMENTE um JSON no formato abaixo, sem nenhum outro texto ou markdown:
-      {
-        "amount": "valor_numerico",
-        "category": "food" | "transport" | "health" | "leisure" | "bills" | "shopping" | "other",
-        "date": "YYYY-MM-DD",
-        "description": "Nome do Local - Resumo"
-      }
-      Regras:
-      1. No "amount", retorne apenas o número (ex: 57.00).
-      2. Se não achar a data, use "${format(new Date(), 'yyyy-MM-dd')}".
-      3. Escolha a categoria que melhor se encaixa.`;
+      const prompt = `Analise a imagem e extraia: valor total, categoria, data e local.
+      Responda APENAS com um objeto JSON puro, sem markdown, sem explicações.
+      Categorias permitidas: food, transport, health, leisure, bills, shopping, other.
+      Formato: {"amount": 0.00, "category": "string", "date": "YYYY-MM-DD", "description": "string"}`;
 
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
-      const text = response.text();
+      
+      let text = "";
+      try {
+        text = response.text();
+      } catch (e) {
+        console.error("Erro ao obter texto (bloqueio de segurança?):", e);
+        throw new Error("A IA bloqueou o conteúdo por segurança ou falhou ao gerar o texto.");
+      }
       
       console.log("Resposta bruta da IA:", text);
       
-      // Busca o JSON dentro da resposta de forma mais robusta
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Formato de resposta inválido");
+      // Limpeza profunda: remove blocos de código markdown e espaços extras
+      const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      
+      if (!jsonMatch) {
+        console.error("JSON não encontrado no texto:", cleanedText);
+        throw new Error("Não foi possível encontrar os dados na resposta da IA.");
+      }
       
       const data = JSON.parse(jsonMatch[0]);
 
-      // Tratamento ultra-robusto do valor
+      // Processamento dos dados extraídos
       if (data.amount) {
-        let cleanAmount = String(data.amount)
-          .replace('R$', '')
-          .replace(/\s/g, '')
-          .replace(',', '.');
-        
-        const val = parseFloat(cleanAmount);
+        const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
         if (!isNaN(val)) {
           setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
         }
@@ -116,10 +115,11 @@ export function AddTransactionSheet() {
         }
       }
 
-      toast.success('Dados extraídos com sucesso!', { id: toastId });
+      toast.success('Dados extraídos!', { id: toastId });
     } catch (error: any) {
-      console.error('Erro detalhado da IA:', error);
-      toast.error('Erro ao processar a nota. Tente novamente.', { id: toastId });
+      console.error('Erro detalhado:', error);
+      const msg = error.message || 'Erro desconhecido ao processar nota.';
+      toast.error(`Erro: ${msg}`, { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
