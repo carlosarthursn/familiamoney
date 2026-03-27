@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Transaction, TransactionInsert } from '@/types/finance';
 import { useAuth } from './useAuth';
-import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
 
 interface UseTransactionsOptions {
   selectedDate?: Date;
@@ -20,24 +20,24 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const queryClient = useQueryClient();
   
   const currentDate = selectedDate || new Date();
-  const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+  
+  // Usamos strings de data puras para evitar problemas de fuso horário
+  const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-01');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-  // Determina os IDs de usuários para a busca (próprio + parceiro se houver)
-  const userIds = [user?.id].filter(Boolean) as string[];
+  // IDs para busca (garantindo que o ID do usuário logado seja prioridade)
+  const currentUserId = user?.id;
   const linkedId = profile?.linked_user_id;
   
-  if (linkedId && !userIds.includes(linkedId)) {
-    userIds.push(linkedId);
-  }
+  const userIds = [currentUserId, linkedId].filter(Boolean) as string[];
 
-  // Chave da query baseada nos usuários e no mês selecionado
+  // Chave da query estável
   const queryKey = ['transactions', userIds.sort().join(','), monthStart, monthEnd];
 
   const transactionsQuery = useQuery({
     queryKey: queryKey,
     queryFn: async (): Promise<TransactionWithAuthor[]> => {
-      if (userIds.length === 0) return [];
+      if (!currentUserId) return [];
       
       const { data: transactions, error: tError } = await supabase
         .from('transactions')
@@ -47,8 +47,12 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         .lte('date', monthEnd)
         .order('date', { ascending: false });
 
-      if (tError) throw tError;
+      if (tError) {
+        console.error('Erro ao buscar transações:', tError);
+        throw tError;
+      }
 
+      // Buscar nomes dos perfis para identificar quem postou
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, name, email')
@@ -59,35 +63,34 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         return acc;
       }, {} as Record<string, string>);
 
-      return (transactions as Transaction[]).map(t => ({
+      return (transactions || []).map(t => ({
         ...t,
-        author_name: t.user_id === user?.id ? 'Você' : (profileMap[t.user_id] || 'Parceiro')
+        // Forçar conversão para número caso venha como string do banco
+        amount: Number(t.amount),
+        author_name: t.user_id === currentUserId ? 'Você' : (profileMap[t.user_id] || 'Parceiro')
       }));
     },
-    enabled: !!user,
-    staleTime: 0, // Removido o staleTime para garantir dados sempre frescos após invalidação
+    enabled: !!currentUserId,
+    refetchOnWindowFocus: true, // Garante atualização ao voltar para a aba
   });
 
   const addTransaction = useMutation({
     mutationFn: async (transaction: TransactionInsert) => {
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!currentUserId) throw new Error('Usuário não autenticado');
       
       const { error } = await supabase
         .from('transactions')
         .insert({
           ...transaction,
-          user_id: user.id,
+          user_id: currentUserId,
         });
 
       if (error) throw error;
       return true;
     },
     onSuccess: () => {
-      // Invalida todas as queries relacionadas a transações para forçar o refetch imediato
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dateRangeTransactions'] });
-      // Também invalida o saldo do perfil caso haja lógica de cache lá
-      queryClient.invalidateQueries({ queryKey: ['budgets'] });
     },
   });
 
@@ -107,33 +110,32 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const allTransactions = transactionsQuery.data || [];
   
-  // Cálculos baseados em TODAS as transações do mês (para o saldo principal)
+  // Cálculos de saldo total (sempre baseados em todas as transações do mês)
   const totalIncome = allTransactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + t.amount, 0);
     
   const totalExpensesAll = allTransactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + t.amount, 0);
 
-  // Cálculos filtrados por categoria (para a visão de análise)
+  // Cálculos filtrados (usados na tela de Análise)
   const filteredExpenses = allTransactions
     .filter(t => t.type === 'expense')
     .filter(t => !filterCategories || filterCategories.length === 0 || filterCategories.includes(t.category));
 
   const totalExpenses = filteredExpenses
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + t.amount, 0);
 
   const personalExpenses = allTransactions
-    .filter(t => t.type === 'expense' && t.user_id === user?.id)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .filter(t => t.type === 'expense' && t.user_id === currentUserId)
+    .reduce((sum, t) => sum + t.amount, 0);
     
-  // O saldo deve refletir a diferença real entre o que entrou e o que saiu, ignorando filtros de categoria da UI
   const balance = totalIncome - totalExpensesAll;
 
   const expensesByCategory = filteredExpenses
     .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
 
@@ -143,8 +145,8 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     addTransaction,
     deleteTransaction,
     totalIncome,
-    totalExpenses, // Usado na Análise (respeita filtros)
-    totalExpensesAll, // Total real do mês (para o BalanceCard)
+    totalExpenses,
+    totalExpensesAll,
     personalExpenses,
     balance,
     expensesByCategory,
