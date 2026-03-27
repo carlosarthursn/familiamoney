@@ -39,53 +39,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (profileError) {
         console.error("Erro ao buscar perfil:", profileError);
-        return;
       }
 
       if (!dbProfile) {
-        // Fallback: se o trigger falhar, criamos aqui
+        // Se o perfil não existe, tentamos criar agora mesmo
         const defaultName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
-        const { data: newProfile } = await supabase.from('profiles').upsert({
-          id: currentUser.id,
-          user_id: currentUser.id,
-          email: currentUser.email,
-          name: defaultName,
-          monthly_budget: 0
-        } as any).select().maybeSingle();
         
-        if (newProfile) {
-          setProfile({
-            name: (newProfile as any).name,
-            linked_user_id: (newProfile as any).linked_user_id,
-            partnerName: null,
-            monthly_budget: (newProfile as any).monthly_budget || 0
-          });
-        }
-        return;
-      }
-
-      const profileData = dbProfile as any;
-      const linkedId = profileData?.linked_user_id || null;
-      let partnerName: string | null = null;
-
-      if (linkedId) {
-        const { data: partnerProfile } = await supabase
+        const { data: createdProfile, error: insertError } = await supabase
           .from('profiles')
-          .select('name, email')
-          .eq('user_id', linkedId)
+          .upsert({
+            id: currentUser.id,
+            user_id: currentUser.id,
+            email: currentUser.email,
+            name: defaultName,
+            monthly_budget: 0
+          } as any)
+          .select()
           .maybeSingle();
-        
-        if (partnerProfile) {
-          partnerName = (partnerProfile as any).name || (partnerProfile as any).email?.split('@')[0] || 'Parceiro';
+
+        if (insertError) {
+          console.error("Erro ao criar perfil automaticamente:", insertError);
+        } else if (createdProfile) {
+          setProfile({
+            name: (createdProfile as any).name,
+            linked_user_id: null,
+            partnerName: null,
+            monthly_budget: 0
+          });
+          return;
         }
       }
-      
-      setProfile({
-        name: profileData?.name || profileData?.email?.split('@')[0] || 'Usuário',
-        linked_user_id: linkedId,
-        partnerName,
-        monthly_budget: profileData?.monthly_budget || 0
-      });
+
+      if (dbProfile) {
+        const profileData = dbProfile as any;
+        const linkedId = profileData?.linked_user_id || null;
+        let partnerName: string | null = null;
+
+        if (linkedId) {
+          const { data: partnerProfile } = await supabase
+            .from('profiles')
+            .select('name, email')
+            .eq('user_id', linkedId)
+            .maybeSingle();
+          
+          if (partnerProfile) {
+            partnerName = (partnerProfile as any).name || (partnerProfile as any).email?.split('@')[0] || 'Parceiro';
+          }
+        }
+        
+        setProfile({
+          name: profileData?.name || profileData?.email?.split('@')[0] || 'Usuário',
+          linked_user_id: linkedId,
+          partnerName,
+          monthly_budget: profileData?.monthly_budget || 0
+        });
+      }
     } catch (error) {
       console.error("Erro inesperado no fetchProfile:", error);
     }
@@ -108,12 +116,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser);
 
         if (currentUser) {
-          fetchProfile(currentUser);
+          await fetchProfile(currentUser);
         }
       } catch (e) {
         console.error("Erro ao inicializar auth:", e);
       } finally {
-        setTimeout(() => setLoading(false), 800);
+        setLoading(false);
       }
     };
 
@@ -126,10 +134,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser);
         
         if (currentUser) {
-          fetchProfile(currentUser);
+          await fetchProfile(currentUser);
         } else {
           setProfile(null);
         }
+        
+        // Garante que o loading pare sempre
         setLoading(false);
       }
     );
@@ -138,33 +148,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name },
-      },
-    });
-    
-    // Tenta criar o perfil manualmente também (redundância de segurança)
-    if (!error && data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        user_id: data.user.id,
-        email: email,
-        name: name,
-        monthly_budget: 0
-      } as any);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name },
+        },
+      });
+      
+      if (error) throw error;
+
+      if (data.user) {
+        // Tenta criar o perfil IMEDIATAMENTE após o cadastro
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          user_id: data.user.id,
+          email: email,
+          name: name,
+          monthly_budget: 0
+        } as any);
+
+        if (profileError) console.error("Erro ao criar perfil no signup:", profileError);
+      }
+      
+      return { error: null };
+    } catch (error: any) {
+      setLoading(false);
+      return { error: error as Error };
     }
-    
-    return { error: error as Error | null };
   };
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (error) setLoading(false);
     return { error: error as Error | null };
   };
 
