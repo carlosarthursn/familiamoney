@@ -1,48 +1,55 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Eye, EyeOff, HelpCircle, UserPlus, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   displayName: string;
+  showBalance: boolean;
+  setShowBalance: (show: boolean) => void;
   onProfileClick?: () => void;
 }
 
-export function Header({ displayName, onProfileClick }: HeaderProps) {
-  const [showBalance, setShowBalance] = useState(true);
-
+export function Header({ displayName, showBalance, setShowBalance, onProfileClick }: HeaderProps) {
   return (
-    <header className="bg-primary text-primary-foreground pt-8 pb-6 px-6 safe-top">
-      <div className="flex items-center justify-between mb-8">
-        {/* Avatar/Profile Icon */}
+    <header className="bg-primary text-primary-foreground pt-6 pb-8 px-6 safe-top">
+      <div className="flex items-center justify-between mb-6">
+        {/* Profile Button */}
         <button 
           onClick={onProfileClick}
-          className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+          className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+          aria-label="Perfil"
         >
-          <User className="h-6 w-6 text-white" />
+          <User className="h-5 w-5 text-white" />
         </button>
 
         {/* Action Icons */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <button 
             onClick={() => setShowBalance(!showBalance)}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            className="p-2.5 hover:bg-white/10 rounded-full transition-colors"
+            aria-label={showBalance ? "Esconder saldo" : "Mostrar saldo"}
           >
-            {showBalance ? <Eye className="h-6 w-6" /> : <EyeOff className="h-6 w-6" />}
+            {showBalance ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
           </button>
-          <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <HelpCircle className="h-6 w-6" />
+          <button 
+            className="p-2.5 hover:bg-white/10 rounded-full transition-colors"
+            aria-label="Ajuda"
+          >
+            <HelpCircle className="h-5 w-5" />
           </button>
-          <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <UserPlus className="h-6 w-6" />
+          <button 
+            className="p-2.5 hover:bg-white/10 rounded-full transition-colors"
+            aria-label="Convidar"
+          >
+            <UserPlus className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      {/* Welcome Message */}
+      {/* Welcome Message - More subtle bold */}
       <div className="animate-fade-in">
-        <h1 className="text-xl font-bold tracking-tight">
+        <h1 className="text-lg font-medium tracking-tight opacity-95">
           Olá, {displayName}
         </h1>
       </div>

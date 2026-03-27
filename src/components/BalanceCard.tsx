@@ -5,16 +5,18 @@ interface BalanceCardProps {
   balance: number;
   income: number;
   expenses: number;
+  showBalance?: boolean;
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number, show: boolean): string {
+  if (!show) return 'R$ •••••';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(value);
 }
 
-export function BalanceCard({ balance, income, expenses }: BalanceCardProps) {
+export function BalanceCard({ balance, income, expenses, showBalance = true }: BalanceCardProps) {
   return (
     <div className="space-y-4">
       {/* Main Balance Card */}
@@ -24,7 +26,7 @@ export function BalanceCard({ balance, income, expenses }: BalanceCardProps) {
           <span className="text-sm font-medium text-white/80">Saldo Atual</span>
         </div>
         <p className="text-3xl font-bold tracking-tight text-white">
-          {formatCurrency(balance)}
+          {formatCurrency(balance, showBalance)}
         </p>
       </div>
       
@@ -38,7 +40,7 @@ export function BalanceCard({ balance, income, expenses }: BalanceCardProps) {
           </div>
           <p className="text-xs text-muted-foreground font-medium">Receitas</p>
           <p className="text-lg font-bold text-success">
-            {formatCurrency(income)}
+            {formatCurrency(income, showBalance)}
           </p>
         </div>
         
@@ -50,7 +52,7 @@ export function BalanceCard({ balance, income, expenses }: BalanceCardProps) {
           </div>
           <p className="text-xs text-muted-foreground font-medium">Despesas</p>
           <p className="text-lg font-bold text-destructive">
-            {formatCurrency(expenses)}
+            {formatCurrency(expenses, showBalance)}
           </p>
         </div>
       </div>

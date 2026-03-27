@@ -22,6 +22,7 @@ import { ptBR } from 'date-fns/locale';
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showBalance, setShowBalance] = useState(true);
   const { user, profile, signOut } = useAuth();
   
   const { transactions: allTransactions, isLoading, totalIncome, totalExpenses, balance, deleteTransaction } = useTransactions({ selectedDate });
@@ -50,7 +51,12 @@ export default function Dashboard() {
         return (
           <div className="space-y-6 animate-fade-in mt-6">
             <MonthSelector currentDate={selectedDate} onDateChange={setSelectedDate} />
-            <BalanceCard balance={balance} income={totalIncome} expenses={totalExpenses} />
+            <BalanceCard 
+              balance={balance} 
+              income={totalIncome} 
+              expenses={totalExpenses} 
+              showBalance={showBalance}
+            />
             <div>
               <h2 className="text-lg font-semibold mb-3">Últimas transações</h2>
               <TransactionList transactions={allTransactions.slice(0, 5)} isLoading={isLoading} onDelete={handleDelete} />
@@ -125,6 +131,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background pb-24">
       <Header 
         displayName={displayName} 
+        showBalance={showBalance}
+        setShowBalance={setShowBalance}
         onProfileClick={() => setActiveTab('profile')} 
       />
       <main className="px-6 pb-24">
