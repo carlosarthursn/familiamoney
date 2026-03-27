@@ -97,7 +97,7 @@ export function AddTransactionSheet() {
                 className={cn(
                   "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-all text-sm",
                   type === 'expense' 
-                    ? "bg-destructive text-destructive-foreground shadow-sm" 
+                    ? "bg-destructive text-white shadow-sm" 
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -113,7 +113,7 @@ export function AddTransactionSheet() {
                 className={cn(
                   "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-all text-sm",
                   type === 'income' 
-                    ? "bg-success text-success-foreground shadow-sm" 
+                    ? "bg-success text-white shadow-sm" 
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -224,7 +224,7 @@ export function AddTransactionSheet() {
             onClick={handleSubmit}
             disabled={addTransaction.isPending}
             className={cn(
-              "w-full h-12 text-base font-semibold rounded-xl shadow-lg",
+              "w-full h-12 text-base font-semibold rounded-xl shadow-lg text-white",
               type === 'income' ? "gradient-income" : "gradient-expense"
             )}
           >

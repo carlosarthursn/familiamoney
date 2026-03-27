@@ -20,13 +20,10 @@ export function BalanceCard({ balance, income, expenses }: BalanceCardProps) {
       {/* Main Balance Card */}
       <div className="gradient-primary rounded-2xl p-6 text-primary-foreground shadow-card">
         <div className="flex items-center gap-2 mb-2">
-          <Wallet className="h-5 w-5 opacity-80" />
-          <span className="text-sm font-medium opacity-80">Saldo Atual</span>
+          <Wallet className="h-5 w-5 text-white/80" />
+          <span className="text-sm font-medium text-white/80">Saldo Atual</span>
         </div>
-        <p className={cn(
-          "text-3xl font-bold tracking-tight",
-          balance < 0 && "text-red-200"
-        )}>
+        <p className="text-3xl font-bold tracking-tight text-white">
           {formatCurrency(balance)}
         </p>
       </div>
