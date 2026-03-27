@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,13 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera, Scan } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
+import { createWorker } from 'tesseract.js';
 
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
@@ -22,7 +23,9 @@ export function AddTransactionSheet() {
   const [date, setDate] = useState<Date>(new Date());
   const [description, setDescription] = useState('');
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { addTransaction } = useTransactions();
   
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
@@ -35,13 +38,46 @@ export function AddTransactionSheet() {
     setDescription('');
   };
   
+  const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    const toastId = toast.loading('Lendo nota fiscal...');
+
+    try {
+      const worker = await createWorker('por');
+      const { data: { text } } = await worker.recognize(file);
+      await worker.terminate();
+
+      // Regex para encontrar valores monetários (ex: 12,34 ou 1.234,56)
+      const moneyRegex = /(?:R\$|TOTAL|VALOR|PAGAR)?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/gi;
+      const matches = [...text.matchAll(moneyRegex)];
+      
+      if (matches.length > 0) {
+        // Pega o último valor encontrado (geralmente o total da nota)
+        const lastMatch = matches[matches.length - 1][1];
+        setAmount(lastMatch);
+        toast.success('Valor reconhecido com sucesso!', { id: toastId });
+      } else {
+        toast.error('Não foi possível identificar o valor na imagem.', { id: toastId });
+      }
+    } catch (error) {
+      console.error('Erro no OCR:', error);
+      toast.error('Erro ao processar imagem.', { id: toastId });
+    } finally {
+      setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async () => {
     if (!amount || !category) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
     
-    const numAmount = parseFloat(amount.replace(',', '.'));
+    const numAmount = parseFloat(amount.replace('.', '').replace(',', '.'));
     if (isNaN(numAmount) || numAmount <= 0) {
       toast.error('Digite um valor válido');
       return;
@@ -70,7 +106,6 @@ export function AddTransactionSheet() {
       <SheetTrigger asChild>
         <Button 
           size="lg" 
-          // Ajustando a posição para bottom-28 (7rem) para garantir que fique bem acima da barra de navegação e da safe area.
           className="fixed bottom-28 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary hover:opacity-90 z-50"
         >
           <Plus className="h-6 w-6" />
@@ -122,9 +157,32 @@ export function AddTransactionSheet() {
               </button>
             </div>
             
-            {/* Amount */}
+            {/* Amount with Scan Button */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Valor</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Valor</Label>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isScanning}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:opacity-80 transition-opacity"
+                >
+                  {isScanning ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="h-3.5 w-3.5" />
+                  )}
+                  Escanear Nota
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleScanReceipt}
+                />
+              </div>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
                   R$
@@ -222,7 +280,7 @@ export function AddTransactionSheet() {
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10 safe-bottom">
           <Button
             onClick={handleSubmit}
-            disabled={addTransaction.isPending}
+            disabled={addTransaction.isPending || isScanning}
             className={cn(
               "w-full h-12 text-base font-semibold rounded-xl shadow-lg text-white",
               type === 'income' ? "gradient-income" : "gradient-expense"
