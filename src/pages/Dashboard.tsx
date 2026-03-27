@@ -134,6 +134,7 @@ export default function Dashboard() {
         showBalance={showBalance}
         setShowBalance={setShowBalance}
         onProfileClick={() => setActiveTab('profile')} 
+        onAnalysisClick={() => setActiveTab('analysis')}
       />
       <main className="px-6 pb-24">
         {renderContent()}

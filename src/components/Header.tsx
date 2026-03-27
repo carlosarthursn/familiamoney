@@ -8,12 +8,19 @@ interface HeaderProps {
   showBalance: boolean;
   setShowBalance: (show: boolean) => void;
   onProfileClick?: () => void;
+  onAnalysisClick?: () => void;
 }
 
-export function Header({ displayName, showBalance, setShowBalance, onProfileClick }: HeaderProps) {
+export function Header({ 
+  displayName, 
+  showBalance, 
+  setShowBalance, 
+  onProfileClick,
+  onAnalysisClick 
+}: HeaderProps) {
   return (
-    <header className="bg-primary text-primary-foreground pt-6 pb-8 px-6 safe-top">
-      <div className="flex items-center justify-between mb-6">
+    <header className="bg-primary text-primary-foreground pt-4 pb-6 px-6 safe-top">
+      <div className="flex items-center justify-between mb-5">
         {/* Profile Button */}
         <button 
           onClick={onProfileClick}
@@ -24,32 +31,34 @@ export function Header({ displayName, showBalance, setShowBalance, onProfileClic
         </button>
 
         {/* Action Icons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button 
             onClick={() => setShowBalance(!showBalance)}
-            className="p-2.5 hover:bg-white/10 rounded-full transition-colors"
+            className="p-2 hover:bg-white/10 rounded-full transition-colors"
             aria-label={showBalance ? "Esconder saldo" : "Mostrar saldo"}
           >
             {showBalance ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
           </button>
           <button 
-            className="p-2.5 hover:bg-white/10 rounded-full transition-colors"
-            aria-label="Ajuda"
+            onClick={onAnalysisClick}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            aria-label="Análise"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
           <button 
-            className="p-2.5 hover:bg-white/10 rounded-full transition-colors"
-            aria-label="Convidar"
+            onClick={onProfileClick}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            aria-label="Compartilhar conta"
           >
             <UserPlus className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      {/* Welcome Message - More subtle bold */}
+      {/* Welcome Message - Subtle and clean */}
       <div className="animate-fade-in">
-        <h1 className="text-lg font-medium tracking-tight opacity-95">
+        <h1 className="text-base font-medium opacity-90">
           Olá, {displayName}
         </h1>
       </div>
