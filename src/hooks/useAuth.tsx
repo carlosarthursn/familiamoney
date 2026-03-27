@@ -43,10 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Se não existir, criar um padrão (auto-correção)
+      // Se não existir, criar um padrão (auto-correção/fallback)
       if (!dbProfile) {
         const defaultName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
         const { data: newProfile, error: insertError } = await supabase.from('profiles').insert({
+          id: currentUser.id, // Adicionado o ID aqui para evitar erro de PK
           user_id: currentUser.id,
           email: currentUser.email,
           name: defaultName,
@@ -108,13 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser);
 
         if (currentUser) {
-          // Não aguardamos o fetchProfile para liberar o carregamento da UI
           fetchProfile(currentUser);
         }
       } catch (e) {
         console.error("Erro ao inicializar auth:", e);
       } finally {
-        // Garantimos que o loading pare em no máximo 1 segundo
         setTimeout(() => setLoading(false), 500);
       }
     };
@@ -148,9 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     
-    // Forçar criação do perfil imediatamente no cadastro para evitar delay
+    // Forçar criação do perfil imediatamente com os IDs corretos
     if (!error && data.user) {
       await supabase.from('profiles').insert({
+        id: data.user.id, // O segredo é enviar o ID também
         user_id: data.user.id,
         email: email,
         name: name,
