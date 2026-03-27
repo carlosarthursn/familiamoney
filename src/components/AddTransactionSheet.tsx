@@ -7,13 +7,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
 import { createWorker } from 'tesseract.js';
+
+// Mapeamento de palavras-chave para categorias
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  food: ['MERCADO', 'SUPERMERCADO', 'RESTAURANTE', 'LANCHONETE', 'IFOOD', 'PADARIA', 'AÇOUGUE', 'ALIMENTOS', 'BEBIDAS'],
+  transport: ['POSTO', 'GASOLINA', 'UBER', '99APP', 'ESTACIONAMENTO', 'PEDAGIO', 'COMBUSTIVEL', 'AUTO'],
+  health: ['FARMACIA', 'DROGARIA', 'HOSPITAL', 'CLINICA', 'EXAME', 'MEDICAMENTO', 'SAUDE'],
+  leisure: ['CINEMA', 'SHOW', 'TEATRO', 'BAR', 'PUB', 'ENTRETENIMENTO'],
+  bills: ['LUZ', 'AGUA', 'INTERNET', 'TELEFONE', 'CONDOMINIO', 'IPTU', 'ENERGIA', 'SANEAMENTO'],
+  shopping: ['LOJA', 'SHOPPING', 'VESTUARIO', 'CALÇADO', 'ELETRONICO', 'MAGAZINE', 'DEPARTAMENTO'],
+};
 
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
@@ -54,9 +64,8 @@ export function AddTransactionSheet() {
       console.log('--- TEXTO BRUTO ---');
       console.log(upperText);
 
-      // Regex para capturar valores monetários (ex: 57,00 ou 1.234,56)
+      // 1. Extração de Valor (Lógica aprimorada)
       const moneyRegex = /(\d{1,3}(?:[\.,\s]\d{3})*[\.,]\d{2})/g;
-      
       const lines = upperText.split('\n');
       let totalCandidate = '';
       let maxVal = 0;
@@ -65,36 +74,52 @@ export function AddTransactionSheet() {
         const matches = line.match(moneyRegex);
         if (matches) {
           matches.forEach(match => {
-            // Limpa o valor para converter em número
             const cleanVal = match.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-            const val = parseFloat(cleanNum(cleanVal));
-            
+            const val = parseFloat(cleanVal);
             if (!isNaN(val)) {
-              // Se a linha contém "TOTAL", "PAGAR" ou "SUBTOTAL", é um candidato fortíssimo
               if (line.includes('TOTAL') || line.includes('PAGAR') || line.includes('SUBTOTAL')) {
                 totalCandidate = val.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
               }
-              
-              // Mantém o registro do maior valor encontrado na nota toda
-              if (val > maxVal) {
-                maxVal = val;
-              }
+              if (val > maxVal) maxVal = val;
             }
           });
         }
       });
 
-      // Função auxiliar para limpar caracteres que o OCR confunde (O por 0, etc)
-      function cleanNum(s: string) {
-        return s.replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+      const finalAmount = totalCandidate || (maxVal > 0 ? maxVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '');
+      if (finalAmount) setAmount(finalAmount);
+
+      // 2. Extração de Data
+      const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
+      const dateMatch = upperText.match(dateRegex);
+      if (dateMatch) {
+        try {
+          const day = dateMatch[1];
+          const month = dateMatch[2];
+          let year = dateMatch[3];
+          if (year.length === 2) year = '20' + year;
+          
+          const parsedDate = parse(`${day}/${month}/${year}`, 'dd/MM/yyyy', new Date());
+          if (!isNaN(parsedDate.getTime())) {
+            setDate(parsedDate);
+          }
+        } catch (e) {
+          console.error('Erro ao processar data da nota:', e);
+        }
       }
 
-      // Decisão final: Prioriza o candidato da linha "TOTAL", senão usa o maior valor da nota
-      const finalAmount = totalCandidate || (maxVal > 0 ? maxVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '');
+      // 3. Sugestão de Categoria
+      let suggestedCategory = '';
+      for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+        if (keywords.some(kw => upperText.includes(kw))) {
+          suggestedCategory = catId;
+          break;
+        }
+      }
+      if (suggestedCategory) setCategory(suggestedCategory);
 
       if (finalAmount) {
-        setAmount(finalAmount);
-        toast.success(`Valor identificado: R$ ${finalAmount}`, { id: toastId });
+        toast.success(`Identificado: R$ ${finalAmount}${suggestedCategory ? ' em ' + suggestedCategory : ''}`, { id: toastId });
       } else {
         toast.error('Não consegui ler o valor total. Tente focar no final da nota.', { id: toastId });
       }
