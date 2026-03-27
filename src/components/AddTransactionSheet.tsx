@@ -42,14 +42,17 @@ export function AddTransactionSheet() {
   };
 
   const fileToGenerativePart = async (file: File) => {
-    const base64EncodedDataPromise = new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+      reader.onloadend = () => {
+        const base64Data = (reader.result as string).split(',')[1];
+        resolve({
+          inlineData: { data: base64Data, mimeType: file.type },
+        });
+      };
+      reader.onerror = reject;
       reader.readAsDataURL(file);
     });
-    return {
-      inlineData: { data: await base64EncodedDataPromise as string, mimeType: file.type },
-    };
   };
   
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,40 +60,27 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Analisando nota fiscal...');
+    const toastId = toast.loading('Processando com Inteligência Artificial...');
 
     try {
+      // Usando o modelo mais estável e versátil
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
-      const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Extraia dados desta nota/comprovante. Retorne APENAS um JSON: {"amount": 0.00, "category": "string", "date": "YYYY-MM-DD", "description": "local"}. Categorias: ${allowedCategories}.`;
-
-      // Lista de modelos para tentar em ordem de preferência
-      const modelsToTry = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro-vision"];
-      let lastError = null;
-      let responseText = "";
-
-      for (const modelName of modelsToTry) {
-        try {
-          console.log(`Tentando modelo: ${modelName}`);
-          const model = genAI.getGenerativeModel({ model: modelName });
-          const result = await model.generateContent([prompt, imagePart]);
-          const response = await result.response;
-          responseText = response.text();
-          if (responseText) break; // Sucesso!
-        } catch (err: any) {
-          console.warn(`Falha no modelo ${modelName}:`, err);
-          lastError = err;
-          // Se for 404, continua para o próximo. Se for outro erro (ex: limite), para aqui.
-          if (!err.message?.includes('404')) break;
-        }
-      }
-
-      if (!responseText) {
-        throw lastError || new Error("Nenhum modelo disponível respondeu.");
-      }
       
-      const jsonStr = responseText.replace(/```json|```/g, "").trim();
-      const data = JSON.parse(jsonStr);
+      const allowedCategories = categories.map(c => c.id).join(', ');
+      const prompt = `Analise esta imagem. É um comprovante ou nota fiscal.
+      Extraia: valor total, data e local/descrição.
+      Retorne APENAS um objeto JSON válido (sem markdown) com este formato:
+      {"amount": 0.00, "category": "escolha_uma_da_lista", "date": "YYYY-MM-DD", "description": "nome_do_local"}
+      
+      Categorias permitidas: ${allowedCategories}
+      Se não identificar a categoria, use 'other'.`;
+
+      const result = await model.generateContent([prompt, imagePart as any]);
+      const response = await result.response;
+      const text = response.text().replace(/```json|```/g, "").trim();
+      
+      const data = JSON.parse(text);
 
       if (data.amount) {
         const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
@@ -109,10 +99,21 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Nota lida com sucesso!', { id: toastId });
+      toast.success('Leitura concluída!', { id: toastId });
     } catch (error: any) {
-      console.error('Erro final na IA:', error);
-      toast.error('Não foi possível ler a nota automaticamente. Tente uma foto mais nítida.', { id: toastId });
+      console.error('ERRO DETALHADO DA IA:', error);
+      
+      // Mensagens de erro mais úteis para diagnóstico
+      let userMessage = 'Erro na leitura. Por favor, preencha manualmente.';
+      if (error.message?.includes('404')) {
+        userMessage = 'Erro: Modelo de IA não encontrado. Verifique sua chave de API.';
+      } else if (error.message?.includes('API key')) {
+        userMessage = 'Erro: Chave de API inválida ou expirada.';
+      } else if (error.message?.includes('quota')) {
+        userMessage = 'Erro: Limite de uso da IA atingido.';
+      }
+      
+      toast.error(userMessage, { id: toastId, duration: 5000 });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
