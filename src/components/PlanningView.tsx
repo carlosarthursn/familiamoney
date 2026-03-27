@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { AddGoalSheet } from './AddGoalSheet';
 import { AddWishItemSheet } from './AddWishItemSheet';
 import { BudgetSheet } from './BudgetSheet';
+import { BudgetProgress } from './BudgetProgress';
 
 // Componente auxiliar para exibir quando não há itens
 function EmptyState({ icon: Icon, title, description, trigger }: { icon: React.ElementType, title: string, description: string, trigger: React.ReactNode }) {
@@ -116,11 +117,11 @@ export function PlanningView() {
           <DollarSign className="h-5 w-5 text-primary" />
           Orçamento Mensal
         </h3>
+        
+        <BudgetProgress selectedDate={new Date()} />
+        
         <Card className="shadow-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Gastos Fixos vs Variáveis</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             <p className="text-sm text-muted-foreground mb-3">
               Defina limites mensais por categoria e acompanhe seus gastos.
             </p>
