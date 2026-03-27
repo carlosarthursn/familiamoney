@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { SavingsGoal, WishlistItem } from '@/types/finance';
 import { useAuth } from './useAuth';
 
-// Database row types
 interface SavingsGoalRow {
   id: string;
   user_id: string;
@@ -25,21 +24,22 @@ interface WishlistItemRow {
 }
 
 export function usePlanning() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
-  const userId = user?.id;
+  
+  const userIds = [user?.id].filter(Boolean) as string[];
+  if (profile?.linked_user_id) userIds.push(profile.linked_user_id);
 
-  // --- Savings Goals Queries/Mutations ---
-
+  // --- Savings Goals ---
   const goalsQuery = useQuery({
-    queryKey: ['savingsGoals', userId],
+    queryKey: ['savingsGoals', userIds.sort().join(',')],
     queryFn: async (): Promise<SavingsGoal[]> => {
-      if (!userId) return [];
+      if (userIds.length === 0) return [];
       
       const { data, error } = await supabase
         .from('savings_goals' as any)
         .select('*')
-        .eq('user_id', userId)
+        .in('user_id', userIds)
         .order('targetDate', { ascending: true });
 
       if (error) throw error;
@@ -52,89 +52,54 @@ export function usePlanning() {
         targetDate: row.targetDate,
       }));
     },
-    enabled: !!userId,
+    enabled: !!user,
   });
 
   const addGoal = useMutation({
     mutationFn: async (goal: Omit<SavingsGoal, 'id'>) => {
-      if (!userId) throw new Error('Usuário não autenticado');
-      
-      const { error } = await supabase
-        .from('savings_goals' as any)
-        .insert({ 
-          user_id: userId,
-          name: goal.name,
-          targetAmount: goal.targetAmount,
-          currentAmount: goal.currentAmount,
-          targetDate: goal.targetDate,
-        });
-
+      if (!user) throw new Error('Usuário não autenticado');
+      const { error } = await supabase.from('savings_goals' as any).insert({ 
+        user_id: user.id,
+        name: goal.name,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        targetDate: goal.targetDate,
+      });
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savingsGoals', userId] });
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['savingsGoals'] }),
+  });
+
+  const updateGoalAmount = useMutation({
+    mutationFn: async ({ id, amountChange }: { id: string, amountChange: number }) => {
+      if (!user) throw new Error('Usuário não autenticado');
+      const { data: goal } = await supabase.from('savings_goals' as any).select('currentAmount').eq('id', id).single();
+      if (!goal) throw new Error('Meta não encontrada');
+      const { error } = await supabase.from('savings_goals' as any).update({ 
+        currentAmount: (goal as any).currentAmount + amountChange 
+      }).eq('id', id);
+      if (error) throw error;
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['savingsGoals'] }),
   });
 
   const deleteGoal = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('savings_goals' as any)
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
+      const { error } = await supabase.from('savings_goals' as any).delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savingsGoals', userId] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['savingsGoals'] }),
   });
   
-  // Mutation para adicionar/subtrair valor de uma meta
-  const updateGoalAmount = useMutation({
-    mutationFn: async ({ id, amountChange }: { id: string, amountChange: number }) => {
-      if (!userId) throw new Error('Usuário não autenticado');
-      
-      // 1. Fetch current goal amount
-      const { data: currentGoal, error: fetchError } = await supabase
-        .from('savings_goals' as any)
-        .select('currentAmount')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single();
-        
-      if (fetchError || !currentGoal) throw fetchError || new Error('Meta não encontrada');
-      
-      const goalData = currentGoal as unknown as { currentAmount: number };
-      const newAmount = goalData.currentAmount + amountChange;
-
-      // 2. Update the goal
-      const { error: updateError } = await supabase
-        .from('savings_goals' as any)
-        .update({ currentAmount: newAmount })
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (updateError) throw updateError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savingsGoals', userId] });
-    },
-  });
-
-
-  // --- Wish List Queries/Mutations ---
-
+  // --- Wish List ---
   const wishListQuery = useQuery({
-    queryKey: ['wishList', userId],
+    queryKey: ['wishList', userIds.sort().join(',')],
     queryFn: async (): Promise<WishlistItem[]> => {
-      if (!userId) return [];
-      
+      if (userIds.length === 0) return [];
       const { data, error } = await supabase
         .from('wishlist_items' as any)
         .select('*')
-        .eq('user_id', userId)
+        .in('user_id', userIds)
         .order('priority', { ascending: false });
 
       if (error) throw error;
@@ -147,43 +112,30 @@ export function usePlanning() {
         link: row.link || undefined,
       }));
     },
-    enabled: !!userId,
+    enabled: !!user,
   });
 
   const addItem = useMutation({
     mutationFn: async (item: Omit<WishlistItem, 'id'>) => {
-      if (!userId) throw new Error('Usuário não autenticado');
-      
-      const { error } = await supabase
-        .from('wishlist_items' as any)
-        .insert({ 
-          user_id: userId,
-          name: item.name,
-          price: item.price,
-          priority: item.priority,
-          link: item.link || null,
-        });
-
+      if (!user) throw new Error('Usuário não autenticado');
+      const { error } = await supabase.from('wishlist_items' as any).insert({ 
+        user_id: user.id,
+        name: item.name,
+        price: item.price,
+        priority: item.priority,
+        link: item.link || null,
+      });
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wishList', userId] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishList'] }),
   });
 
   const deleteItem = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('wishlist_items' as any)
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
+      const { error } = await supabase.from('wishlist_items' as any).delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wishList', userId] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishList'] }),
   });
 
   return {
@@ -192,7 +144,6 @@ export function usePlanning() {
     addGoal,
     deleteGoal,
     updateGoalAmount,
-    
     wishList: wishListQuery.data || [],
     isLoadingWishList: wishListQuery.isLoading,
     addItem,

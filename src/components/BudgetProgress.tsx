@@ -11,6 +11,7 @@ interface BudgetRow {
   id: string;
   category: string;
   monthly_limit: number;
+  user_id: string;
 }
 
 function formatCurrency(value: number): string {
@@ -27,31 +28,39 @@ interface BudgetProgressProps {
 }
 
 export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { expensesByCategory } = useTransactions({ selectedDate });
 
+  const userIds = [user?.id].filter(Boolean) as string[];
+  if (profile?.linked_user_id) userIds.push(profile.linked_user_id);
+
   const { data: budgets, isLoading } = useQuery({
-    queryKey: ['budgets', user?.id],
+    queryKey: ['budgets', userIds.sort().join(',')],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (userIds.length === 0) return [];
       const { data, error } = await supabase
         .from('budgets' as any)
         .select('*')
-        .eq('user_id', user.id);
+        .in('user_id', userIds);
       if (error) throw error;
-      return data as unknown as BudgetRow[];
+      
+      // Se ambos tiverem limites para a mesma categoria, pegamos o maior ou somamos? 
+      // Em família, geralmente o limite é único. Vamos agrupar por categoria.
+      const consolidated: Record<string, number> = {};
+      (data as unknown as BudgetRow[]).forEach(b => {
+        consolidated[b.category] = Math.max(consolidated[b.category] || 0, b.monthly_limit);
+      });
+      
+      return Object.entries(consolidated).map(([cat, limit]) => ({
+        id: cat,
+        category: cat,
+        monthly_limit: limit
+      }));
     },
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-4">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-      </div>
-    );
-  }
-
+  if (isLoading) return <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
   if (!budgets || budgets.length === 0) return null;
 
   return (
@@ -72,22 +81,11 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
                 <Icon className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
               <span className="text-sm font-medium flex-1">{catInfo.label}</span>
-              <span className={cn(
-                "text-xs font-semibold",
-                isOver ? "text-destructive" : "text-muted-foreground"
-              )}>
+              <span className={cn("text-xs font-semibold", isOver ? "text-destructive" : "text-muted-foreground")}>
                 {formatCurrency(spent)} / {formatCurrency(budget.monthly_limit)}
               </span>
             </div>
-            <Progress 
-              value={percentage} 
-              className={cn("h-2", isOver && "[&>div]:bg-destructive")} 
-            />
-            {isOver && (
-              <p className="text-[10px] text-destructive font-medium mt-1">
-                Excedido em {formatCurrency(spent - budget.monthly_limit)}
-              </p>
-            )}
+            <Progress value={percentage} className={cn("h-2", isOver && "[&>div]:bg-destructive")} />
           </div>
         );
       })}
