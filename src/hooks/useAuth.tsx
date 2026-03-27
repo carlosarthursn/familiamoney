@@ -31,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (currentUser: User) => {
     try {
-      // Buscar perfil
       const { data: dbProfile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -43,11 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Se não existir, criar um padrão (auto-correção/fallback)
       if (!dbProfile) {
+        // Fallback: se o trigger falhar, criamos aqui
         const defaultName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
-        const { data: newProfile, error: insertError } = await supabase.from('profiles').insert({
-          id: currentUser.id, // Adicionado o ID aqui para evitar erro de PK
+        const { data: newProfile } = await supabase.from('profiles').upsert({
+          id: currentUser.id,
           user_id: currentUser.id,
           email: currentUser.email,
           name: defaultName,
@@ -57,9 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (newProfile) {
           setProfile({
             name: (newProfile as any).name,
-            linked_user_id: null,
+            linked_user_id: (newProfile as any).linked_user_id,
             partnerName: null,
-            monthly_budget: 0
+            monthly_budget: (newProfile as any).monthly_budget || 0
           });
         }
         return;
@@ -114,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Erro ao inicializar auth:", e);
       } finally {
-        setTimeout(() => setLoading(false), 500);
+        setTimeout(() => setLoading(false), 800);
       }
     };
 
@@ -125,13 +124,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-        setLoading(false);
         
         if (currentUser) {
           fetchProfile(currentUser);
         } else {
           setProfile(null);
         }
+        setLoading(false);
       }
     );
 
@@ -147,10 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     
-    // Forçar criação do perfil imediatamente com os IDs corretos
+    // Tenta criar o perfil manualmente também (redundância de segurança)
     if (!error && data.user) {
-      await supabase.from('profiles').insert({
-        id: data.user.id, // O segredo é enviar o ID também
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
         user_id: data.user.id,
         email: email,
         name: name,
