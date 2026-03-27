@@ -61,6 +61,7 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
+      // Tentando o modelo gemini-1.5-flash que é o mais atual para visão
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
@@ -71,29 +72,17 @@ export function AddTransactionSheet() {
 
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
-      
-      let text = "";
-      try {
-        text = response.text();
-      } catch (e) {
-        console.error("Erro ao obter texto (bloqueio de segurança?):", e);
-        throw new Error("A IA bloqueou o conteúdo por segurança ou falhou ao gerar o texto.");
-      }
+      const text = response.text();
       
       console.log("Resposta bruta da IA:", text);
       
-      // Limpeza profunda: remove blocos de código markdown e espaços extras
       const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
       const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
       
-      if (!jsonMatch) {
-        console.error("JSON não encontrado no texto:", cleanedText);
-        throw new Error("Não foi possível encontrar os dados na resposta da IA.");
-      }
+      if (!jsonMatch) throw new Error("Não foi possível encontrar os dados na resposta.");
       
       const data = JSON.parse(jsonMatch[0]);
 
-      // Processamento dos dados extraídos
       if (data.amount) {
         const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
         if (!isNaN(val)) {
@@ -102,7 +91,7 @@ export function AddTransactionSheet() {
       }
 
       if (data.category) {
-        const exists = EXPENSE_CATEGORIES.some(c => c.id === data.category);
+        const exists = EXPENSE_CATEGORIES.some(c => c.id ===cat.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
 
@@ -118,8 +107,15 @@ export function AddTransactionSheet() {
       toast.success('Dados extraídos!', { id: toastId });
     } catch (error: any) {
       console.error('Erro detalhado:', error);
-      const msg = error.message || 'Erro desconhecido ao processar nota.';
-      toast.error(`Erro: ${msg}`, { id: toastId });
+      let msg = 'Erro ao processar nota.';
+      
+      if (error.message?.includes('404')) {
+        msg = 'Modelo de IA não encontrado. Verifique as permissões da sua chave API.';
+      } else if (error.message?.includes('API key')) {
+        msg = 'Chave de API inválida ou expirada.';
+      }
+      
+      toast.error(msg, { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
