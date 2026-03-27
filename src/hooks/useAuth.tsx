@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (currentUser: User) => {
+  const fetchProfile = useCallback(async (currentUser: User) => {
     try {
       const { data: dbProfile, error: fetchError } = await supabase
         .from('profiles')
@@ -37,6 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', currentUser.id)
         .maybeSingle();
       
+      if (fetchError) throw fetchError;
+
       if (dbProfile) {
         const profileData = dbProfile as any;
         let pName: string | null = null;
@@ -45,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: partner } = await supabase
             .from('profiles')
             .select('name, email')
-            .eq('id', profileData.linked_user_id)
+            .eq('user_id', profileData.linked_user_id)
             .maybeSingle();
           if (partner) pName = (partner as any).name || (partner as any).email?.split('@')[0];
         }
@@ -57,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: Number(profileData.monthly_budget) || 0
         });
       } else {
-        // Se o perfil não existe, cria agora mesmo
+        // Criar perfil básico se não existir
         const newProfile = {
           id: currentUser.id,
           user_id: currentUser.id,
@@ -66,45 +68,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: 0
         };
 
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert(newProfile);
-
-        if (!insertError) {
-          setProfile({
-            name: newProfile.name,
-            monthly_budget: 0
-          });
-        } else {
-          // Fallback local se o banco falhar
-          setProfile({ name: newProfile.name, monthly_budget: 0 });
-        }
+        await supabase.from('profiles').insert(newProfile);
+        setProfile({ name: newProfile.name, monthly_budget: 0 });
       }
     } catch (e) {
-      console.error("Erro ao gerenciar perfil:", e);
-      setProfile({ name: currentUser.email?.split('@')[0] || 'Usuário' });
+      console.error("Erro ao buscar perfil:", e);
+      // Fallback para não travar a aplicação
+      setProfile({ name: currentUser.email?.split('@')[0] || 'Usuário', monthly_budget: 0 });
     }
-  };
+  }, []);
 
   useEffect(() => {
+    let mounted = true;
+
     const initAuth = async () => {
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        
         if (currentSession?.user) {
           await fetchProfile(currentSession.user);
         }
       } catch (e) {
         console.error("Auth init error:", e);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!mounted) return;
+      
       setSession(newSession);
       const newUser = newSession?.user ?? null;
       setUser(newUser);
@@ -117,18 +116,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name } }
     });
-    
-    if (error) return { error };
-    return { error: null };
+    return { error: error as Error | null };
   };
 
   const signIn = async (email: string, password: string) => {
@@ -151,8 +151,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   };
 
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile, refreshProfile: () => user && fetchProfile(user) }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      loading, 
+      signUp, 
+      signIn, 
+      signOut, 
+      updateProfile, 
+      refreshProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );
