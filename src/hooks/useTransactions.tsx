@@ -21,12 +21,12 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const userId = user?.id;
 
+  // Query principal para buscar transações
   const transactionsQuery = useQuery({
     queryKey: ['transactions', userId, monthStart, monthEnd],
     queryFn: async () => {
       if (!userId) return [];
       
-      // Busca direta. O RLS do Supabase garante que você só veja o que tem permissão.
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -46,8 +46,9 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       }));
     },
     enabled: !!userId,
+    // Forçamos a atualização ao focar na janela e removemos o tempo de cache estático
+    refetchOnWindowFocus: true,
     staleTime: 0,
-    gcTime: 0, // Não mantém lixo em cache para garantir atualização real
   });
 
   const addTransaction = useMutation({
@@ -57,17 +58,21 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       const { error } = await supabase
         .from('transactions')
         .insert({
-          ...transaction,
+          amount: transaction.amount,
+          category: transaction.category,
+          date: transaction.date,
+          description: transaction.description || null,
+          type: transaction.type,
           user_id: userId,
         });
 
       if (error) throw error;
       return true;
     },
-    onSuccess: () => {
-      // Invalida o cache IMEDIATAMENTE após adicionar
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['dateRangeTransactions'] });
+    onSuccess: async () => {
+      // Invalida e força o refetch imediato de todas as listas de transações
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      await queryClient.refetchQueries({ queryKey: ['transactions'] });
     },
   });
 
@@ -83,6 +88,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const transactions = transactionsQuery.data || [];
   
+  // Cálculos baseados nos dados atuais
   const totalIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -96,6 +102,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     .filter(t => !filterCategories || filterCategories.length === 0 || filterCategories.includes(t.category));
 
   const totalExpenses = filteredExpenses.reduce((sum, t) => sum + t.amount, 0);
+  
   const personalExpenses = transactions
     .filter(t => t.type === 'expense' && t.user_id === userId)
     .reduce((sum, t) => sum + t.amount, 0);
@@ -110,6 +117,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   return {
     transactions,
     isLoading: transactionsQuery.isLoading,
+    isRefetching: transactionsQuery.isRefetching,
     addTransaction,
     deleteTransaction,
     totalIncome,
@@ -118,5 +126,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     personalExpenses,
     balance,
     expensesByCategory,
+    refetch: transactionsQuery.refetch
   };
 }

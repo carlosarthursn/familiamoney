@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
+import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -43,20 +43,6 @@ export function AddTransactionSheet() {
     setDescription('');
   };
 
-  const fileToGenerativePart = async (file: File) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        resolve({
-          inlineData: { data: base64Data, mimeType: file.type },
-        });
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-  
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -65,48 +51,31 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Lendo nota fiscal...');
 
     try {
-      // Forçando a versão 'v1' para evitar erro 404 do v1beta
-      const model = genAI.getGenerativeModel(
-        { model: "gemini-1.5-flash" },
-        { apiVersion: 'v1' }
-      );
-
-      const imagePart = await fileToGenerativePart(file);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
+      const reader = new FileReader();
+      const imagePromise = new Promise((resolve) => {
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+      const base64Data = ((await imagePromise) as string).split(',')[1];
+      const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
       
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise a nota fiscal e extraia os dados.
-      Retorne APENAS um JSON plano com estes campos: 
-      "amount" (número), "category" (uma dessas: ${allowedCategories}), "date" (YYYY-MM-DD), "description" (texto curto).`;
+      const prompt = `Analise a nota fiscal e extraia os dados. Retorne APENAS um JSON plano com estes campos: "amount" (número), "category" (uma dessas: ${allowedCategories}), "date" (YYYY-MM-DD), "description" (texto curto).`;
 
-      const result = await model.generateContent([prompt, imagePart as any]);
-      const responseText = result.response.text();
-      
-      const cleanedJson = responseText.replace(/```json|```/gi, '').trim();
-      const data = JSON.parse(cleanedJson);
+      const result = await model.generateContent([prompt, imagePart]);
+      const data = JSON.parse(result.response.text().replace(/```json|```/gi, '').trim());
 
-      if (data.amount) {
-        setAmount(Number(data.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-      }
-      
-      if (data.category) {
-        const exists = categories.some(c => c.id === data.category);
-        setCategory(exists ? data.category : 'other');
-      }
-      
+      if (data.amount) setAmount(String(data.amount).replace('.', ','));
+      if (data.category && categories.some(c => c.id === data.category)) setCategory(data.category);
       if (data.description) setDescription(data.description);
-      
-      if (data.date) {
-        const parsedDate = parseISO(data.date);
-        if (isValid(parsedDate)) setDate(parsedDate);
-      }
+      if (data.date && isValid(parseISO(data.date))) setDate(parseISO(data.date));
 
       toast.success('Leitura concluída!', { id: toastId });
-    } catch (error: any) {
-      console.error('Erro na IA:', error);
-      toast.error('Não foi possível ler a nota. Tente digitar os dados.', { id: toastId });
+    } catch (error) {
+      toast.error('Não foi possível ler a nota.', { id: toastId });
     } finally {
       setIsScanning(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -116,7 +85,10 @@ export function AddTransactionSheet() {
       return;
     }
     
-    const numAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
+    // Converte R$ 1.250,50 para 1250.50
+    const cleanAmount = amount.replace(/\./g, '').replace(',', '.');
+    const numAmount = parseFloat(cleanAmount);
+    
     if (isNaN(numAmount) || numAmount <= 0) {
       toast.error('Digite um valor válido');
       return;
@@ -131,75 +103,39 @@ export function AddTransactionSheet() {
         description: description || undefined,
       });
       
-      toast.success('Salvo!');
+      toast.success('Movimentação salva com sucesso!');
       resetForm();
       setOpen(false);
-    } catch (error: any) {
-      toast.error('Erro ao salvar.');
+    } catch (error) {
+      toast.error('Erro ao salvar. Tente novamente.');
     }
   };
   
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button 
-          size="lg" 
-          className="fixed bottom-28 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary hover:opacity-90 z-50"
-        >
+        <Button size="lg" className="fixed bottom-28 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary z-50">
           <Plus className="h-6 w-6" />
         </Button>
       </SheetTrigger>
       <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl flex flex-col p-0 overflow-hidden">
         <SheetHeader className="px-6 pt-6 pb-2">
-          <SheetTitle className="text-xl flex items-center gap-2">
-            Nova Movimentação
-            <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            Adicione uma nova transação.
-          </SheetDescription>
+          <SheetTitle className="text-xl flex items-center gap-2">Nova Movimentação <Sparkles className="h-4 w-4 text-primary animate-pulse" /></SheetTitle>
+          <SheetDescription className="sr-only">Adicione uma nova transação.</SheetDescription>
         </SheetHeader>
         
         <div className="flex-1 overflow-y-auto px-6 pb-24">
           <div className="space-y-5 py-2">
             <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
-              <button
-                type="button"
-                onClick={() => {
-                  setType('expense');
-                  setCategory('');
-                }}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm",
-                  type === 'expense' ? "bg-destructive text-white" : "text-muted-foreground"
-                )}
-              >
-                <TrendingDown className="h-4 w-4" />
-                Despesa
+              <button type="button" onClick={() => { setType('expense'); setCategory(''); }} className={cn("flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm", type === 'expense' ? "bg-destructive text-white" : "text-muted-foreground")}>
+                <TrendingDown className="h-4 w-4" /> Despesa
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setType('income');
-                  setCategory('');
-                }}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm",
-                  type === 'income' ? "bg-success text-white" : "text-muted-foreground"
-                )}
-              >
-                <TrendingUp className="h-4 w-4" />
-                Receita
+              <button type="button" onClick={() => { setType('income'); setCategory(''); }} className={cn("flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm", type === 'income' ? "bg-success text-white" : "text-muted-foreground")}>
+                <TrendingUp className="h-4 w-4" /> Receita
               </button>
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isScanning}
-              className="w-full h-14 border-2 border-dashed border-primary/40 text-primary rounded-xl flex items-center justify-center gap-2"
-            >
+            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="w-full h-14 border-2 border-dashed border-primary/40 text-primary rounded-xl flex items-center justify-center gap-2">
               {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
               <span className="font-bold">{isScanning ? 'Lendo...' : 'Escanear Nota'}</span>
             </Button>
@@ -217,10 +153,10 @@ export function AddTransactionSheet() {
               <Label className="text-xs text-muted-foreground uppercase font-bold">Categoria</Label>
               <div className="grid grid-cols-3 gap-2">
                 {categories.map((cat) => {
-                  const IconComponent = getCategoryIcon(cat.icon);
+                  const Icon = getCategoryIcon(cat.icon);
                   return (
                     <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={cn("flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all", category === cat.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/50")}>
-                      <IconComponent className="h-4 w-4" />
+                      <Icon className="h-4 w-4" />
                       <span className="text-[10px] font-medium truncate w-full">{cat.label}</span>
                     </button>
                   );
@@ -238,7 +174,7 @@ export function AddTransactionSheet() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={date} onSelect={(d) => { if (d) setDate(d); setDatePickerOpen(false); }} initialFocus />
+                  <Calendar mode="single" selected={date} onSelect={(d) => { if (d) setDate(d); setDatePickerOpen(false); }} initialFocus locale={ptBR} />
                 </PopoverContent>
               </Popover>
             </div>
