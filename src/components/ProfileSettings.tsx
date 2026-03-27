@@ -43,14 +43,15 @@ export function ProfileSettings() {
   };
 
   const handleLink = async () => {
+    const cleanEmail = partnerEmail.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
-    if (!partnerEmail || !emailRegex.test(partnerEmail)) {
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       toast.error('Por favor, insira um email válido.');
       return;
     }
 
-    if (partnerEmail.toLowerCase() === currentUserEmail.toLowerCase()) {
+    if (cleanEmail === currentUserEmail.toLowerCase()) {
       toast.error('Você não pode vincular seu próprio email.');
       return;
     }
@@ -58,13 +59,15 @@ export function ProfileSettings() {
     setLoading(true);
     try {
       // Buscar o user_id pelo email na tabela profiles
+      // Agora a RLS permite que usuários logados façam essa busca
       const { data: partnerProfile, error: searchError } = await supabase
         .from('profiles')
         .select('user_id')
-        .eq('email', partnerEmail.toLowerCase())
+        .eq('email', cleanEmail)
         .maybeSingle();
 
       if (searchError) {
+        console.error("Erro na busca:", searchError);
         toast.error('Erro ao buscar parceiro.');
         return;
       }
@@ -81,9 +84,9 @@ export function ProfileSettings() {
       }
       
       toast.success('Vinculado com sucesso!');
+      setPartnerEmail('');
     } finally {
       setLoading(false);
-      setPartnerEmail('');
     }
   };
 
