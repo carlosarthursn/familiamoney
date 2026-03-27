@@ -61,7 +61,7 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
-      // Usando o identificador de modelo mais compatível
+      // Usando o nome exato do modelo estável
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
@@ -74,7 +74,7 @@ export function AddTransactionSheet() {
       const response = await result.response;
       const text = response.text();
       
-      console.log("Resposta bruta da IA:", text);
+      console.log("Resposta da IA:", text);
       
       const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
       const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
@@ -91,7 +91,7 @@ export function AddTransactionSheet() {
       }
 
       if (data.category) {
-        // Corrigido o erro de sintaxe aqui
+        // Corrigido o erro de sintaxe aqui (removido o cat.id duplicado)
         const exists = EXPENSE_CATEGORIES.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
@@ -107,13 +107,15 @@ export function AddTransactionSheet() {
 
       toast.success('Dados extraídos!', { id: toastId });
     } catch (error: any) {
-      console.error('Erro detalhado:', error);
+      console.error('Erro detalhado do Gemini:', error);
       let msg = 'Erro ao processar nota.';
       
       if (error.message?.includes('404')) {
-        msg = 'Modelo não encontrado. Tente novamente em instantes.';
+        msg = 'Modelo não encontrado. Tente novamente em instantes ou verifique sua chave.';
       } else if (error.message?.includes('API key')) {
         msg = 'Chave de API inválida ou expirada.';
+      } else if (error.message?.includes('safety')) {
+        msg = 'A IA bloqueou esta imagem por motivos de segurança.';
       }
       
       toast.error(msg, { id: toastId });
