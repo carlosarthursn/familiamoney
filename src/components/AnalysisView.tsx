@@ -3,7 +3,8 @@ import { MonthlyChart } from './MonthlyChart';
 import { ExpenseChart } from './ExpenseChart';
 import { CategoryFilter } from './CategoryFilter';
 import { useTransactions } from '@/hooks/useTransactions';
-import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { BudgetProgress } from './BudgetProgress';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -95,6 +96,15 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
           <h3 className="text-sm font-semibold mb-2">Gastos por Categoria</h3>
           <ExpenseChart expensesByCategory={expensesByCategory} />
         </div>
+      </div>
+
+      {/* Budget Progress */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-primary" />
+          Orçamento do Mês
+        </h3>
+        <BudgetProgress selectedDate={selectedDate} />
       </div>
     </div>
   );
