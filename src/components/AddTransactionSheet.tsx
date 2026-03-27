@@ -61,32 +61,52 @@ export function AddTransactionSheet() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Verificar tamanho do arquivo (limite de 4MB para processamento rápido)
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error('A imagem é muito grande. Tente tirar uma foto com menor resolução.');
+      return;
+    }
+
     setIsScanning(true);
-    const toastId = toast.loading('Lendo com Gemini 1.5 Pro...');
+    const toastId = toast.loading('Processando com I.A. Flash...');
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      // Usando 1.5 Flash que é mais resiliente a timeouts e problemas de quota
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
       
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Extraia dados desta nota/comprovante. 
-      Retorne APENAS um JSON: {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "nome"}.
-      Categorias válidas: ${allowedCategories}. Use 'other' se não identificar.`;
+      const prompt = `Analise este comprovante/nota. 
+      Extraia: Valor Total, Data e o que foi comprado (Descrição curta).
+      Retorne APENAS um JSON puro, sem textos extras: 
+      {"amount": 0.00, "category": "id_da_categoria", "date": "YYYY-MM-DD", "description": "Nome do Local ou Item"}.
+      Categorias válidas (escolha a melhor): ${allowedCategories}. 
+      Se não tiver certeza da categoria, use 'other'. 
+      Se não achar a data, use a data de hoje.`;
 
       const result = await model.generateContent([prompt, imagePart as any]);
       const response = await result.response;
-      const text = response.text().replace(/```json|```/g, "").trim();
-      const data = JSON.parse(text);
+      const responseText = response.text();
+      
+      // Limpeza robusta para extrair apenas o JSON, ignorando marcações de markdown
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Não foi possível formatar os dados da nota.');
+      
+      const data = JSON.parse(jsonMatch[0]);
 
       if (data.amount) {
+        // Garantir que é um número e formatar para o input
         const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
         if (!isNaN(val)) setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
       }
+      
       if (data.category) {
         const exists = categories.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
+      
       if (data.description) setDescription(data.description);
+      
       if (data.date) {
         const parsedDate = parseISO(data.date);
         if (isValid(parsedDate)) setDate(parsedDate);
@@ -94,8 +114,13 @@ export function AddTransactionSheet() {
 
       toast.success('Leitura concluída!', { id: toastId });
     } catch (error: any) {
-      console.error('ERRO IA:', error);
-      toast.error('Erro ao ler a nota. Tente novamente ou use o modo manual.', { id: toastId });
+      console.error('ERRO DETALHADO IA:', error);
+      
+      let errorMessage = 'Não conseguimos ler esta nota.';
+      if (error.message?.includes('quota')) errorMessage = 'Limite de uso da I.A. atingido. Tente novamente em instantes.';
+      if (error.message?.includes('JSON')) errorMessage = 'A I.A. não conseguiu entender a estrutura da nota.';
+      
+      toast.error(errorMessage, { id: toastId, duration: 5000 });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -197,14 +222,17 @@ export function AddTransactionSheet() {
               className="w-full h-14 border-2 border-dashed border-primary/40 text-primary hover:bg-primary/5 rounded-xl flex flex-col items-center justify-center gap-0"
             >
               {isScanning ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="font-bold">Analisando nota...</span>
+                </div>
               ) : (
                 <>
                   <div className="flex items-center gap-2">
                     <Camera className="h-5 w-5" />
-                    <span className="font-bold">Escanear com I.A. Pro</span>
+                    <span className="font-bold">Escanear com I.A.</span>
                   </div>
-                  <span className="text-[10px] opacity-70">Detecta valor e categoria</span>
+                  <span className="text-[10px] opacity-70">Detecta valor, data e categoria</span>
                 </>
               )}
             </Button>
