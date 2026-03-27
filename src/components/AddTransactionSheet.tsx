@@ -42,7 +42,6 @@ export function AddTransactionSheet() {
     setDescription('');
   };
 
-  // Função para converter arquivo em base64 para a IA
   const fileToGenerativePart = async (file: File) => {
     const base64EncodedDataPromise = new Promise((resolve) => {
       const reader = new FileReader();
@@ -59,31 +58,39 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('A Inteligência Artificial está lendo sua nota...');
+    const toastId = toast.loading('A Inteligência Artificial está analisando a imagem...');
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
-      const prompt = `Analise esta imagem de nota fiscal ou recibo e extraia os dados para um sistema financeiro. 
-      Retorne APENAS um objeto JSON puro (sem markdown) com este formato:
+      const prompt = `Analise esta imagem de nota fiscal, cupom ou recibo.
+      Extraia os dados e retorne EXATAMENTE um JSON no formato abaixo, sem nenhum outro texto:
       {
-        "amount": number (valor total da nota),
-        "category": string (escolha a melhor entre: food, transport, health, leisure, bills, shopping, other),
-        "date": string (formato YYYY-MM-DD),
-        "description": string (Nome do estabelecimento + resumo curto do que foi comprado)
+        "amount": número (valor total),
+        "category": "food" | "transport" | "health" | "leisure" | "bills" | "shopping" | "other",
+        "date": "YYYY-MM-DD",
+        "description": "Nome do Local - Resumo"
       }
-      Se não encontrar a data, use a data de hoje. Se não tiver certeza da categoria, use 'other'.`;
+      Regras:
+      1. Se não achar a data, use "${format(new Date(), 'yyyy-MM-dd')}".
+      2. Se o valor tiver vírgula, converta para ponto (ex: 15,50 -> 15.5).
+      3. Escolha a categoria que melhor se encaixa.`;
 
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
       const text = response.text();
       
-      // Limpa possíveis marcações de markdown que a IA possa colocar
-      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const data = JSON.parse(jsonStr);
+      // Busca o JSON dentro da resposta (caso a IA coloque markdown ou texto extra)
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("A IA não conseguiu formatar os dados corretamente.");
+      }
+      
+      const data = JSON.parse(jsonMatch[0]);
 
       if (data.amount) {
+        // Formata para o padrão brasileiro no input
         setAmount(data.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
       }
       if (data.category) setCategory(data.category);
@@ -96,10 +103,14 @@ export function AddTransactionSheet() {
         }
       }
 
-      toast.success('Nota lida com sucesso pela IA!', { id: toastId });
-    } catch (error) {
-      console.error('Erro na IA Gemini:', error);
-      toast.error('A IA falhou ao ler a nota. Tente novamente ou digite manualmente.', { id: toastId });
+      toast.success('Dados extraídos com sucesso!', { id: toastId });
+    } catch (error: any) {
+      console.error('Erro detalhado da IA:', error);
+      const errorMessage = error.message?.includes('API key') 
+        ? 'Chave de API inválida ou bloqueada.' 
+        : 'Não foi possível ler esta nota. Tente uma foto mais nítida.';
+      
+      toast.error(errorMessage, { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -108,11 +119,11 @@ export function AddTransactionSheet() {
 
   const handleSubmit = async () => {
     if (!amount || !category) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast.error('Preencha o valor e a categoria');
       return;
     }
     
-    const numAmount = parseFloat(amount.replace('.', '').replace(',', '.'));
+    const numAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
     if (isNaN(numAmount) || numAmount <= 0) {
       toast.error('Digite um valor válido');
       return;
@@ -127,12 +138,11 @@ export function AddTransactionSheet() {
         description: description || undefined,
       });
       
-      toast.success(type === 'income' ? 'Receita adicionada!' : 'Despesa adicionada!');
+      toast.success('Salvo com sucesso!');
       resetForm();
       setOpen(false);
     } catch (error: any) {
-      console.error('Erro ao salvar:', error);
-      toast.error(error.message || 'Erro ao salvar. Verifique sua conexão.');
+      toast.error('Erro ao salvar no banco de dados.');
     }
   };
   
@@ -159,7 +169,6 @@ export function AddTransactionSheet() {
         
         <div className="flex-1 overflow-y-auto px-6 pb-24">
           <div className="space-y-5 py-2">
-            {/* Type Toggle */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
               <button
                 type="button"
@@ -195,7 +204,6 @@ export function AddTransactionSheet() {
               </button>
             </div>
 
-            {/* AI Scan Button */}
             <Button
               type="button"
               variant="outline"
@@ -224,7 +232,6 @@ export function AddTransactionSheet() {
               onChange={handleScanReceipt}
             />
             
-            {/* Amount */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Valor</Label>
               <div className="relative">
@@ -242,7 +249,6 @@ export function AddTransactionSheet() {
               </div>
             </div>
             
-            {/* Category */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Categoria</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -280,7 +286,6 @@ export function AddTransactionSheet() {
               </div>
             </div>
             
-            {/* Date */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Data</Label>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -308,7 +313,6 @@ export function AddTransactionSheet() {
               </Popover>
             </div>
             
-            {/* Description */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Descrição / Estabelecimento</Label>
               <Textarea
