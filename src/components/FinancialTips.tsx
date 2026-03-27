@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sparkles, Lightbulb, RefreshCw } from 'lucide-center';
+import { Sparkles, Lightbulb, RefreshCw } from 'lucide-react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ export function FinancialTips() {
   const fetchTip = async () => {
     setLoading(true);
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = "Dê uma dica financeira curta, prática e motivadora para uma família brasileira. Máximo 150 caracteres.";
       
       const result = await model.generateContent(prompt);
@@ -47,7 +47,8 @@ export function FinancialTips() {
               <button 
                 onClick={fetchTip} 
                 disabled={loading}
-                className="text-muted-foreground hover:text-primary transition-colors"
+                className="text-muted-foreground hover:text-primary transition-colors p-1"
+                type="button"
               >
                 <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
               </button>

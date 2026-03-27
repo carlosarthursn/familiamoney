@@ -14,6 +14,7 @@ import { ProfileSettings } from '@/components/ProfileSettings';
 import { PlanningView } from '@/components/PlanningView';
 import { Header } from '@/components/Header';
 import { FinancialTips } from '@/components/FinancialTips';
+import { DailyBudgetCard } from '@/components/DailyBudgetCard';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -58,6 +59,8 @@ export default function Dashboard() {
               expenses={totalExpenses} 
               showBalance={showBalance}
             />
+            
+            <DailyBudgetCard balance={balance} />
             
             <FinancialTips />
 
