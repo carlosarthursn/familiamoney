@@ -62,21 +62,18 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Lendo nota fiscal...');
+    const toastId = toast.loading('Processando nota...');
 
     try {
-      // Forçando a versão 'v1' para evitar erro 404 do v1beta
-      const model = genAI.getGenerativeModel(
-        { model: "gemini-1.5-flash" },
-        { apiVersion: 'v1' }
-      );
+      // Usando o modelo sem forçar v1 ou v1beta, deixando o SDK escolher o endpoint correto
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const imagePart = await fileToGenerativePart(file);
       
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise a nota fiscal e extraia os dados.
-      Retorne APENAS um JSON plano com estes campos: 
-      "amount" (número), "category" (uma dessas: ${allowedCategories}), "date" (YYYY-MM-DD), "description" (texto curto).`;
+      const prompt = `Extraia os dados desta nota fiscal para este JSON:
+      {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "texto"}
+      Categorias: ${allowedCategories}. Responda apenas o JSON.`;
 
       const result = await model.generateContent([prompt, imagePart as any]);
       const responseText = result.response.text();
@@ -100,10 +97,10 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Leitura concluída!', { id: toastId });
+      toast.success('Nota lida com sucesso!', { id: toastId });
     } catch (error: any) {
       console.error('Erro na IA:', error);
-      toast.error('Não foi possível ler a nota. Tente digitar os dados.', { id: toastId });
+      toast.error('Não foi possível ler a nota. Verifique sua conexão ou tente digitar.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

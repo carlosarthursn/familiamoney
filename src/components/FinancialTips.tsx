@@ -8,26 +8,29 @@ const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export function FinancialTips() {
-  const [tip, setTip] = useState<string>('');
+  const [tip, setTip] = useState<string>('Poupe pelo menos 10% do que ganha todos os meses.');
   const [loading, setLoading] = useState(false);
 
   const fetchTip = async () => {
     setLoading(true);
     try {
-      // Forçando a versão 'v1' da API para evitar o erro 404 do v1beta
-      const model = genAI.getGenerativeModel(
-        { model: "gemini-1.5-flash" },
-        { apiVersion: 'v1' }
-      );
-      
+      // Tentando o modelo mais comum sem especificar versão da API (deixa o SDK decidir)
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = "Dê uma dica financeira curta e prática para uma família. Máximo 100 caracteres.";
       
       const result = await model.generateContent(prompt);
       const response = await result.response;
       setTip(response.text());
     } catch (error) {
-      console.error("Erro na dica:", error);
-      setTip("Poupe pelo menos 10% do que ganha todos os meses.");
+      console.error("Erro na dica (tentando fallback):", error);
+      // Fallback manual se a IA falhar
+      const fallbacks = [
+        "Evite compras por impulso: espere 24h antes de fechar o carrinho.",
+        "Anote cada gasto, por menor que seja. O controle é a chave.",
+        "Crie uma reserva de emergência para pelo menos 3 meses.",
+        "Compare preços antes de comprar. A economia está nos detalhes."
+      ];
+      setTip(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
     } finally {
       setLoading(false);
     }
@@ -59,7 +62,7 @@ export function FinancialTips() {
               </button>
             </div>
             <p className="text-xs text-foreground leading-relaxed italic">
-              "{loading ? 'Buscando...' : tip}"
+              "{loading ? 'Buscando dica...' : tip}"
             </p>
           </div>
         </div>
