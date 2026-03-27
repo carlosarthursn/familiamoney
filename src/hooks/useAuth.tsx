@@ -33,27 +33,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data: dbProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('name, email, linked_user_id, user_id, monthly_budget')
+        .select('*')
         .eq('user_id', currentUser.id)
         .maybeSingle();
       
       if (profileError) {
-        console.error("Error fetching profile:", profileError);
-        setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null, monthly_budget: 0 });
+        console.error("Erro ao buscar perfil:", profileError);
         return;
       }
 
+      // Se a tabela existe mas não tem o registro do usuário (auto-correção)
       if (!dbProfile) {
-        setProfile({ 
-          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário', 
-          linked_user_id: null, 
-          partnerName: null,
+        const defaultName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
+        const { data: newProfile } = await supabase.from('profiles').upsert({
+          user_id: currentUser.id,
+          email: currentUser.email,
+          name: defaultName,
           monthly_budget: 0
-        });
+        } as any).select().single();
+        
+        if (newProfile) {
+          setProfile({
+            name: (newProfile as any).name,
+            linked_user_id: null,
+            partnerName: null,
+            monthly_budget: 0
+          });
+        }
         return;
       }
 
-      const profileData = dbProfile as { name?: string; linked_user_id?: string; email?: string, monthly_budget?: number };
+      const profileData = dbProfile as any;
       const linkedId = profileData?.linked_user_id || null;
       let partnerName: string | null = null;
 
@@ -64,9 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('user_id', linkedId)
           .maybeSingle();
         
-        const partnerData = partnerProfile as { name?: string; email?: string } | null;
-        if (partnerData) {
-          partnerName = partnerData.name || partnerData.email?.split('@')[0] || 'Parceiro';
+        if (partnerProfile) {
+          partnerName = (partnerProfile as any).name || (partnerProfile as any).email?.split('@')[0] || 'Parceiro';
         }
       }
       
@@ -77,8 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         monthly_budget: profileData?.monthly_budget || 0
       });
     } catch (error) {
-      console.error("Error in fetchProfile:", error);
-      setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null, monthly_budget: 0 });
+      console.error("Erro inesperado no fetchProfile:", error);
     }
   };
 
@@ -99,12 +107,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser);
 
         if (currentUser) {
-          void fetchProfile(currentUser);
-        } else {
-          setProfile(null);
+          await fetchProfile(currentUser);
         }
       } catch (e) {
-        console.error("Error initializing auth:", e);
+        console.error("Erro ao inicializar auth:", e);
       } finally {
         setLoading(false);
       }
@@ -138,23 +144,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { name },
       },
     });
-    
-    if (!error) {
-      const { data: { user: newUser } } = await supabase.auth.getUser();
-      if (newUser) {
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          user_id: newUser.id,
-          email: email,
-          name: name,
-          monthly_budget: 0
-        } as any);
-        
-        if (profileError) {
-          console.error("Error creating profile on sign up:", profileError);
-        }
-      }
-    }
-    
     return { error: error as Error | null };
   };
 
@@ -180,24 +169,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: { name?: string; linked_user_id?: string | null; monthly_budget?: number }) => {
     if (!user) return { error: new Error('Usuário não logado') };
 
-    const profileUpdates: any = {};
-    if (updates.name !== undefined) profileUpdates.name = updates.name;
-    if (updates.linked_user_id !== undefined) profileUpdates.linked_user_id = updates.linked_user_id;
-    if (updates.monthly_budget !== undefined) profileUpdates.monthly_budget = updates.monthly_budget;
-    
-    if (Object.keys(profileUpdates).length === 0) {
-      return { error: null };
-    }
-
     const { error } = await supabase
       .from('profiles')
-      .update(profileUpdates)
+      .update(updates)
       .eq('user_id', user.id);
 
     if (error) return { error: error as Error };
-
     await refreshProfile();
-    
     return { error: null };
   };
 
