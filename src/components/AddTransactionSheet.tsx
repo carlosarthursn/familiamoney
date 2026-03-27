@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
@@ -65,7 +65,7 @@ export function AddTransactionSheet() {
       const imagePart = await fileToGenerativePart(file);
 
       const prompt = `Analise esta imagem de nota fiscal, cupom ou recibo.
-      Extraia os dados e retorne EXATAMENTE um JSON no formato abaixo, sem nenhum outro texto:
+      Extraia os dados e retorne EXATAMENTE um JSON no formato abaixo, sem nenhum outro texto ou markdown:
       {
         "amount": número (valor total),
         "category": "food" | "transport" | "health" | "leisure" | "bills" | "shopping" | "other",
@@ -74,43 +74,60 @@ export function AddTransactionSheet() {
       }
       Regras:
       1. Se não achar a data, use "${format(new Date(), 'yyyy-MM-dd')}".
-      2. Se o valor tiver vírgula, converta para ponto (ex: 15,50 -> 15.5).
-      3. Escolha a categoria que melhor se encaixa.`;
+      2. O valor deve ser um número (use ponto para decimais).
+      3. Escolha a categoria que melhor se encaixa entre as opções fornecidas.`;
 
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
       const text = response.text();
       
-      // Busca o JSON dentro da resposta (caso a IA coloque markdown ou texto extra)
+      console.log("Resposta bruta da IA:", text);
+      
+      // Busca o JSON dentro da resposta de forma mais robusta
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error("A IA não conseguiu formatar os dados corretamente.");
+        console.error("Falha ao encontrar JSON na resposta");
+        throw new Error("Formato de resposta inválido");
       }
       
       const data = JSON.parse(jsonMatch[0]);
+      console.log("Dados parseados:", data);
 
-      if (data.amount) {
-        // Formata para o padrão brasileiro no input
-        setAmount(data.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+      // Tratamento seguro do valor
+      if (data.amount !== undefined) {
+        const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
+        if (!isNaN(val)) {
+          setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+        }
       }
-      if (data.category) setCategory(data.category);
+
+      if (data.category) {
+        // Verifica se a categoria retornada existe nas nossas opções
+        const exists = EXPENSE_CATEGORIES.some(c => c.id === data.category);
+        setCategory(exists ? data.category : 'other');
+      }
+
       if (data.description) setDescription(data.description);
+      
       if (data.date) {
-        try {
-          setDate(parseISO(data.date));
-        } catch (e) {
-          setDate(new Date());
+        const parsedDate = parseISO(data.date);
+        if (isValid(parsedDate)) {
+          setDate(parsedDate);
         }
       }
 
       toast.success('Dados extraídos com sucesso!', { id: toastId });
     } catch (error: any) {
       console.error('Erro detalhado da IA:', error);
-      const errorMessage = error.message?.includes('API key') 
-        ? 'Chave de API inválida ou bloqueada.' 
-        : 'Não foi possível ler esta nota. Tente uma foto mais nítida.';
+      let msg = 'Não foi possível ler esta nota. Tente uma foto mais nítida.';
       
-      toast.error(errorMessage, { id: toastId });
+      if (error.message?.includes('API key')) {
+        msg = 'Erro na chave de API do Google.';
+      } else if (error instanceof SyntaxError) {
+        msg = 'A IA retornou um formato que não consegui entender.';
+      }
+      
+      toast.error(msg, { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
