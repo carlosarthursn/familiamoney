@@ -50,42 +50,55 @@ export function AddTransactionSheet() {
       const { data: { text } } = await worker.recognize(file);
       await worker.terminate();
 
-      console.log('Texto extraído:', text);
+      console.log('--- TEXTO EXTRAÍDO DA NOTA ---');
+      console.log(text);
+      console.log('------------------------------');
 
-      // Lógica aprimorada para notas brasileiras
-      // Procura por "VALOR TOTAL", "TOTAL R$", "A PAGAR", etc.
-      const lines = text.split('\n');
+      // Limpeza básica do texto para facilitar a busca
+      const cleanText = text.replace(/\s+/g, ' ');
+      
+      // Regex mais flexível: busca números que terminam com 2 casas decimais (separadas por , ou .)
+      // Ignora números que pareçam datas (ex: 27/03/24)
+      const moneyRegex = /(\d+[\.,]\s?\d{2})(?!\/)/g;
+      const matches = text.match(moneyRegex);
+      
       let foundAmount = '';
 
-      // Tenta encontrar a linha que contém o total
-      for (const line of lines) {
-        const upperLine = line.toUpperCase();
-        if (upperLine.includes('TOTAL') || upperLine.includes('PAGAR') || upperLine.includes('VALOR R$')) {
-          const match = line.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
-          if (match) {
-            foundAmount = match[1];
-            break;
+      if (matches && matches.length > 0) {
+        // 1. Tenta encontrar o valor perto de palavras-chave
+        const keywords = ['TOTAL', 'PAGAR', 'VALOR', 'R$', 'RECEBIDO'];
+        const lines = text.split('\n');
+        
+        for (const line of lines) {
+          const upperLine = line.toUpperCase();
+          if (keywords.some(kw => upperLine.includes(kw))) {
+            const lineMatch = line.match(/(\d+[\.,]\s?\d{2})/);
+            if (lineMatch) {
+              foundAmount = lineMatch[1].replace(/\s/g, '').replace('.', ',');
+              break;
+            }
           }
         }
-      }
 
-      // Se não achou por palavra-chave, tenta pegar o maior valor monetário da nota
-      if (!foundAmount) {
-        const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
-        const matches = text.match(moneyRegex);
-        if (matches && matches.length > 0) {
-          // Converte para número para comparar e pegar o maior (geralmente o total)
-          const values = matches.map(m => parseFloat(m.replace('.', '').replace(',', '.')));
-          const maxVal = Math.max(...values);
-          foundAmount = maxVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        // 2. Se não achou por palavra-chave, pega o maior valor numérico (geralmente o total)
+        if (!foundAmount) {
+          const values = matches.map(m => {
+            const cleanNum = m.replace(/\s/g, '').replace(',', '.');
+            return parseFloat(cleanNum);
+          }).filter(v => !isNaN(v));
+          
+          if (values.length > 0) {
+            const maxVal = Math.max(...values);
+            foundAmount = maxVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+          }
         }
       }
       
       if (foundAmount) {
         setAmount(foundAmount);
-        toast.success('Valor reconhecido: R$ ' + foundAmount, { id: toastId });
+        toast.success('Valor identificado: R$ ' + foundAmount, { id: toastId });
       } else {
-        toast.error('Não foi possível identificar o valor. Tente uma foto mais nítida.', { id: toastId });
+        toast.error('Não identifiquei o valor. Tente focar no TOTAL da nota.', { id: toastId });
       }
     } catch (error) {
       console.error('Erro no OCR:', error);
