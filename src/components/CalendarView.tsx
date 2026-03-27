@@ -13,27 +13,37 @@ interface CalendarViewProps {
 }
 
 export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) {
-  // useTransactions fetches data based on the month of selectedDate
   const { transactions, isLoading, deleteTransaction } = useTransactions({ selectedDate });
 
-  // Calculate days with transactions for highlighting
-  const daysWithTransactions = useMemo(() => {
-    if (isLoading || !transactions) return [];
+  // Agrupando transações por dia e tipo
+  const modifiers = useMemo(() => {
+    if (isLoading || !transactions) return { hasIncome: [], hasExpense: [], hasBoth: [] };
     
-    const dates = new Set<string>();
+    const incomeDates: Date[] = [];
+    const expenseDates: Date[] = [];
+    const bothDates: Date[] = [];
+    
+    const dayMap = new Record<string, { income: boolean, expense: boolean }>();
+    
     transactions.forEach(t => {
-      dates.add(t.date); 
+      if (!dayMap[t.date]) dayMap[t.date] = { income: false, expense: false };
+      if (t.type === 'income') dayMap[t.date].income = true;
+      if (t.type === 'expense') dayMap[t.date].expense = true;
     });
-    return Array.from(dates).map(d => new Date(d + 'T00:00:00')); 
+
+    Object.entries(dayMap).forEach(([dateStr, types]) => {
+      const date = new Date(dateStr + 'T00:00:00');
+      if (types.income && types.expense) bothDates.push(date);
+      else if (types.income) incomeDates.push(date);
+      else if (types.expense) expenseDates.push(date);
+    });
+
+    return {
+      hasIncome: incomeDates,
+      hasExpense: expenseDates,
+      hasBoth: bothDates,
+    };
   }, [transactions, isLoading]);
-
-  const modifiers = {
-    highlighted: daysWithTransactions,
-  };
-
-  const modifiersClassNames = {
-    highlighted: "bg-primary text-primary-foreground rounded-full font-bold",
-  };
 
   const handleMonthChange = (newMonth: Date) => {
     onDateChange(startOfMonth(newMonth));
@@ -59,14 +69,16 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
           onMonthChange={handleMonthChange}
           selected={selectedDate}
           onSelect={(date) => {
-            if (date) {
-              onDateChange(date);
-            }
+            if (date) onDateChange(date);
           }}
           locale={ptBR}
           className="w-full max-w-full flex justify-center"
           modifiers={modifiers}
-          modifiersClassNames={modifiersClassNames}
+          modifiersClassNames={{
+            hasIncome: "day-has-income",
+            hasExpense: "day-has-expense",
+            hasBoth: "day-has-both",
+          }}
           disabled={(date) => date > new Date()}
         />
       </div>
