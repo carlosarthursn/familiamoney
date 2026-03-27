@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -10,6 +12,7 @@ import { AnalysisView } from '@/components/AnalysisView';
 import { CalendarView } from '@/components/CalendarView';
 import { ProfileSettings } from '@/components/ProfileSettings';
 import { PlanningView } from '@/components/PlanningView';
+import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,7 +26,6 @@ export default function Dashboard() {
   
   const { transactions: allTransactions, isLoading, totalIncome, totalExpenses, balance, deleteTransaction } = useTransactions({ selectedDate });
   
-  // Nome prioritário: Agora confiamos apenas no profile, que é atualizado após login/refresh
   const displayName = profile?.name || 'Usuário';
 
   const handleSignOut = async () => {
@@ -46,7 +48,7 @@ export default function Dashboard() {
     switch (activeTab) {
       case 'home':
         return (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in mt-6">
             <MonthSelector currentDate={selectedDate} onDateChange={setSelectedDate} />
             <BalanceCard balance={balance} income={totalIncome} expenses={totalExpenses} />
             <div>
@@ -57,16 +59,15 @@ export default function Dashboard() {
         );
       case 'calendar':
         return (
-          <div className="space-y-4 animate-fade-in">
+          <div className="space-y-4 animate-fade-in mt-6">
             <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
           </div>
         );
       case 'analysis':
         return (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in mt-6">
             <MonthSelector currentDate={selectedDate} onDateChange={setSelectedDate} />
             <AnalysisView selectedDate={selectedDate} />
-            {/* Lista de transações do mês integrada */}
             <div className="bg-card rounded-xl p-4 shadow-card">
               <h3 className="text-sm font-semibold mb-3">Transações do Mês</h3>
               <TransactionList transactions={allTransactions} isLoading={isLoading} onDelete={handleDelete} />
@@ -74,10 +75,14 @@ export default function Dashboard() {
           </div>
         );
       case 'planning':
-        return <PlanningView />;
+        return (
+          <div className="mt-6">
+            <PlanningView />
+          </div>
+        );
       case 'profile':
         return (
-          <div className="space-y-6 animate-fade-in pb-10">
+          <div className="space-y-6 animate-fade-in pb-10 mt-6">
             <div className="bg-card rounded-xl p-6 shadow-card text-center">
               <div className="h-16 w-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-primary-foreground">
@@ -118,12 +123,10 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="px-6 pt-6 pb-4 safe-top">
-        <p className="text-muted-foreground text-sm">Olá,</p>
-        <h1 className="text-xl font-bold text-foreground">
-          {displayName}
-        </h1>
-      </header>
+      <Header 
+        displayName={displayName} 
+        onProfileClick={() => setActiveTab('profile')} 
+      />
       <main className="px-6 pb-24">
         {renderContent()}
       </main>
