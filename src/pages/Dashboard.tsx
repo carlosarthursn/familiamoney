@@ -16,7 +16,7 @@ import { Header } from '@/components/Header';
 import { FinancialTips } from '@/components/FinancialTips';
 import { DailyBudgetCard } from '@/components/DailyBudgetCard';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2 } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -125,14 +125,6 @@ export default function Dashboard() {
         return null;
     }
   };
-  
-  if (isLoading && activeTab === 'home') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
   
   return (
     <div className="min-h-screen bg-background pb-24">
