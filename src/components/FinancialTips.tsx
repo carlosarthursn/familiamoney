@@ -1,34 +1,33 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles, Lightbulb, RefreshCw } from 'lucide-react';
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { cn } from '@/lib/utils';
 
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
+const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export function FinancialTips() {
-  const [tip, setTip] = useState<string>('Poupe pelo menos 10% do que ganha todos os meses.');
+  const [tip, setTip] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const fetchTip = async () => {
     setLoading(true);
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "Você é um consultor financeiro familiar. Dê dicas curtas e práticas." },
-          { role: "user", content: "Dê uma dica financeira curta para uma família brasileira. Máximo 100 caracteres." }
-        ],
-        max_tokens: 50,
-      });
-
-      const text = response.choices[0].message.content?.replace(/"/g, '') || tip;
-      setTip(text);
+      // Forçando a versão 'v1' da API para evitar o erro 404 do v1beta
+      const model = genAI.getGenerativeModel(
+        { model: "gemini-1.5-flash" },
+        { apiVersion: 'v1' }
+      );
+      
+      const prompt = "Dê uma dica financeira curta e prática para uma família. Máximo 100 caracteres.";
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      setTip(response.text());
     } catch (error) {
-      console.error("Erro na OpenAI:", error);
+      console.error("Erro na dica:", error);
+      setTip("Poupe pelo menos 10% do que ganha todos os meses.");
     } finally {
       setLoading(false);
     }
@@ -60,7 +59,7 @@ export function FinancialTips() {
               </button>
             </div>
             <p className="text-xs text-foreground leading-relaxed italic">
-              "{loading ? 'Consultando IA...' : tip}"
+              "{loading ? 'Buscando...' : tip}"
             </p>
           </div>
         </div>

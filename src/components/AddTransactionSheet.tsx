@@ -8,19 +8,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
+import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
+const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
@@ -45,38 +43,46 @@ export function AddTransactionSheet() {
     setDescription('');
   };
 
+  const fileToGenerativePart = async (file: File) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Data = (reader.result as string).split(',')[1];
+        resolve({
+          inlineData: { data: base64Data, mimeType: file.type },
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+  
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('GPT-4o analisando nota...');
+    const toastId = toast.loading('Lendo nota fiscal...');
 
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
+      // Forçando a versão 'v1' para evitar erro 404 do v1beta
+      const model = genAI.getGenerativeModel(
+        { model: "gemini-1.5-flash" },
+        { apiVersion: 'v1' }
+      );
+
+      const imagePart = await fileToGenerativePart(file);
       
-      const base64Image = await base64Promise;
       const allowedCategories = categories.map(c => c.id).join(', ');
+      const prompt = `Analise a nota fiscal e extraia os dados.
+      Retorne APENAS um JSON plano com estes campos: 
+      "amount" (número), "category" (uma dessas: ${allowedCategories}), "date" (YYYY-MM-DD), "description" (texto curto).`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: `Extraia os dados desta nota fiscal para este JSON plano (apenas o JSON): {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "texto"}. Categorias permitidas: ${allowedCategories}.` },
-              { type: "image_url", image_url: { url: base64Image } }
-            ],
-          },
-        ],
-        response_format: { type: "json_object" },
-      });
-
-      const data = JSON.parse(response.choices[0].message.content || '{}');
+      const result = await model.generateContent([prompt, imagePart as any]);
+      const responseText = result.response.text();
+      
+      const cleanedJson = responseText.replace(/```json|```/gi, '').trim();
+      const data = JSON.parse(cleanedJson);
 
       if (data.amount) {
         setAmount(Number(data.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
@@ -94,10 +100,10 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Nota processada pela OpenAI!', { id: toastId });
+      toast.success('Leitura concluída!', { id: toastId });
     } catch (error: any) {
-      console.error('Erro na OpenAI Vision:', error);
-      toast.error('Erro ao ler a nota com GPT-4o.', { id: toastId });
+      console.error('Erro na IA:', error);
+      toast.error('Não foi possível ler a nota. Tente digitar os dados.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -195,7 +201,7 @@ export function AddTransactionSheet() {
               className="w-full h-14 border-2 border-dashed border-primary/40 text-primary rounded-xl flex items-center justify-center gap-2"
             >
               {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
-              <span className="font-bold">{isScanning ? 'GPT-4o Lendo...' : 'Escanear Nota (OpenAI)'}</span>
+              <span className="font-bold">{isScanning ? 'Lendo...' : 'Escanear Nota'}</span>
             </Button>
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleScanReceipt} />
             
