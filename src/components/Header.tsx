@@ -23,13 +23,13 @@ export function Header({
   const avatarUrl = profile?.avatar_url;
 
   return (
-    <header className="bg-primary text-primary-foreground pt-10 pb-4 px-6 safe-top shadow-lg">
+    <header className="bg-primary text-primary-foreground pt-14 pb-5 px-6 safe-top shadow-lg">
       <div className="flex items-center justify-between">
         {/* Profile Info Section */}
         <div className="flex items-center gap-3 overflow-hidden">
           <button 
             onClick={onProfileClick}
-            className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-all overflow-hidden border-2 border-white/30 shadow-md shrink-0 active:scale-95"
+            className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-all overflow-hidden border-2 border-white/40 shadow-md shrink-0 active:scale-95"
             aria-label="Perfil"
           >
             {avatarUrl ? (
@@ -40,37 +40,37 @@ export function Header({
           </button>
           
           <div className="flex flex-col min-w-0">
-            <h1 className="text-sm font-bold tracking-tight truncate">
+            <h1 className="text-sm font-bold tracking-tight truncate leading-tight">
               Olá, {displayName}
             </h1>
-            <p className="text-[9px] opacity-70 uppercase tracking-widest font-medium truncate">
+            <p className="text-[9px] opacity-80 uppercase tracking-widest font-semibold truncate">
               Bom ver você de novo
             </p>
           </div>
         </div>
 
         {/* Action Icons */}
-        <div className="flex items-center gap-0.5 shrink-0 ml-2">
+        <div className="flex items-center gap-1 shrink-0 ml-2">
           <button 
             onClick={() => setShowBalance(!showBalance)}
             className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"
             aria-label={showBalance ? "Esconder saldo" : "Mostrar saldo"}
           >
-            {showBalance ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            {showBalance ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
           </button>
           <button 
             onClick={onAnalysisClick}
             className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"
             aria-label="Análise"
           >
-            <HelpCircle className="h-4 w-4" />
+            <HelpCircle className="h-5 w-5" />
           </button>
           <button 
             onClick={onProfileClick}
             className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"
             aria-label="Compartilhar conta"
           >
-            <UserPlus className="h-4 w-4" />
+            <UserPlus className="h-5 w-5" />
           </button>
         </div>
       </div>

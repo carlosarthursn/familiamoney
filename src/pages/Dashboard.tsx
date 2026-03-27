@@ -27,7 +27,6 @@ export default function Dashboard() {
   const [showBalance, setShowBalance] = useState(true);
   const { user, profile, signOut } = useAuth();
   
-  // Usamos totalExpensesAll aqui para garantir que o saldo reflita todas as saídas
   const { 
     transactions: allTransactions, 
     isLoading, 
@@ -55,6 +54,9 @@ export default function Dashboard() {
     });
   };
   
+  // O cabeçalho só deve aparecer no início e no perfil
+  const shouldShowHeader = activeTab === 'home' || activeTab === 'profile';
+  
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
@@ -80,13 +82,13 @@ export default function Dashboard() {
         );
       case 'calendar':
         return (
-          <div className="space-y-4 animate-fade-in mt-6">
+          <div className="space-y-4 animate-fade-in mt-8">
             <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
           </div>
         );
       case 'analysis':
         return (
-          <div className="space-y-6 animate-fade-in mt-6">
+          <div className="space-y-6 animate-fade-in mt-8">
             <MonthSelector currentDate={selectedDate} onDateChange={setSelectedDate} />
             <AnalysisView selectedDate={selectedDate} />
             <div className="bg-card rounded-xl p-4 shadow-card">
@@ -97,7 +99,7 @@ export default function Dashboard() {
         );
       case 'planning':
         return (
-          <div className="mt-6">
+          <div className="mt-8">
             <PlanningView />
           </div>
         );
@@ -105,10 +107,14 @@ export default function Dashboard() {
         return (
           <div className="space-y-6 animate-fade-in pb-10 mt-6">
             <div className="bg-card rounded-xl p-6 shadow-card text-center">
-              <div className="h-16 w-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-primary-foreground">
-                  {displayName.charAt(0).toUpperCase()}
-                </span>
+              <div className="h-16 w-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4 border-2 border-background shadow-md overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Perfil" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-primary-foreground">
+                    {displayName.charAt(0).toUpperCase()}
+                  </span>
+                )}
               </div>
               <p className="font-bold text-lg text-foreground">{displayName}</p>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
@@ -136,13 +142,15 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen bg-background pb-24">
-      <Header 
-        displayName={displayName} 
-        showBalance={showBalance}
-        setShowBalance={setShowBalance}
-        onProfileClick={() => setActiveTab('profile')} 
-        onAnalysisClick={() => setActiveTab('analysis')}
-      />
+      {shouldShowHeader && (
+        <Header 
+          displayName={displayName} 
+          showBalance={showBalance}
+          setShowBalance={setShowBalance}
+          onProfileClick={() => setActiveTab('profile')} 
+          onAnalysisClick={() => setActiveTab('analysis')}
+        />
+      )}
       <main className="px-6 pb-24">
         {renderContent()}
       </main>

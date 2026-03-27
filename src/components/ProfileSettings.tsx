@@ -1,27 +1,28 @@
-import { useState, useEffect } from 'react';
+"use client";
+
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart, Camera } from 'lucide-react';
+import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
   const { user, profile, updateProfile, linkPartner, unlinkPartner } = useAuth();
   const [name, setName] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [partnerEmail, setPartnerEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [partnerEmail, setPartnerEmail] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile?.name) setName(profile.name);
-    if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
   }, [profile]);
 
   const currentUserEmail = user?.email || '';
   const isLinked = !!profile?.linked_user_id;
-  
   const partnerDisplayName = profile?.partnerName || 'Parceiro';
 
   const handleUpdateProfile = async () => {
@@ -31,7 +32,7 @@ export function ProfileSettings() {
     }
 
     setLoading(true);
-    const { error } = await updateProfile({ name, avatar_url: avatarUrl || null });
+    const { error } = await updateProfile({ name });
     setLoading(false);
 
     if (error) {
@@ -41,14 +42,47 @@ export function ProfileSettings() {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      if (!event.target.files || event.target.files.length === 0) return;
+      if (!user) return;
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}-${Math.random()}.${fileExt}`;
+
+      // Upload da imagem
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Pegar URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Atualizar perfil
+      const { error: updateError } = await updateProfile({ avatar_url: publicUrl });
+      
+      if (updateError) throw updateError;
+
+      toast.success('Foto de perfil atualizada!');
+    } catch (error: any) {
+      toast.error('Erro no upload: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleLink = async () => {
     const cleanEmail = partnerEmail.trim().toLowerCase();
-    
     if (!cleanEmail || !cleanEmail.includes('@')) {
       toast.error('Insira um email válido.');
       return;
     }
-
     if (cleanEmail === currentUserEmail.toLowerCase()) {
       toast.error('Você não pode se auto-vincular.');
       return;
@@ -70,10 +104,9 @@ export function ProfileSettings() {
       const { error } = await linkPartner(partner.user_id);
       if (error) throw error;
       
-      toast.success('Vínculo realizado em ambas as contas!');
+      toast.success('Vínculo realizado!');
       setPartnerEmail('');
     } catch (err) {
-      console.error(err);
       toast.error('Erro ao realizar vínculo.');
     } finally {
       setLoading(false);
@@ -81,17 +114,12 @@ export function ProfileSettings() {
   };
 
   const handleUnlink = async () => {
-    if (!confirm('Deseja realmente desvincular as contas? O histórico de ambos deixará de ser compartilhado.')) return;
-    
+    if (!confirm('Deseja realmente desvincular?')) return;
     setLoading(true);
     const { error } = await unlinkPartner();
     setLoading(false);
-
-    if (error) {
-      toast.error('Erro ao desvincular.');
-    } else {
-      toast.success('Contas desvinculadas com sucesso.');
-    }
+    if (error) toast.error('Erro ao desvincular.');
+    else toast.success('Desvinculado com sucesso.');
   };
 
   return (
@@ -103,6 +131,38 @@ export function ProfileSettings() {
         </h3>
         
         <div className="space-y-4">
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="relative">
+              <div className="h-24 w-24 rounded-full bg-muted border-4 border-background shadow-md overflow-hidden flex items-center justify-center">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Perfil" className="h-full w-full object-cover" />
+                ) : (
+                  <UserIcon className="h-10 w-10 text-muted-foreground" />
+                )}
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                  </div>
+                )}
+              </div>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg border-2 border-background active:scale-90 transition-transform"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileUpload}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">Toque na câmera para mudar a foto</p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="user-name" className="text-muted-foreground text-xs font-bold uppercase">Seu Nome</Label>
             <Input
@@ -110,33 +170,17 @@ export function ProfileSettings() {
               placeholder="Ex: Carlos"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-11"
+              className="h-11 rounded-xl"
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="avatar-url" className="text-muted-foreground text-xs font-bold uppercase">URL da Foto de Perfil</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Camera className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="avatar-url"
-                  placeholder="https://exemplo.com/foto.jpg"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  className="pl-10 h-11"
-                />
-              </div>
-            </div>
           </div>
 
           <Button 
             onClick={handleUpdateProfile} 
             disabled={loading}
-            className="w-full h-11 gradient-primary"
+            className="w-full h-11 rounded-xl gradient-primary"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-            Salvar Alterações
+            Salvar Nome
           </Button>
         </div>
       </div>
@@ -148,7 +192,7 @@ export function ProfileSettings() {
         </h3>
 
         {isLinked ? (
-          <div className="space-y-4 animate-fade-in">
+          <div className="space-y-4">
             <div className="p-4 bg-primary/5 rounded-xl border border-primary/20 flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <Heart className="h-5 w-5 text-primary fill-primary/20" />
@@ -165,7 +209,7 @@ export function ProfileSettings() {
               variant="destructive" 
               onClick={handleUnlink} 
               disabled={loading}
-              className="w-full h-11"
+              className="w-full h-11 rounded-xl"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remover Vínculo'}
             </Button>
@@ -180,12 +224,12 @@ export function ProfileSettings() {
                 placeholder="email@do.parceiro.com"
                 value={partnerEmail}
                 onChange={(e) => setPartnerEmail(e.target.value)}
-                className="flex-1 h-11"
+                className="flex-1 h-11 rounded-xl"
               />
               <Button 
                 onClick={handleLink} 
                 disabled={loading}
-                className="h-11 px-4 shrink-0"
+                className="h-11 px-4 shrink-0 rounded-xl"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
                 {!loading && 'Vincular'}
