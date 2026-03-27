@@ -50,52 +50,53 @@ export function AddTransactionSheet() {
       const { data: { text } } = await worker.recognize(file);
       await worker.terminate();
 
-      // 1. Limpeza agressiva do texto para corrigir erros comuns de OCR
-      const processedText = text
-        .replace(/[OI]/g, '0') // Confusão comum de O/I com 0
-        .replace(/[S]/g, '5')  // Confusão comum de S com 5
-        .replace(/[B]/g, '8')  // Confusão comum de B com 8
-        .toUpperCase();
+      const upperText = text.toUpperCase();
+      console.log('--- TEXTO BRUTO ---');
+      console.log(upperText);
 
-      console.log('--- TEXTO PROCESSADO ---');
-      console.log(processedText);
-
-      // 2. Regex para capturar qualquer padrão que pareça dinheiro (ex: 12,34 ou 1.234,56 ou 1234.56)
-      // Ignoramos padrões de data (XX/XX/XX)
-      const moneyRegex = /(?:R\$|TOTAL|VALOR|PAGAR)?\s?(\d{1,3}(?:[\.,\s]\d{3})*[\.,]\d{2})(?!\/)/gi;
-      const matches = [...processedText.matchAll(moneyRegex)];
+      // Regex para capturar valores monetários (ex: 57,00 ou 1.234,56)
+      const moneyRegex = /(\d{1,3}(?:[\.,\s]\d{3})*[\.,]\d{2})/g;
       
-      let foundAmount = '';
+      const lines = upperText.split('\n');
+      let totalCandidate = '';
+      let maxVal = 0;
 
-      if (matches.length > 0) {
-        // Estratégia: O valor total costuma ser um dos últimos e maiores valores da nota
-        const candidates = matches.map(m => {
-          const raw = m[1].replace(/\s/g, ''); // Remove espaços internos
-          // Normaliza para o formato numérico JS (ponto como decimal)
-          const normalized = raw.includes(',') && raw.includes('.') 
-            ? raw.replace(/\./g, '').replace(',', '.') // 1.234,56 -> 1234.56
-            : raw.replace(',', '.'); // 12,34 -> 12.34
-          
-          return {
-            original: raw.replace('.', ','),
-            value: parseFloat(normalized)
-          };
-        }).filter(c => !isNaN(c.value) && c.value > 0 && c.value < 100000); // Filtra valores irreais
-
-        if (candidates.length > 0) {
-          // Pegamos o maior valor entre os últimos 3 encontrados (geralmente o total está no fim)
-          const lastFew = candidates.slice(-3);
-          const bestCandidate = lastFew.reduce((prev, current) => (prev.value > current.value) ? prev : current);
-          
-          foundAmount = bestCandidate.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      lines.forEach(line => {
+        const matches = line.match(moneyRegex);
+        if (matches) {
+          matches.forEach(match => {
+            // Limpa o valor para converter em número
+            const cleanVal = match.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+            const val = parseFloat(cleanNum(cleanVal));
+            
+            if (!isNaN(val)) {
+              // Se a linha contém "TOTAL", "PAGAR" ou "SUBTOTAL", é um candidato fortíssimo
+              if (line.includes('TOTAL') || line.includes('PAGAR') || line.includes('SUBTOTAL')) {
+                totalCandidate = val.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+              }
+              
+              // Mantém o registro do maior valor encontrado na nota toda
+              if (val > maxVal) {
+                maxVal = val;
+              }
+            }
+          });
         }
+      });
+
+      // Função auxiliar para limpar caracteres que o OCR confunde (O por 0, etc)
+      function cleanNum(s: string) {
+        return s.replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').replace(/B/g, '8');
       }
 
-      if (foundAmount) {
-        setAmount(foundAmount);
-        toast.success(`Valor identificado: R$ ${foundAmount}`, { id: toastId });
+      // Decisão final: Prioriza o candidato da linha "TOTAL", senão usa o maior valor da nota
+      const finalAmount = totalCandidate || (maxVal > 0 ? maxVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '');
+
+      if (finalAmount) {
+        setAmount(finalAmount);
+        toast.success(`Valor identificado: R$ ${finalAmount}`, { id: toastId });
       } else {
-        toast.error('Não consegui ler o valor. Tente focar bem no TOTAL da nota.', { id: toastId });
+        toast.error('Não consegui ler o valor total. Tente focar no final da nota.', { id: toastId });
       }
     } catch (error) {
       console.error('Erro no OCR:', error);
