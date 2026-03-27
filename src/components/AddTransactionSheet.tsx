@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera, Scan } from 'lucide-react';
+import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -50,17 +50,42 @@ export function AddTransactionSheet() {
       const { data: { text } } = await worker.recognize(file);
       await worker.terminate();
 
-      // Regex para encontrar valores monetários (ex: 12,34 ou 1.234,56)
-      const moneyRegex = /(?:R\$|TOTAL|VALOR|PAGAR)?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/gi;
-      const matches = [...text.matchAll(moneyRegex)];
+      console.log('Texto extraído:', text);
+
+      // Lógica aprimorada para notas brasileiras
+      // Procura por "VALOR TOTAL", "TOTAL R$", "A PAGAR", etc.
+      const lines = text.split('\n');
+      let foundAmount = '';
+
+      // Tenta encontrar a linha que contém o total
+      for (const line of lines) {
+        const upperLine = line.toUpperCase();
+        if (upperLine.includes('TOTAL') || upperLine.includes('PAGAR') || upperLine.includes('VALOR R$')) {
+          const match = line.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
+          if (match) {
+            foundAmount = match[1];
+            break;
+          }
+        }
+      }
+
+      // Se não achou por palavra-chave, tenta pegar o maior valor monetário da nota
+      if (!foundAmount) {
+        const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
+        const matches = text.match(moneyRegex);
+        if (matches && matches.length > 0) {
+          // Converte para número para comparar e pegar o maior (geralmente o total)
+          const values = matches.map(m => parseFloat(m.replace('.', '').replace(',', '.')));
+          const maxVal = Math.max(...values);
+          foundAmount = maxVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        }
+      }
       
-      if (matches.length > 0) {
-        // Pega o último valor encontrado (geralmente o total da nota)
-        const lastMatch = matches[matches.length - 1][1];
-        setAmount(lastMatch);
-        toast.success('Valor reconhecido com sucesso!', { id: toastId });
+      if (foundAmount) {
+        setAmount(foundAmount);
+        toast.success('Valor reconhecido: R$ ' + foundAmount, { id: toastId });
       } else {
-        toast.error('Não foi possível identificar o valor na imagem.', { id: toastId });
+        toast.error('Não foi possível identificar o valor. Tente uma foto mais nítida.', { id: toastId });
       }
     } catch (error) {
       console.error('Erro no OCR:', error);
@@ -120,7 +145,7 @@ export function AddTransactionSheet() {
         </SheetHeader>
         
         <div className="flex-1 overflow-y-auto px-6 pb-24">
-          <div className="space-y-4 py-2">
+          <div className="space-y-5 py-2">
             {/* Type Toggle */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
               <button
@@ -156,33 +181,34 @@ export function AddTransactionSheet() {
                 Receita
               </button>
             </div>
+
+            {/* Scan Button - More prominent */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isScanning}
+              className="w-full h-12 border-dashed border-primary/40 text-primary hover:bg-primary/5 rounded-xl flex items-center justify-center gap-2"
+            >
+              {isScanning ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Camera className="h-5 w-5" />
+              )}
+              <span className="font-semibold">Escanear Nota Fiscal</span>
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              capture="environment"
+              onChange={handleScanReceipt}
+            />
             
-            {/* Amount with Scan Button */}
+            {/* Amount */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Valor</Label>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isScanning}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:opacity-80 transition-opacity"
-                >
-                  {isScanning ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Camera className="h-3.5 w-3.5" />
-                  )}
-                  Escanear Nota
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleScanReceipt}
-                />
-              </div>
+              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Valor</Label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
                   R$
