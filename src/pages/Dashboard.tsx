@@ -60,7 +60,7 @@ export default function Dashboard() {
               showBalance={showBalance}
             />
             
-            <DailyBudgetCard balance={balance} />
+            <DailyBudgetCard />
             
             <FinancialTips />
 

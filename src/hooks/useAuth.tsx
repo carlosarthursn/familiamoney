@@ -6,6 +6,7 @@ interface Profile {
   name?: string;
   linked_user_id?: string | null;
   partnerName?: string | null;
+  monthly_budget?: number;
 }
 
 interface AuthContextType {
@@ -16,7 +17,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: { name?: string; linked_user_id?: string | null }) => Promise<{ error: Error | null }>;
+  updateProfile: (updates: { name?: string; linked_user_id?: string | null; monthly_budget?: number }) => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -30,34 +31,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (currentUser: User) => {
     try {
-      // 1. Busca o perfil do próprio usuário na tabela 'profiles'
       const { data: dbProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('name, email, linked_user_id, user_id')
+        .select('name, email, linked_user_id, user_id, monthly_budget')
         .eq('user_id', currentUser.id)
         .maybeSingle();
       
       if (profileError) {
         console.error("Error fetching profile:", profileError);
-        setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null });
+        setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null, monthly_budget: 0 });
         return;
       }
 
       if (!dbProfile) {
-        // Perfil não existe ainda, usar dados básicos
         setProfile({ 
           name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário', 
           linked_user_id: null, 
-          partnerName: null 
+          partnerName: null,
+          monthly_budget: 0
         });
         return;
       }
 
-      const profileData = dbProfile as { name?: string; linked_user_id?: string; email?: string };
+      const profileData = dbProfile as { name?: string; linked_user_id?: string; email?: string, monthly_budget?: number };
       const linkedId = profileData?.linked_user_id || null;
       let partnerName: string | null = null;
 
-      // 2. Se houver um ID vinculado, busca o nome desse parceiro
       if (linkedId) {
         const { data: partnerProfile } = await supabase
           .from('profiles')
@@ -74,11 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile({
         name: profileData?.name || profileData?.email?.split('@')[0] || 'Usuário',
         linked_user_id: linkedId,
-        partnerName
+        partnerName,
+        monthly_budget: profileData?.monthly_budget || 0
       });
     } catch (error) {
       console.error("Error in fetchProfile:", error);
-      setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null });
+      setProfile({ name: 'Usuário', linked_user_id: null, partnerName: null, monthly_budget: 0 });
     }
   };
 
@@ -98,8 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const currentUser = initialSession?.user ?? null;
         setUser(currentUser);
 
-        // Não bloqueie a tela de carregamento esperando chamadas ao banco.
-        // Se houver lentidão/erro no perfil, o app continua e o perfil atualiza depois.
         if (currentUser) {
           void fetchProfile(currentUser);
         } else {
@@ -119,8 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-
-        // Garante que qualquer mudança de auth (login/logout) destrave o app.
         setLoading(false);
         
         if (currentUser) {
@@ -139,18 +135,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        data: { name }, // Still pass name to auth metadata for initial setup
+        data: { name },
       },
     });
     
     if (!error) {
       const { data: { user: newUser } } = await supabase.auth.getUser();
       if (newUser) {
-        // Ensure profile is created with name and email
         const { error: profileError } = await supabase.from('profiles').upsert({
           user_id: newUser.id,
           email: email,
-          name: name
+          name: name,
+          monthly_budget: 0
         } as any);
         
         if (profileError) {
@@ -181,12 +177,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateProfile = async (updates: { name?: string; linked_user_id?: string | null }) => {
+  const updateProfile = async (updates: { name?: string; linked_user_id?: string | null; monthly_budget?: number }) => {
     if (!user) return { error: new Error('Usuário não logado') };
 
     const profileUpdates: any = {};
     if (updates.name !== undefined) profileUpdates.name = updates.name;
     if (updates.linked_user_id !== undefined) profileUpdates.linked_user_id = updates.linked_user_id;
+    if (updates.monthly_budget !== undefined) profileUpdates.monthly_budget = updates.monthly_budget;
     
     if (Object.keys(profileUpdates).length === 0) {
       return { error: null };
@@ -199,7 +196,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) return { error: error as Error };
 
-    // Refresh profile data after successful update
     await refreshProfile();
     
     return { error: null };

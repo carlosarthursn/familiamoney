@@ -45,7 +45,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
       if (tError) throw tError;
 
-      // Tentamos buscar os nomes na tabela profiles
       const { data: profiles } = await supabase
         .from('profiles')
         .select('*')
@@ -63,7 +62,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       return (transactions as Transaction[]).map(t => {
         let author = profileMap[t.user_id];
         
-        // Se não achou no map mas o ID é do parceiro vinculado
         if (!author && t.user_id === linkedId) {
           author = profile?.partnerName || 'Parceiro';
         } else if (!author) {
@@ -124,6 +122,11 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const totalExpenses = filteredExpenses
     .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  // Gastos realizados apenas pelo usuário atual
+  const personalExpenses = filteredExpenses
+    .filter(t => t.user_id === user?.id)
+    .reduce((sum, t) => sum + Number(t.amount), 0);
     
   const balance = totalIncome - totalExpenses;
 
@@ -142,6 +145,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     deleteTransaction,
     totalIncome,
     totalExpenses,
+    personalExpenses,
     balance,
     expensesByCategory,
   };
