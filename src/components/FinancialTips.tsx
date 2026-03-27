@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles, Lightbulb, RefreshCw } from 'lucide-react';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { cn } from '@/lib/utils';
 
-const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const openai = new OpenAI({
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true
+});
 
 export function FinancialTips() {
   const [tip, setTip] = useState<string>('Poupe pelo menos 10% do que ganha todos os meses.');
@@ -14,23 +16,19 @@ export function FinancialTips() {
   const fetchTip = async () => {
     setLoading(true);
     try {
-      // Tentando o modelo mais comum sem especificar versão da API (deixa o SDK decidir)
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const prompt = "Dê uma dica financeira curta e prática para uma família. Máximo 100 caracteres.";
-      
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      setTip(response.text());
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "Você é um consultor financeiro familiar. Dê dicas curtas e práticas." },
+          { role: "user", content: "Dê uma dica financeira curta para uma família brasileira. Máximo 100 caracteres." }
+        ],
+        max_tokens: 50,
+      });
+
+      const text = response.choices[0].message.content?.replace(/"/g, '') || tip;
+      setTip(text);
     } catch (error) {
-      console.error("Erro na dica (tentando fallback):", error);
-      // Fallback manual se a IA falhar
-      const fallbacks = [
-        "Evite compras por impulso: espere 24h antes de fechar o carrinho.",
-        "Anote cada gasto, por menor que seja. O controle é a chave.",
-        "Crie uma reserva de emergência para pelo menos 3 meses.",
-        "Compare preços antes de comprar. A economia está nos detalhes."
-      ];
-      setTip(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
+      console.error("Erro na OpenAI:", error);
     } finally {
       setLoading(false);
     }
@@ -62,7 +60,7 @@ export function FinancialTips() {
               </button>
             </div>
             <p className="text-xs text-foreground leading-relaxed italic">
-              "{loading ? 'Buscando dica...' : tip}"
+              "{loading ? 'Consultando IA...' : tip}"
             </p>
           </div>
         </div>
