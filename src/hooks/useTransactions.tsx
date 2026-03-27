@@ -21,27 +21,24 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   
   const currentDate = selectedDate || new Date();
   
-  // Usamos o formato YYYY-MM-DD para garantir compatibilidade com o tipo 'date' do PostgreSQL
+  // Define o intervalo do mês para a busca
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-01');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-  // IDs para busca (próprio + parceiro)
   const currentUserId = user?.id;
-  const partnerId = profile?.linked_user_id;
-  const userIds = [currentUserId, partnerId].filter(Boolean) as string[];
 
-  // Chave da query estável
-  const queryKey = ['transactions', userIds.sort().join(','), monthStart, monthEnd];
+  const queryKey = ['transactions', currentUserId, monthStart, monthEnd];
 
   const transactionsQuery = useQuery({
     queryKey: queryKey,
     queryFn: async (): Promise<TransactionWithAuthor[]> => {
       if (!currentUserId) return [];
       
+      // Deixamos o Supabase filtrar o que podemos ver via RLS (Regras de Segurança)
+      // Isso é mais seguro e evita erros de 'ID não encontrado'
       const { data: transactions, error: tError } = await supabase
         .from('transactions')
         .select('*')
-        .in('user_id', userIds)
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .order('date', { ascending: false });
@@ -51,11 +48,10 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         throw tError;
       }
 
-      // Buscar nomes dos autores para exibir na lista
+      // Buscar perfis para colocar os nomes na lista
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, name, email')
-        .in('user_id', userIds);
+        .select('user_id, name, email');
 
       const profileMap = (profiles || []).reduce((acc, p) => {
         acc[p.user_id] = p.name || p.email?.split('@')[0] || 'Usuário';
@@ -64,12 +60,13 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
       return (transactions || []).map(t => ({
         ...t,
-        amount: Number(t.amount), // Garante que é número para o cálculo do saldo
+        amount: Number(t.amount),
         author_name: t.user_id === currentUserId ? 'Você' : (profileMap[t.user_id] || 'Parceiro')
       }));
     },
     enabled: !!currentUserId,
-    staleTime: 0, // Garante que sempre busque dados frescos
+    staleTime: 0,
+    refetchOnWindowFocus: true
   });
 
   const addTransaction = useMutation({
@@ -87,6 +84,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       return true;
     },
     onSuccess: () => {
+      // Forçamos a atualização de todas as listas que dependem de transações
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dateRangeTransactions'] });
     },
