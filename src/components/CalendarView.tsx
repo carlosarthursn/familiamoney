@@ -24,8 +24,6 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
     transactions.forEach(t => {
       dates.add(t.date); 
     });
-    // Convert 'yyyy-MM-dd' strings to Date objects for react-day-picker modifiers
-    // We need to ensure the date string is treated as UTC midnight to avoid timezone issues when comparing dates
     return Array.from(dates).map(d => new Date(d + 'T00:00:00')); 
   }, [transactions, isLoading]);
 
@@ -37,13 +35,10 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
     highlighted: "bg-primary text-primary-foreground rounded-full font-bold",
   };
 
-  // Handler for when the user navigates months in the calendar UI
   const handleMonthChange = (newMonth: Date) => {
-    // Update the selectedDate to the first day of the new month
     onDateChange(startOfMonth(newMonth));
   };
 
-  // Filter transactions for the currently selected day
   const transactionsForSelectedDay = transactions.filter(t => 
     isSameDay(new Date(t.date + 'T00:00:00'), selectedDate)
   );
@@ -56,11 +51,11 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
   };
 
   return (
-    <div className="space-y-4">
-      <div className="bg-card rounded-xl p-4 shadow-card">
+    <div className="space-y-4 max-w-sm mx-auto w-full">
+      <div className="bg-card rounded-2xl p-2 shadow-card flex justify-center overflow-hidden">
         <Calendar
           mode="single"
-          month={startOfMonth(selectedDate)} // Control the displayed month based on selectedDate
+          month={startOfMonth(selectedDate)}
           onMonthChange={handleMonthChange}
           selected={selectedDate}
           onSelect={(date) => {
@@ -69,16 +64,16 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
             }
           }}
           locale={ptBR}
-          className="w-full p-0"
+          className="w-full max-w-full flex justify-center"
           modifiers={modifiers}
           modifiersClassNames={modifiersClassNames}
-          disabled={(date) => date > new Date()} // Disable future dates
+          disabled={(date) => date > new Date()}
         />
       </div>
       
-      <div className="bg-card rounded-xl p-4 shadow-card">
-        <h3 className="font-semibold mb-3">
-          Transações em {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+      <div className="bg-card rounded-2xl p-4 shadow-card">
+        <h3 className="font-semibold mb-3 text-sm text-muted-foreground">
+          {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
         </h3>
         
         {isLoading ? (
