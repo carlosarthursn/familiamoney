@@ -67,15 +67,15 @@ export function AddTransactionSheet() {
       const prompt = `Analise esta imagem de nota fiscal, cupom ou recibo.
       Extraia os dados e retorne EXATAMENTE um JSON no formato abaixo, sem nenhum outro texto ou markdown:
       {
-        "amount": número (valor total),
+        "amount": "valor_numerico",
         "category": "food" | "transport" | "health" | "leisure" | "bills" | "shopping" | "other",
         "date": "YYYY-MM-DD",
         "description": "Nome do Local - Resumo"
       }
       Regras:
-      1. Se não achar a data, use "${format(new Date(), 'yyyy-MM-dd')}".
-      2. O valor deve ser um número (use ponto para decimais).
-      3. Escolha a categoria que melhor se encaixa entre as opções fornecidas.`;
+      1. No "amount", retorne apenas o número (ex: 57.00).
+      2. Se não achar a data, use "${format(new Date(), 'yyyy-MM-dd')}".
+      3. Escolha a categoria que melhor se encaixa.`;
 
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
@@ -85,24 +85,24 @@ export function AddTransactionSheet() {
       
       // Busca o JSON dentro da resposta de forma mais robusta
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        console.error("Falha ao encontrar JSON na resposta");
-        throw new Error("Formato de resposta inválido");
-      }
+      if (!jsonMatch) throw new Error("Formato de resposta inválido");
       
       const data = JSON.parse(jsonMatch[0]);
-      console.log("Dados parseados:", data);
 
-      // Tratamento seguro do valor
-      if (data.amount !== undefined) {
-        const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
+      // Tratamento ultra-robusto do valor
+      if (data.amount) {
+        let cleanAmount = String(data.amount)
+          .replace('R$', '')
+          .replace(/\s/g, '')
+          .replace(',', '.');
+        
+        const val = parseFloat(cleanAmount);
         if (!isNaN(val)) {
           setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
         }
       }
 
       if (data.category) {
-        // Verifica se a categoria retornada existe nas nossas opções
         const exists = EXPENSE_CATEGORIES.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
@@ -119,15 +119,7 @@ export function AddTransactionSheet() {
       toast.success('Dados extraídos com sucesso!', { id: toastId });
     } catch (error: any) {
       console.error('Erro detalhado da IA:', error);
-      let msg = 'Não foi possível ler esta nota. Tente uma foto mais nítida.';
-      
-      if (error.message?.includes('API key')) {
-        msg = 'Erro na chave de API do Google.';
-      } else if (error instanceof SyntaxError) {
-        msg = 'A IA retornou um formato que não consegui entender.';
-      }
-      
-      toast.error(msg, { id: toastId });
+      toast.error('Erro ao processar a nota. Tente novamente.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
