@@ -61,20 +61,19 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
-      // Usando o nome exato do modelo estável
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
+      const allowedCategories = categories.map(c => c.id).join(', ');
+
       const prompt = `Analise a imagem e extraia: valor total, categoria, data e local.
       Responda APENAS com um objeto JSON puro, sem markdown, sem explicações.
-      Categorias permitidas: food, transport, health, leisure, bills, shopping, other.
+      Categorias permitidas para este tipo (${type}): ${allowedCategories}.
       Formato: {"amount": 0.00, "category": "string", "date": "YYYY-MM-DD", "description": "string"}`;
 
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
       const text = response.text();
-      
-      console.log("Resposta da IA:", text);
       
       const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
       const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
@@ -91,8 +90,7 @@ export function AddTransactionSheet() {
       }
 
       if (data.category) {
-        // Corrigido o erro de sintaxe aqui (removido o cat.id duplicado)
-        const exists = EXPENSE_CATEGORIES.some(c => c.id === data.category);
+        const exists = categories.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
 
@@ -109,15 +107,8 @@ export function AddTransactionSheet() {
     } catch (error: any) {
       console.error('Erro detalhado do Gemini:', error);
       let msg = 'Erro ao processar nota.';
-      
-      if (error.message?.includes('404')) {
-        msg = 'Modelo não encontrado. Tente novamente em instantes ou verifique sua chave.';
-      } else if (error.message?.includes('API key')) {
-        msg = 'Chave de API inválida ou expirada.';
-      } else if (error.message?.includes('safety')) {
-        msg = 'A IA bloqueou esta imagem por motivos de segurança.';
-      }
-      
+      if (error.message?.includes('404')) msg = 'Modelo não encontrado. Tente novamente.';
+      else if (error.message?.includes('API key')) msg = 'Chave de API inválida.';
       toast.error(msg, { id: toastId });
     } finally {
       setIsScanning(false);
