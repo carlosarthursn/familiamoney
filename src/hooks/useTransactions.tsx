@@ -19,72 +19,68 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   
-  // Garante que temos uma data válida
   const currentDate = selectedDate || new Date();
   
-  // Usamos strings de data YYYY-MM-DD para evitar problemas de fuso horário na busca do Supabase
-  const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+  // Usamos o formato YYYY-MM-DD para garantir compatibilidade com o tipo 'date' do PostgreSQL
+  const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-01');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
   // IDs para busca (próprio + parceiro)
-  const userIds = [user?.id, profile?.linked_user_id].filter(Boolean) as string[];
+  const currentUserId = user?.id;
+  const partnerId = profile?.linked_user_id;
+  const userIds = [currentUserId, partnerId].filter(Boolean) as string[];
 
-  // Chave da query estável baseada nos IDs dos usuários e no intervalo de datas
+  // Chave da query estável
   const queryKey = ['transactions', userIds.sort().join(','), monthStart, monthEnd];
 
   const transactionsQuery = useQuery({
     queryKey: queryKey,
     queryFn: async (): Promise<TransactionWithAuthor[]> => {
-      if (userIds.length === 0) return [];
+      if (!currentUserId) return [];
       
-      try {
-        const { data: transactions, error: tError } = await supabase
-          .from('transactions')
-          .select('*')
-          .in('user_id', userIds)
-          .gte('date', monthStart)
-          .lte('date', monthEnd)
-          .order('date', { ascending: false });
+      const { data: transactions, error: tError } = await supabase
+        .from('transactions')
+        .select('*')
+        .in('user_id', userIds)
+        .gte('date', monthStart)
+        .lte('date', monthEnd)
+        .order('date', { ascending: false });
 
-        if (tError) throw tError;
-
-        // Buscar nomes dos perfis para identificar o autor da transação
-        const { data: profiles, error: pError } = await supabase
-          .from('profiles')
-          .select('user_id, name, email')
-          .in('user_id', userIds);
-
-        if (pError) console.warn('Erro ao buscar perfis:', pError);
-
-        const profileMap = (profiles || []).reduce((acc, p) => {
-          acc[p.user_id] = p.name || p.email?.split('@')[0] || 'Usuário';
-          return acc;
-        }, {} as Record<string, string>);
-
-        return (transactions || []).map(t => ({
-          ...t,
-          amount: Number(t.amount),
-          author_name: t.user_id === user?.id ? 'Você' : (profileMap[t.user_id] || 'Parceiro')
-        }));
-      } catch (error) {
-        console.error('Falha na busca de transações:', error);
-        return []; // Retorna lista vazia em caso de erro para não travar o carregamento
+      if (tError) {
+        console.error('Erro na query de transações:', tError);
+        throw tError;
       }
+
+      // Buscar nomes dos autores para exibir na lista
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, name, email')
+        .in('user_id', userIds);
+
+      const profileMap = (profiles || []).reduce((acc, p) => {
+        acc[p.user_id] = p.name || p.email?.split('@')[0] || 'Usuário';
+        return acc;
+      }, {} as Record<string, string>);
+
+      return (transactions || []).map(t => ({
+        ...t,
+        amount: Number(t.amount), // Garante que é número para o cálculo do saldo
+        author_name: t.user_id === currentUserId ? 'Você' : (profileMap[t.user_id] || 'Parceiro')
+      }));
     },
-    enabled: !!user?.id,
-    retry: 1,
-    staleTime: 1000 * 60, // 1 minuto de cache
+    enabled: !!currentUserId,
+    staleTime: 0, // Garante que sempre busque dados frescos
   });
 
   const addTransaction = useMutation({
     mutationFn: async (transaction: TransactionInsert) => {
-      if (!user?.id) throw new Error('Usuário não autenticado');
+      if (!currentUserId) throw new Error('Usuário não autenticado');
       
       const { error } = await supabase
         .from('transactions')
         .insert({
           ...transaction,
-          user_id: user.id,
+          user_id: currentUserId,
         });
 
       if (error) throw error;
@@ -112,7 +108,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const allTransactions = transactionsQuery.data || [];
   
-  // Cálculos baseados em todas as transações do mês
   const totalIncome = allTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -121,7 +116,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  // Cálculos filtrados por categoria (para visão de análise)
   const filteredExpenses = allTransactions
     .filter(t => t.type === 'expense')
     .filter(t => !filterCategories || filterCategories.length === 0 || filterCategories.includes(t.category));
@@ -130,7 +124,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     .reduce((sum, t) => sum + t.amount, 0);
 
   const personalExpenses = allTransactions
-    .filter(t => t.type === 'expense' && t.user_id === user?.id)
+    .filter(t => t.type === 'expense' && t.user_id === currentUserId)
     .reduce((sum, t) => sum + t.amount, 0);
     
   const balance = totalIncome - totalExpensesAll;
