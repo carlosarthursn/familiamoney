@@ -15,7 +15,6 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Chave fornecida pelo usuário
 const GEMINI_API_KEY = "AIzaSyAGJBKwhjhES8w22jphdURI9530pkQZ7BQ";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
@@ -61,8 +60,8 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
-      // Tentando com o prefixo 'models/' que às vezes é obrigatório
-      const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
+      // Usando o nome do modelo sem o prefixo 'models/' para testar compatibilidade
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
       const allowedCategories = categories.map(c => c.id).join(', ');
@@ -91,7 +90,7 @@ export function AddTransactionSheet() {
       }
 
       if (data.category) {
-        const exists = categories.some(c => c.id=== c.id);
+        const exists = categories.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
 

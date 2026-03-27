@@ -13,6 +13,7 @@ import { CalendarView } from '@/components/CalendarView';
 import { ProfileSettings } from '@/components/ProfileSettings';
 import { PlanningView } from '@/components/PlanningView';
 import { Header } from '@/components/Header';
+import { FinancialTips } from '@/components/FinancialTips';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -57,6 +58,9 @@ export default function Dashboard() {
               expenses={totalExpenses} 
               showBalance={showBalance}
             />
+            
+            <FinancialTips />
+
             <div>
               <h2 className="text-lg font-semibold mb-3">Últimas transações</h2>
               <TransactionList transactions={allTransactions.slice(0, 5)} isLoading={isLoading} onDelete={handleDelete} />
