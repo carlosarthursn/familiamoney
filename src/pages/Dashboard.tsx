@@ -27,7 +27,15 @@ export default function Dashboard() {
   const [showBalance, setShowBalance] = useState(true);
   const { user, profile, signOut } = useAuth();
   
-  const { transactions: allTransactions, isLoading, totalIncome, totalExpenses, balance, deleteTransaction } = useTransactions({ selectedDate });
+  // Usamos totalExpensesAll aqui para garantir que o saldo reflita todas as saídas
+  const { 
+    transactions: allTransactions, 
+    isLoading, 
+    totalIncome, 
+    totalExpensesAll, 
+    balance, 
+    deleteTransaction 
+  } = useTransactions({ selectedDate });
   
   const displayName = profile?.name || 'Usuário';
 
@@ -56,7 +64,7 @@ export default function Dashboard() {
             <BalanceCard 
               balance={balance} 
               income={totalIncome} 
-              expenses={totalExpenses} 
+              expenses={totalExpensesAll} 
               showBalance={showBalance}
             />
             

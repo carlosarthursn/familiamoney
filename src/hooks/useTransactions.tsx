@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Transaction, TransactionInsert } from '@/types/finance';
@@ -21,6 +23,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
+  // Determina os IDs de usuários para a busca (próprio + parceiro se houver)
   const userIds = [user?.id].filter(Boolean) as string[];
   const linkedId = profile?.linked_user_id;
   
@@ -28,6 +31,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     userIds.push(linkedId);
   }
 
+  // Chave da query baseada nos usuários e no mês selecionado
   const queryKey = ['transactions', userIds.sort().join(','), monthStart, monthEnd];
 
   const transactionsQuery = useQuery({
@@ -61,7 +65,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       }));
     },
     enabled: !!user,
-    staleTime: 1000 * 30, // 30 segundos de cache
+    staleTime: 0, // Removido o staleTime para garantir dados sempre frescos após invalidação
   });
 
   const addTransaction = useMutation({
@@ -79,8 +83,11 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       return true;
     },
     onSuccess: () => {
+      // Invalida todas as queries relacionadas a transações para forçar o refetch imediato
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dateRangeTransactions'] });
+      // Também invalida o saldo do perfil caso haja lógica de cache lá
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
     },
   });
 
@@ -100,10 +107,16 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   const allTransactions = transactionsQuery.data || [];
   
+  // Cálculos baseados em TODAS as transações do mês (para o saldo principal)
   const totalIncome = allTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + Number(t.amount), 0);
     
+  const totalExpensesAll = allTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  // Cálculos filtrados por categoria (para a visão de análise)
   const filteredExpenses = allTransactions
     .filter(t => t.type === 'expense')
     .filter(t => !filterCategories || filterCategories.length === 0 || filterCategories.includes(t.category));
@@ -111,11 +124,12 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const totalExpenses = filteredExpenses
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
-  const personalExpenses = filteredExpenses
-    .filter(t => t.user_id === user?.id)
+  const personalExpenses = allTransactions
+    .filter(t => t.type === 'expense' && t.user_id === user?.id)
     .reduce((sum, t) => sum + Number(t.amount), 0);
     
-  const balance = totalIncome - totalExpenses;
+  // O saldo deve refletir a diferença real entre o que entrou e o que saiu, ignorando filtros de categoria da UI
+  const balance = totalIncome - totalExpensesAll;
 
   const expensesByCategory = filteredExpenses
     .reduce((acc, t) => {
@@ -129,7 +143,8 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     addTransaction,
     deleteTransaction,
     totalIncome,
-    totalExpenses,
+    totalExpenses, // Usado na Análise (respeita filtros)
+    totalExpensesAll, // Total real do mês (para o BalanceCard)
     personalExpenses,
     balance,
     expensesByCategory,
