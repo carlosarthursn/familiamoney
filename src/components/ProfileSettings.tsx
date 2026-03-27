@@ -8,7 +8,7 @@ import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart } from 'lucide-r
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile, updateProfile, linkPartner, unlinkPartner } = useAuth();
   const [name, setName] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,6 @@ export function ProfileSettings() {
   const currentUserEmail = user?.email || '';
   const isLinked = !!profile?.linked_user_id;
   
-  // Determina o nome a ser exibido para o parceiro
   const partnerDisplayName = profile?.partnerName || 'Parceiro';
 
   const handleUpdateName = async () => {
@@ -38,93 +37,85 @@ export function ProfileSettings() {
     if (error) {
       toast.error('Erro ao atualizar nome.');
     } else {
-      toast.success('Nome atualizado com sucesso!');
+      toast.success('Nome atualizado!');
     }
   };
 
   const handleLink = async () => {
     const cleanEmail = partnerEmail.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
-    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
-      toast.error('Por favor, insira um email válido.');
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      toast.error('Insira um email válido.');
       return;
     }
 
     if (cleanEmail === currentUserEmail.toLowerCase()) {
-      toast.error('Você não pode vincular seu próprio email.');
+      toast.error('Você não pode se auto-vincular.');
       return;
     }
 
     setLoading(true);
     try {
-      // Buscar o user_id pelo email na tabela profiles
-      // Agora a RLS permite que usuários logados façam essa busca
-      const { data: partnerProfile, error: searchError } = await supabase
+      const { data: partner, error: searchError } = await supabase
         .from('profiles')
         .select('user_id')
         .eq('email', cleanEmail)
         .maybeSingle();
 
-      if (searchError) {
-        console.error("Erro na busca:", searchError);
-        toast.error('Erro ao buscar parceiro.');
+      if (searchError || !partner) {
+        toast.error('Usuário não encontrado.');
         return;
       }
 
-      if (!partnerProfile) {
-        toast.error('Nenhum usuário encontrado com esse email.');
-        return;
-      }
-
-      const { error } = await updateProfile({ linked_user_id: partnerProfile.user_id });
-      if (error) {
-        toast.error('Erro ao vincular perfil.');
-        return;
-      }
+      const { error } = await linkPartner(partner.user_id);
+      if (error) throw error;
       
-      toast.success('Vinculado com sucesso!');
+      toast.success('Vínculo realizado em ambas as contas!');
       setPartnerEmail('');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao realizar vínculo.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleUnlink = async () => {
+    if (!confirm('Deseja realmente desvincular as contas? O histórico de ambos deixará de ser compartilhado.')) return;
+    
     setLoading(true);
-    const { error } = await updateProfile({ linked_user_id: null });
+    const { error } = await unlinkPartner();
     setLoading(false);
 
     if (error) {
-      toast.error('Erro ao desvincular perfil.');
+      toast.error('Erro ao desvincular.');
     } else {
-      toast.success('Perfil desvinculado.');
+      toast.success('Contas desvinculadas com sucesso.');
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Name Edit Section */}
       <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
         <h3 className="font-semibold flex items-center gap-2">
           <UserIcon className="h-5 w-5 text-primary" />
           Dados Pessoais
         </h3>
         <div className="space-y-2">
-          <Label htmlFor="user-name" className="text-muted-foreground">Seu Nome</Label>
+          <Label htmlFor="user-name" className="text-muted-foreground text-xs font-bold uppercase">Seu Nome</Label>
           <div className="flex gap-2">
             <Input
               id="user-name"
-              placeholder="Como você quer ser chamado?"
+              placeholder="Ex: Carlos"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="flex-1 h-10 touch-target"
+              className="flex-1 h-11"
             />
             <Button 
               onClick={handleUpdateName} 
               disabled={loading}
               size="icon"
-              className="h-10 w-10 shrink-0"
+              className="h-11 w-11 shrink-0"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             </Button>
@@ -132,7 +123,6 @@ export function ProfileSettings() {
         </div>
       </div>
 
-      {/* Linking Section */}
       <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
         <h3 className="font-semibold flex items-center gap-2">
           <Link className="h-5 w-5 text-primary" />
@@ -157,33 +147,34 @@ export function ProfileSettings() {
               variant="destructive" 
               onClick={handleUnlink} 
               disabled={loading}
-              className="w-full h-10 rounded-lg touch-target"
+              className="w-full h-11"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Desvincular'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remover Vínculo'}
             </Button>
           </div>
         ) : (
           <div className="space-y-2">
-            <Label htmlFor="partner-email" className="text-muted-foreground">Email do Parceiro</Label>
+            <Label htmlFor="partner-email" className="text-muted-foreground text-xs font-bold uppercase">Email do Parceiro</Label>
             <div className="flex gap-2">
               <Input
                 id="partner-email"
                 type="email"
-                placeholder="email@exemplo.com"
+                placeholder="email@do.parceiro.com"
                 value={partnerEmail}
                 onChange={(e) => setPartnerEmail(e.target.value)}
-                className="flex-1 h-10 touch-target"
+                className="flex-1 h-11"
               />
               <Button 
                 onClick={handleLink} 
                 disabled={loading}
-                className="h-10 rounded-lg touch-target shrink-0"
+                className="h-11 px-4 shrink-0"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
+                {!loading && 'Vincular'}
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              Digite o email da pessoa com quem deseja compartilhar.
+            <p className="text-[10px] text-muted-foreground italic">
+              * Ambos passarão a ver as transações e metas um do outro.
             </p>
           </div>
         )}

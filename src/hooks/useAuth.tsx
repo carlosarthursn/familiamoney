@@ -18,6 +18,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: { name?: string; linked_user_id?: string | null; monthly_budget?: number }) => Promise<{ error: Error | null }>;
+  linkPartner: (partnerId: string) => Promise<{ error: any }>;
+  unlinkPartner: () => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -31,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     try {
-      // Tenta buscar o perfil do usuário atual
       const { data: dbProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
@@ -47,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profileData = dbProfile as any;
         let pName: string | null = null;
 
-        // Se houver um parceiro vinculado, tenta buscar o nome dele
         if (profileData.linked_user_id) {
           const { data: partner } = await supabase
             .from('profiles')
@@ -66,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: Number(profileData.monthly_budget) || 0
         });
       } else {
-        // Criação automática de perfil caso não exista
         const newProfile = {
           id: currentUser.id,
           user_id: currentUser.id,
@@ -74,7 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário',
           monthly_budget: 0
         };
-
         await supabase.from('profiles').insert(newProfile);
         setProfile({ name: newProfile.name, monthly_budget: 0 });
       }
@@ -134,8 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    window.location.replace('/');
+    try {
+      setLoading(true);
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      // Forçamos o reload para limpar todos os estados e cache
+      window.location.assign('/');
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+      window.location.assign('/');
+    }
   };
 
   const updateProfile = async (updates: any) => {
@@ -143,6 +151,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
     if (!error) await fetchProfile(user);
     return { error: error as Error | null };
+  };
+
+  const linkPartner = async (partnerId: string) => {
+    const { error } = await supabase.rpc('link_profiles', { partner_uuid: partnerId });
+    if (!error && user) await fetchProfile(user);
+    return { error };
+  };
+
+  const unlinkPartner = async () => {
+    const { error } = await supabase.rpc('unlink_profiles');
+    if (!error && user) await fetchProfile(user);
+    return { error };
   };
 
   const refreshProfile = async () => {
@@ -158,7 +178,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp, 
       signIn, 
       signOut, 
-      updateProfile, 
+      updateProfile,
+      linkPartner,
+      unlinkPartner,
       refreshProfile 
     }}>
       {children}
