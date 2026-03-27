@@ -31,191 +31,145 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (currentUser: User) => {
     try {
-      const { data: dbProfile, error: profileError } = await supabase
+      // Tenta buscar o perfil, mas não deixa isso travar a aplicação
+      const { data: dbProfile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', currentUser.id)
         .maybeSingle();
       
-      if (profileError) {
-        console.error("Erro ao buscar perfil:", profileError);
-      }
-
-      if (!dbProfile) {
-        // Se o perfil não existe, tentamos criar agora mesmo
-        const defaultName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
-        
-        const { data: createdProfile, error: insertError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: currentUser.id,
-            user_id: currentUser.id,
-            email: currentUser.email,
-            name: defaultName,
-            monthly_budget: 0
-          } as any)
-          .select()
-          .maybeSingle();
-
-        if (insertError) {
-          console.error("Erro ao criar perfil automaticamente:", insertError);
-        } else if (createdProfile) {
-          setProfile({
-            name: (createdProfile as any).name,
-            linked_user_id: null,
-            partnerName: null,
-            monthly_budget: 0
-          });
-          return;
-        }
-      }
+      if (error) throw error;
 
       if (dbProfile) {
         const profileData = dbProfile as any;
-        const linkedId = profileData?.linked_user_id || null;
         let partnerName: string | null = null;
 
-        if (linkedId) {
-          const { data: partnerProfile } = await supabase
+        if (profileData.linked_user_id) {
+          const { data: partner } = await supabase
             .from('profiles')
             .select('name, email')
-            .eq('user_id', linkedId)
+            .eq('user_id', profileData.linked_user_id)
             .maybeSingle();
-          
-          if (partnerProfile) {
-            partnerName = (partnerProfile as any).name || (partnerProfile as any).email?.split('@')[0] || 'Parceiro';
-          }
+          if (partner) partnerName = (partner as any).name || (partner as any).email?.split('@')[0];
         }
-        
+
         setProfile({
-          name: profileData?.name || profileData?.email?.split('@')[0] || 'Usuário',
-          linked_user_id: linkedId,
+          name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
+          linked_user_id: profileData.linked_user_id,
           partnerName,
-          monthly_budget: profileData?.monthly_budget || 0
+          monthly_budget: profileData.monthly_budget || 0
+        });
+      } else {
+        // Se não existir, define um perfil temporário para não travar a UI
+        setProfile({
+          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário',
+          monthly_budget: 0
+        });
+        
+        // Tenta criar o perfil em background (sem await para não travar)
+        supabase.from('profiles').upsert({
+          id: currentUser.id,
+          user_id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
+          monthly_budget: 0
+        } as any).then(({ error: upsertError }) => {
+          if (upsertError) console.error("Erro ao criar perfil em background:", upsertError);
         });
       }
-    } catch (error) {
-      console.error("Erro inesperado no fetchProfile:", error);
-    }
-  };
-
-  const refreshProfile = async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (currentUser) {
-      setUser(currentUser);
-      await fetchProfile(currentUser);
+    } catch (err) {
+      console.error("Erro ao processar perfil:", err);
+      // Fallback para não travar a tela
+      setProfile({ name: currentUser.email?.split('@')[0] || 'Usuário' });
     }
   };
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        setSession(initialSession);
-        const currentUser = initialSession?.user ?? null;
-        setUser(currentUser);
-
-        if (currentUser) {
-          await fetchProfile(currentUser);
-        }
-      } catch (e) {
-        console.error("Erro ao inicializar auth:", e);
-      } finally {
-        setLoading(false);
-      }
+    // Inicialização rápida
+    const init = async () => {
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+      if (initialSession?.user) await fetchProfile(initialSession.user);
+      setLoading(false);
     };
 
-    initializeAuth();
+    init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        
-        if (currentUser) {
-          await fetchProfile(currentUser);
-        } else {
-          setProfile(null);
-        }
-        
-        // Garante que o loading pare sempre
-        setLoading(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchProfile(session.user);
+      } else {
+        setProfile(null);
       }
-    );
+      setLoading(false);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-        },
-      });
-      
-      if (error) throw error;
-
-      if (data.user) {
-        // Tenta criar o perfil IMEDIATAMENTE após o cadastro
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: data.user.id,
-          user_id: data.user.id,
-          email: email,
-          name: name,
-          monthly_budget: 0
-        } as any);
-
-        if (profileError) console.error("Erro ao criar perfil no signup:", profileError);
-      }
-      
-      return { error: null };
-    } catch (error: any) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } }
+    });
+    
+    if (error) {
       setLoading(false);
       return { error: error as Error };
     }
+
+    // Se criou o user, tenta criar o perfil e encerra o loading
+    if (data.user) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        user_id: data.user.id,
+        email,
+        name,
+        monthly_budget: 0
+      } as any);
+      await fetchProfile(data.user);
+    }
+    
+    setLoading(false);
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) setLoading(false);
-    return { error: error as Error | null };
-  };
-
-  const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      setUser(null);
-      setProfile(null);
-      setSession(null);
-      window.location.replace('/');
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setLoading(false);
+      return { error: error as Error };
     }
-  };
-
-  const updateProfile = async (updates: { name?: string; linked_user_id?: string | null; monthly_budget?: number }) => {
-    if (!user) return { error: new Error('Usuário não logado') };
-
-    const { error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('user_id', user.id);
-
-    if (error) return { error: error as Error };
-    await refreshProfile();
+    if (data.user) await fetchProfile(data.user);
+    setLoading(false);
     return { error: null };
   };
 
+  const signOut = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setSession(null);
+    setLoading(false);
+    window.location.replace('/');
+  };
+
+  const updateProfile = async (updates: any) => {
+    if (!user) return { error: new Error('Não logado') };
+    const { error } = await supabase.from('profiles').update(updates).eq('user_id', user.id);
+    if (!error) await fetchProfile(user);
+    return { error: error as Error | null };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile, refreshProfile: () => fetchProfile(user!) }}>
       {children}
     </AuthContext.Provider>
   );
@@ -223,8 +177,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
