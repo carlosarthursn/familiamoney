@@ -8,6 +8,7 @@ import { usePlanning } from '@/hooks/usePlanning';
 import { toast } from 'sonner';
 import { AddGoalSheet } from './AddGoalSheet';
 import { AddWishItemSheet } from './AddWishItemSheet';
+import { BudgetSheet } from './BudgetSheet';
 
 // Componente auxiliar para exibir quando não há itens
 function EmptyState({ icon: Icon, title, description, trigger }: { icon: React.ElementType, title: string, description: string, trigger: React.ReactNode }) {
