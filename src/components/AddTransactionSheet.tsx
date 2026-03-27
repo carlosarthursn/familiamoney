@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -61,43 +61,42 @@ export function AddTransactionSheet() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Verificar tamanho do arquivo (limite de 4MB para processamento rápido)
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error('A imagem é muito grande. Tente tirar uma foto com menor resolução.');
-      return;
-    }
-
     setIsScanning(true);
-    const toastId = toast.loading('Processando com I.A. Flash...');
+    const toastId = toast.loading('Analisando comprovante...');
 
     try {
-      // Usando 1.5 Flash que é mais resiliente a timeouts e problemas de quota
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Configuração para resposta JSON estrita
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      });
+
       const imagePart = await fileToGenerativePart(file);
       
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise este comprovante/nota. 
-      Extraia: Valor Total, Data e o que foi comprado (Descrição curta).
-      Retorne APENAS um JSON puro, sem textos extras: 
-      {"amount": 0.00, "category": "id_da_categoria", "date": "YYYY-MM-DD", "description": "Nome do Local ou Item"}.
-      Categorias válidas (escolha a melhor): ${allowedCategories}. 
-      Se não tiver certeza da categoria, use 'other'. 
-      Se não achar a data, use a data de hoje.`;
+      const prompt = `Analise este comprovante/nota fiscal. 
+      Localize o valor total pago, a data da emissão e o nome do estabelecimento.
+      Escolha a categoria mais adequada entre: ${allowedCategories}.
+      
+      Responda estritamente neste formato JSON:
+      {
+        "amount": number,
+        "category": "string",
+        "date": "YYYY-MM-DD",
+        "description": "string"
+      }`;
 
       const result = await model.generateContent([prompt, imagePart as any]);
-      const response = await result.response;
-      const responseText = response.text();
+      const responseText = result.response.text();
       
-      // Limpeza robusta para extrair apenas o JSON, ignorando marcações de markdown
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Não foi possível formatar os dados da nota.');
+      console.log("Resposta bruta da IA:", responseText);
       
-      const data = JSON.parse(jsonMatch[0]);
+      const data = JSON.parse(responseText);
 
       if (data.amount) {
-        // Garantir que é um número e formatar para o input
-        const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
-        if (!isNaN(val)) setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+        setAmount(Number(data.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
       }
       
       if (data.category) {
@@ -112,15 +111,10 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Leitura concluída!', { id: toastId });
+      toast.success('Nota lida com sucesso!', { id: toastId });
     } catch (error: any) {
-      console.error('ERRO DETALHADO IA:', error);
-      
-      let errorMessage = 'Não conseguimos ler esta nota.';
-      if (error.message?.includes('quota')) errorMessage = 'Limite de uso da I.A. atingido. Tente novamente em instantes.';
-      if (error.message?.includes('JSON')) errorMessage = 'A I.A. não conseguiu entender a estrutura da nota.';
-      
-      toast.error(errorMessage, { id: toastId, duration: 5000 });
+      console.error('ERRO NO ESCANEAMENTO:', error);
+      toast.error('Não conseguimos processar esta imagem. Tente uma foto mais nítida.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -148,7 +142,7 @@ export function AddTransactionSheet() {
         description: description || undefined,
       });
       
-      toast.success('Salvo com sucesso!');
+      toast.success('Lançamento salvo!');
       resetForm();
       setOpen(false);
     } catch (error: any) {
@@ -224,7 +218,7 @@ export function AddTransactionSheet() {
               {isScanning ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="font-bold">Analisando nota...</span>
+                  <span className="font-bold">Processando nota...</span>
                 </div>
               ) : (
                 <>
@@ -232,7 +226,7 @@ export function AddTransactionSheet() {
                     <Camera className="h-5 w-5" />
                     <span className="font-bold">Escanear com I.A.</span>
                   </div>
-                  <span className="text-[10px] opacity-70">Detecta valor, data e categoria</span>
+                  <span className="text-[10px] opacity-70">Identifica valor e categoria</span>
                 </>
               )}
             </Button>
