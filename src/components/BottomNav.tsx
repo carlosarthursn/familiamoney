@@ -1,4 +1,4 @@
-import { Home, PieChart, User, CalendarDays, Target } from 'lucide-react';
+import { Home, PieChart, CalendarDays, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BottomNavProps {
@@ -11,13 +11,12 @@ const tabs = [
   { id: 'calendar', label: 'Calendário', icon: CalendarDays },
   { id: 'analysis', label: 'Análise', icon: PieChart },
   { id: 'planning', label: 'Planejar', icon: Target },
-  { id: 'profile', label: 'Perfil', icon: User },
 ];
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-bottom z-40">
-      <div className="grid grid-cols-5 max-w-lg mx-auto h-16">
+      <div className="grid grid-cols-4 max-w-lg mx-auto h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
