@@ -47,34 +47,21 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('*')
+        .select('user_id, name, email')
         .in('user_id', userIds);
 
       const profileMap = (profiles || []).reduce((acc, p) => {
-        if (p.user_id === user?.id) {
-          acc[p.user_id] = 'Você';
-        } else {
-          acc[p.user_id] = (p as any).name || p.email?.split('@')[0] || 'Parceiro';
-        }
+        acc[p.user_id] = p.name || p.email?.split('@')[0] || 'Usuário';
         return acc;
       }, {} as Record<string, string>);
 
-      return (transactions as Transaction[]).map(t => {
-        let author = profileMap[t.user_id];
-        
-        if (!author && t.user_id === linkedId) {
-          author = profile?.partnerName || 'Parceiro';
-        } else if (!author) {
-          author = t.user_id === user?.id ? 'Você' : 'Usuário';
-        }
-
-        return {
-          ...t,
-          author_name: author
-        };
-      });
+      return (transactions as Transaction[]).map(t => ({
+        ...t,
+        author_name: t.user_id === user?.id ? 'Você' : (profileMap[t.user_id] || 'Parceiro')
+      }));
     },
     enabled: !!user,
+    staleTime: 1000 * 30, // 30 segundos de cache
   });
 
   const addTransaction = useMutation({
@@ -93,6 +80,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dateRangeTransactions'] });
     },
   });
 
@@ -123,7 +111,6 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   const totalExpenses = filteredExpenses
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
-  // Gastos realizados apenas pelo usuário atual
   const personalExpenses = filteredExpenses
     .filter(t => t.user_id === user?.id)
     .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -138,9 +125,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
 
   return {
     transactions: allTransactions,
-    allTransactions,
     isLoading: transactionsQuery.isLoading,
-    error: transactionsQuery.error,
     addTransaction,
     deleteTransaction,
     totalIncome,

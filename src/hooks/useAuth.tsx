@@ -31,15 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (currentUser: User) => {
     try {
-      // Tenta buscar o perfil, mas não deixa isso travar a aplicação
-      const { data: dbProfile, error } = await supabase
+      const { data: dbProfile } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', currentUser.id)
         .maybeSingle();
       
-      if (error) throw error;
-
       if (dbProfile) {
         const profileData = dbProfile as any;
         let partnerName: string | null = null;
@@ -57,46 +54,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
           linked_user_id: profileData.linked_user_id,
           partnerName,
-          monthly_budget: profileData.monthly_budget || 0
+          monthly_budget: Number(profileData.monthly_budget) || 0
         });
       } else {
-        // Se não existir, define um perfil temporário para não travar a UI
+        // Fallback imediato se o perfil não existir
         setProfile({
           name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário',
           monthly_budget: 0
         });
         
-        // Tenta criar o perfil em background (sem await para não travar)
+        // Criar perfil em background
         supabase.from('profiles').upsert({
           id: currentUser.id,
           user_id: currentUser.id,
           email: currentUser.email,
           name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0],
           monthly_budget: 0
-        } as any).then(({ error: upsertError }) => {
-          if (upsertError) console.error("Erro ao criar perfil em background:", upsertError);
-        });
+        } as any).catch(console.error);
       }
     } catch (err) {
-      console.error("Erro ao processar perfil:", err);
-      // Fallback para não travar a tela
-      setProfile({ name: currentUser.email?.split('@')[0] || 'Usuário' });
+      console.error("Erro no fetchProfile:", err);
+      setProfile({ name: currentUser.email?.split('@')[0] || 'Usuário', monthly_budget: 0 });
     }
   };
 
   useEffect(() => {
-    // Inicialização rápida
-    const init = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      if (initialSession?.user) await fetchProfile(initialSession.user);
+    // Timeout de segurança: nunca deixa o loading travar por mais de 2.5s
+    const safetyTimeout = setTimeout(() => {
       setLoading(false);
+    }, 2500);
+
+    const init = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        if (initialSession?.user) await fetchProfile(initialSession.user);
+      } finally {
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      }
     };
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -107,7 +109,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
@@ -123,8 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error as Error };
     }
 
-    // Se criou o user, tenta criar o perfil e encerra o loading
     if (data.user) {
+      // Forçar criação do perfil
       await supabase.from('profiles').upsert({
         id: data.user.id,
         user_id: data.user.id,
