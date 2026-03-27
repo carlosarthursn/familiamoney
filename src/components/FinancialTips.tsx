@@ -4,7 +4,7 @@ import { Sparkles, Lightbulb, RefreshCw } from 'lucide-react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { cn } from '@/lib/utils';
 
-const GEMINI_API_KEY = "AIzaSyAGJBKwhjhES8w22jphdURI9530pkQZ7BQ";
+const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export function FinancialTips() {

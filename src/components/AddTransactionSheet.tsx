@@ -15,7 +15,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const GEMINI_API_KEY = "AIzaSyAGJBKwhjhES8w22jphdURI9530pkQZ7BQ";
+const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export function AddTransactionSheet() {
@@ -63,83 +63,6 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Lendo com Gemini 1.5 Flash...');
 
     try {
-      // Usando estritamente o modelo gemini-1.5-flash
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const imagePart = await fileToGenerativePart(file);
-      
-      const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Extraia dados desta nota/comprovante. 
-      Retorne APENAS um JSON: {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "nome"}.
-      Categorias válidas: ${allowedCategories}. Use 'other' se não identificar.`;
-
-      const result = await model.generateContent([prompt, imagePart as any]);
-<dyad-write path="src/components/AddTransactionSheet.tsx" description="Fixando o uso exclusivo do modelo Gemini 1.5 Flash para escaneamento de notas">
-import { useState, useRef } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, Check, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
-import { useTransactions } from '@/hooks/useTransactions';
-import { toast } from 'sonner';
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const GEMINI_API_KEY = "AIzaSyAGJBKwhjhES8w22jphdURI9530pkQZ7BQ";
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-export function AddTransactionSheet() {
-  const [open, setOpen] = useState(false);
-  const [type, setType] = useState<TransactionType>('expense');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [date, setDate] = useState<Date>(new Date());
-  const [description, setDescription] = useState('');
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { addTransaction } = useTransactions();
-  
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-  
-  const resetForm = () => {
-    setType('expense');
-    setAmount('');
-    setCategory('');
-    setDate(new Date());
-    setDescription('');
-  };
-
-  const fileToGenerativePart = async (file: File) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        resolve({
-          inlineData: { data: base64Data, mimeType: file.type },
-        });
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-  
-  const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsScanning(true);
-    const toastId = toast.loading('Lendo com Gemini 1.5 Flash...');
-
-    try {
-      // Usando estritamente o modelo gemini-1.5-flash
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
       
