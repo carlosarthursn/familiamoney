@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GEMINI_API_KEY = "AIzaSyCBVoAh31lqQN5NYngNIV5k27s2QUbPkD8";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -62,12 +62,12 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Analisando comprovante...');
+    const toastId = toast.loading('Analisando com Gemini 2.0...');
 
     try {
-      // Configuração para resposta JSON estrita
+      // Usando o modelo mais recente: gemini-2.0-flash
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash",
         generationConfig: {
           responseMimeType: "application/json",
         }
@@ -76,13 +76,13 @@ export function AddTransactionSheet() {
       const imagePart = await fileToGenerativePart(file);
       
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise este comprovante/nota fiscal. 
-      Localize o valor total pago, a data da emissão e o nome do estabelecimento.
-      Escolha a categoria mais adequada entre: ${allowedCategories}.
+      const prompt = `Analise este comprovante fiscal. 
+      Extraia: valor total, data (YYYY-MM-DD) e nome do local.
+      Categorias permitidas: ${allowedCategories}.
       
-      Responda estritamente neste formato JSON:
+      Retorne APENAS o JSON:
       {
-        "amount": number,
+        "amount": número_decimal,
         "category": "string",
         "date": "YYYY-MM-DD",
         "description": "string"
@@ -91,7 +91,7 @@ export function AddTransactionSheet() {
       const result = await model.generateContent([prompt, imagePart as any]);
       const responseText = result.response.text();
       
-      console.log("Resposta bruta da IA:", responseText);
+      console.log("Gemini 2.0 Response:", responseText);
       
       const data = JSON.parse(responseText);
 
@@ -111,10 +111,10 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Nota lida com sucesso!', { id: toastId });
+      toast.success('Nota processada com Gemini 2.0!', { id: toastId });
     } catch (error: any) {
-      console.error('ERRO NO ESCANEAMENTO:', error);
-      toast.error('Não conseguimos processar esta imagem. Tente uma foto mais nítida.', { id: toastId });
+      console.error('ERRO IA 2.0:', error);
+      toast.error('Ocorreu um erro ao processar. Tente uma foto mais clara ou manual.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -218,15 +218,15 @@ export function AddTransactionSheet() {
               {isScanning ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="font-bold">Processando nota...</span>
+                  <span className="font-bold">Analisando com I.A. 2.0...</span>
                 </div>
               ) : (
                 <>
                   <div className="flex items-center gap-2">
                     <Camera className="h-5 w-5" />
-                    <span className="font-bold">Escanear com I.A.</span>
+                    <span className="font-bold">Escanear com I.A. Pro</span>
                   </div>
-                  <span className="text-[10px] opacity-70">Identifica valor e categoria</span>
+                  <span className="text-[10px] opacity-70">Leitura avançada com Gemini 2.0</span>
                 </>
               )}
             </Button>
