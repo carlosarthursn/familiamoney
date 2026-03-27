@@ -14,16 +14,20 @@ export function FinancialTips() {
   const fetchTip = async () => {
     setLoading(true);
     try {
-      // Usando gemini-pro para texto, que é o mais estável
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const prompt = "Dê uma dica financeira curta, prática e motivadora para uma família brasileira. Máximo 150 caracteres.";
+      // Forçando a versão 'v1' da API para evitar o erro 404 do v1beta
+      const model = genAI.getGenerativeModel(
+        { model: "gemini-1.5-flash" },
+        { apiVersion: 'v1' }
+      );
+      
+      const prompt = "Dê uma dica financeira curta e prática para uma família. Máximo 100 caracteres.";
       
       const result = await model.generateContent(prompt);
       const response = await result.response;
       setTip(response.text());
     } catch (error) {
-      console.error("Erro ao buscar dica:", error);
-      setTip("Pequenas economias hoje geram grandes conquistas amanhã. Comece anotando tudo!");
+      console.error("Erro na dica:", error);
+      setTip("Poupe pelo menos 10% do que ganha todos os meses.");
     } finally {
       setLoading(false);
     }
@@ -55,7 +59,7 @@ export function FinancialTips() {
               </button>
             </div>
             <p className="text-xs text-foreground leading-relaxed italic">
-              "{loading ? 'Pensando em uma dica...' : tip}"
+              "{loading ? 'Buscando...' : tip}"
             </p>
           </div>
         </div>

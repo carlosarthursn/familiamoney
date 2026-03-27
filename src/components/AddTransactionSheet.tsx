@@ -62,23 +62,25 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Lendo nota...');
+    const toastId = toast.loading('Lendo nota fiscal...');
 
     try {
-      // Usando o modelo mais básico e estável para visão
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Forçando a versão 'v1' para evitar erro 404 do v1beta
+      const model = genAI.getGenerativeModel(
+        { model: "gemini-1.5-flash" },
+        { apiVersion: 'v1' }
+      );
 
       const imagePart = await fileToGenerativePart(file);
       
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise a nota fiscal e retorne APENAS um JSON:
-      {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "nome"}
-      Categorias: ${allowedCategories}.`;
+      const prompt = `Analise a nota fiscal e extraia os dados.
+      Retorne APENAS um JSON plano com estes campos: 
+      "amount" (número), "category" (uma dessas: ${allowedCategories}), "date" (YYYY-MM-DD), "description" (texto curto).`;
 
       const result = await model.generateContent([prompt, imagePart as any]);
       const responseText = result.response.text();
       
-      // Limpar markdown caso a IA retorne
       const cleanedJson = responseText.replace(/```json|```/gi, '').trim();
       const data = JSON.parse(cleanedJson);
 
@@ -98,10 +100,10 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Nota lida!', { id: toastId });
+      toast.success('Leitura concluída!', { id: toastId });
     } catch (error: any) {
       console.error('Erro na IA:', error);
-      toast.error('Erro ao acessar a IA. Verifique sua conexão ou tente novamente.', { id: toastId });
+      toast.error('Não foi possível ler a nota. Tente digitar os dados.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -133,7 +135,7 @@ export function AddTransactionSheet() {
       resetForm();
       setOpen(false);
     } catch (error: any) {
-      toast.error('Erro ao salvar no banco.');
+      toast.error('Erro ao salvar.');
     }
   };
   
