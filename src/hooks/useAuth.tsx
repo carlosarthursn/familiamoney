@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
   name?: string;
+  avatar_url?: string | null;
   linked_user_id?: string | null;
   partnerName?: string | null;
   monthly_budget?: number;
@@ -17,7 +18,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: { name?: string; linked_user_id?: string | null; monthly_budget?: number }) => Promise<{ error: Error | null }>;
+  updateProfile: (updates: { name?: string; avatar_url?: string | null; linked_user_id?: string | null; monthly_budget?: number }) => Promise<{ error: Error | null }>;
   linkPartner: (partnerId: string) => Promise<{ error: any }>;
   unlinkPartner: () => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setProfile({
           name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
+          avatar_url: profileData.avatar_url,
           linked_user_id: profileData.linked_user_id,
           partnerName: pName,
           monthly_budget: Number(profileData.monthly_budget) || 0
@@ -74,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: 0
         };
         await supabase.from('profiles').insert(newProfile);
-        setProfile({ name: newProfile.name, monthly_budget: 0 });
+        setProfile({ name: newProfile.name, monthly_budget: 0, avatar_url: null });
       }
     } catch (e) {
       console.error("Auth: Falha crítica ao carregar perfil:", e);
@@ -138,7 +140,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
       setProfile(null);
-      // Forçamos o reload para limpar todos os estados e cache
       window.location.assign('/');
     } catch (error) {
       console.error("Erro ao sair:", error);

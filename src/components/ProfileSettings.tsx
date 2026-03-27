@@ -4,19 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart } from 'lucide-react';
+import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ProfileSettings() {
   const { user, profile, updateProfile, linkPartner, unlinkPartner } = useAuth();
   const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (profile?.name) {
-      setName(profile.name);
-    }
+    if (profile?.name) setName(profile.name);
+    if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
   }, [profile]);
 
   const currentUserEmail = user?.email || '';
@@ -24,20 +24,20 @@ export function ProfileSettings() {
   
   const partnerDisplayName = profile?.partnerName || 'Parceiro';
 
-  const handleUpdateName = async () => {
+  const handleUpdateProfile = async () => {
     if (!name.trim()) {
       toast.error('O nome não pode estar vazio.');
       return;
     }
 
     setLoading(true);
-    const { error } = await updateProfile({ name });
+    const { error } = await updateProfile({ name, avatar_url: avatarUrl || null });
     setLoading(false);
 
     if (error) {
-      toast.error('Erro ao atualizar nome.');
+      toast.error('Erro ao atualizar perfil.');
     } else {
-      toast.success('Nome atualizado!');
+      toast.success('Perfil atualizado!');
     }
   };
 
@@ -101,25 +101,43 @@ export function ProfileSettings() {
           <UserIcon className="h-5 w-5 text-primary" />
           Dados Pessoais
         </h3>
-        <div className="space-y-2">
-          <Label htmlFor="user-name" className="text-muted-foreground text-xs font-bold uppercase">Seu Nome</Label>
-          <div className="flex gap-2">
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="user-name" className="text-muted-foreground text-xs font-bold uppercase">Seu Nome</Label>
             <Input
               id="user-name"
               placeholder="Ex: Carlos"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="flex-1 h-11"
+              className="h-11"
             />
-            <Button 
-              onClick={handleUpdateName} 
-              disabled={loading}
-              size="icon"
-              className="h-11 w-11 shrink-0"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            </Button>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="avatar-url" className="text-muted-foreground text-xs font-bold uppercase">URL da Foto de Perfil</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Camera className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="avatar-url"
+                  placeholder="https://exemplo.com/foto.jpg"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  className="pl-10 h-11"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleUpdateProfile} 
+            disabled={loading}
+            className="w-full h-11 gradient-primary"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            Salvar Alterações
+          </Button>
         </div>
       </div>
 
@@ -173,9 +191,6 @@ export function ProfileSettings() {
                 {!loading && 'Vincular'}
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground italic">
-              * Ambos passarão a ver as transações e metas um do outro.
-            </p>
           </div>
         )}
       </div>
