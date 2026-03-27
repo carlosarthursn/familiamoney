@@ -61,7 +61,7 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
-      // Tentando o modelo gemini-1.5-flash que é o mais atual para visão
+      // Usando o identificador de modelo mais compatível
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
@@ -91,7 +91,8 @@ export function AddTransactionSheet() {
       }
 
       if (data.category) {
-        const exists = EXPENSE_CATEGORIES.some(c => c.id ===cat.id === data.category);
+        // Corrigido o erro de sintaxe aqui
+        const exists = EXPENSE_CATEGORIES.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
 
@@ -110,7 +111,7 @@ export function AddTransactionSheet() {
       let msg = 'Erro ao processar nota.';
       
       if (error.message?.includes('404')) {
-        msg = 'Modelo de IA não encontrado. Verifique as permissões da sua chave API.';
+        msg = 'Modelo não encontrado. Tente novamente em instantes.';
       } else if (error.message?.includes('API key')) {
         msg = 'Chave de API inválida ou expirada.';
       }
