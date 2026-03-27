@@ -18,6 +18,15 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const GEMINI_API_KEY = "AIzaSyAGJBKwhjhES8w22jphdURI9530pkQZ7BQ";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
+// Lista de modelos para tentar em ordem de prioridade
+const POSSIBLE_MODELS = [
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-pro",
+  "gemini-pro-vision",
+  "gemini-1.0-pro-vision-latest"
+];
+
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<TransactionType>('expense');
@@ -60,60 +69,61 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Processando com Inteligência Artificial...');
+    const toastId = toast.loading('Buscando modelo de IA compatível...');
 
     try {
-      // Usando o modelo mais estável e versátil
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
-      
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise esta imagem. É um comprovante ou nota fiscal.
-      Extraia: valor total, data e local/descrição.
-      Retorne APENAS um objeto JSON válido (sem markdown) com este formato:
-      {"amount": 0.00, "category": "escolha_uma_da_lista", "date": "YYYY-MM-DD", "description": "nome_do_local"}
-      
-      Categorias permitidas: ${allowedCategories}
-      Se não identificar a categoria, use 'other'.`;
+      const prompt = `Analise esta nota fiscal/comprovante e extraia: valor total, data e local.
+      Retorne APENAS um JSON: {"amount": 0.00, "category": "escolha_da_lista", "date": "YYYY-MM-DD", "description": "nome"}
+      Categorias permitidas: ${allowedCategories}`;
 
-      const result = await model.generateContent([prompt, imagePart as any]);
+      let result = null;
+      let modelUsed = "";
+
+      // Tenta cada modelo da lista até um funcionar
+      for (const modelName of POSSIBLE_MODELS) {
+        try {
+          console.log(`Tentando modelo: ${modelName}`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          result = await model.generateContent([prompt, imagePart as any]);
+          if (result) {
+            modelUsed = modelName;
+            break;
+          }
+        } catch (e: any) {
+          console.warn(`Modelo ${modelName} falhou:`, e.message);
+          // Se não for erro 404 (ex: limite de quota), paramos de tentar
+          if (!e.message?.includes('404')) break;
+        }
+      }
+
+      if (!result) {
+        throw new Error("Nenhum modelo de IA encontrado para sua chave.");
+      }
+
       const response = await result.response;
       const text = response.text().replace(/```json|```/g, "").trim();
-      
       const data = JSON.parse(text);
 
       if (data.amount) {
         const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
         if (!isNaN(val)) setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
       }
-
       if (data.category) {
         const exists = categories.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
-
       if (data.description) setDescription(data.description);
-      
       if (data.date) {
         const parsedDate = parseISO(data.date);
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Leitura concluída!', { id: toastId });
+      toast.success(`Leitura concluída via ${modelUsed}!`, { id: toastId });
     } catch (error: any) {
-      console.error('ERRO DETALHADO DA IA:', error);
-      
-      // Mensagens de erro mais úteis para diagnóstico
-      let userMessage = 'Erro na leitura. Por favor, preencha manualmente.';
-      if (error.message?.includes('404')) {
-        userMessage = 'Erro: Modelo de IA não encontrado. Verifique sua chave de API.';
-      } else if (error.message?.includes('API key')) {
-        userMessage = 'Erro: Chave de API inválida ou expirada.';
-      } else if (error.message?.includes('quota')) {
-        userMessage = 'Erro: Limite de uso da IA atingido.';
-      }
-      
-      toast.error(userMessage, { id: toastId, duration: 5000 });
+      console.error('ERRO IA:', error);
+      toast.error(error.message || 'Erro ao acessar a IA. Verifique sua chave.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
