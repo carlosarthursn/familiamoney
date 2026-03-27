@@ -62,26 +62,23 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Processando imagem...');
+    const toastId = toast.loading('Lendo nota...');
 
     try {
-      // Usando o modelo 1.5 Flash (mais estável e disponível globalmente)
+      // Usando o modelo mais básico e estável para visão
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const imagePart = await fileToGenerativePart(file);
       
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise a nota fiscal e retorne os dados em formato JSON. 
-      Categorias: ${allowedCategories}.
-      Formato esperado: {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "nome"}.
-      Apenas o JSON, sem markdown.`;
+      const prompt = `Analise a nota fiscal e retorne APENAS um JSON:
+      {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "nome"}
+      Categorias: ${allowedCategories}.`;
 
       const result = await model.generateContent([prompt, imagePart as any]);
       const responseText = result.response.text();
       
-      console.log("IA Response:", responseText);
-      
-      // Limpar possíveis marcações de markdown do JSON
+      // Limpar markdown caso a IA retorne
       const cleanedJson = responseText.replace(/```json|```/gi, '').trim();
       const data = JSON.parse(cleanedJson);
 
@@ -101,12 +98,10 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Leitura concluída!', { id: toastId });
+      toast.success('Nota lida!', { id: toastId });
     } catch (error: any) {
-      console.error('ERRO IA:', error);
-      // Exibindo o erro real para diagnóstico
-      const errorMsg = error.message || 'Erro desconhecido';
-      toast.error(`Falha: ${errorMsg.slice(0, 50)}...`, { id: toastId, duration: 5000 });
+      console.error('Erro na IA:', error);
+      toast.error('Erro ao acessar a IA. Verifique sua conexão ou tente novamente.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -134,11 +129,11 @@ export function AddTransactionSheet() {
         description: description || undefined,
       });
       
-      toast.success('Lançamento salvo!');
+      toast.success('Salvo!');
       resetForm();
       setOpen(false);
     } catch (error: any) {
-      toast.error('Erro ao salvar no banco de dados.');
+      toast.error('Erro ao salvar no banco.');
     }
   };
   
@@ -159,7 +154,7 @@ export function AddTransactionSheet() {
             <Sparkles className="h-4 w-4 text-primary animate-pulse" />
           </SheetTitle>
           <SheetDescription className="sr-only">
-            Adicione detalhes sobre sua nova receita ou despesa.
+            Adicione uma nova transação.
           </SheetDescription>
         </SheetHeader>
         
@@ -173,10 +168,8 @@ export function AddTransactionSheet() {
                   setCategory('');
                 }}
                 className={cn(
-                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-all text-sm",
-                  type === 'expense' 
-                    ? "bg-destructive text-white shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground"
+                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm",
+                  type === 'expense' ? "bg-destructive text-white" : "text-muted-foreground"
                 )}
               >
                 <TrendingDown className="h-4 w-4" />
@@ -189,10 +182,8 @@ export function AddTransactionSheet() {
                   setCategory('');
                 }}
                 className={cn(
-                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-all text-sm",
-                  type === 'income' 
-                    ? "bg-success text-white shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground"
+                  "flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm",
+                  type === 'income' ? "bg-success text-white" : "text-muted-foreground"
                 )}
               >
                 <TrendingUp className="h-4 w-4" />
@@ -205,80 +196,30 @@ export function AddTransactionSheet() {
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
               disabled={isScanning}
-              className="w-full h-14 border-2 border-dashed border-primary/40 text-primary hover:bg-primary/5 rounded-xl flex flex-col items-center justify-center gap-0"
+              className="w-full h-14 border-2 border-dashed border-primary/40 text-primary rounded-xl flex items-center justify-center gap-2"
             >
-              {isScanning ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="font-bold">Lendo nota...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Camera className="h-5 w-5" />
-                    <span className="font-bold">Escanear Nota</span>
-                  </div>
-                  <span className="text-[10px] opacity-70">Detecta valor e categoria</span>
-                </>
-              )}
+              {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+              <span className="font-bold">{isScanning ? 'Lendo...' : 'Escanear Nota'}</span>
             </Button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept="image/*"
-              capture="environment"
-              onChange={handleScanReceipt}
-            />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleScanReceipt} />
             
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Valor</Label>
+              <Label className="text-xs text-muted-foreground uppercase font-bold">Valor</Label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                  R$
-                </span>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="pl-12 h-12 text-xl font-bold rounded-xl"
-                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                <Input type="text" inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} className="pl-12 h-12 text-xl font-bold rounded-xl" />
               </div>
             </div>
             
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Categoria</Label>
+              <Label className="text-xs text-muted-foreground uppercase font-bold">Categoria</Label>
               <div className="grid grid-cols-3 gap-2">
                 {categories.map((cat) => {
                   const IconComponent = getCategoryIcon(cat.icon);
                   return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setCategory(cat.id)}
-                      className={cn(
-                        "relative flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all",
-                        category === cat.id 
-                          ? "border-primary bg-primary/5" 
-                          : "border-transparent bg-muted/50 hover:bg-muted"
-                      )}
-                    >
+                    <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={cn("flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all", category === cat.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/50")}>
                       <IconComponent className="h-4 w-4" />
-                      <span className={cn(
-                        "text-[10px] font-medium text-center truncate w-full",
-                        category === cat.id 
-                          ? "text-primary" 
-                          : "text-muted-foreground"
-                      )}>
-                        {cat.label}
-                      </span>
-                      {category === cat.id && (
-                        <div className="absolute top-1 right-1">
-                          <Check className="h-3 w-3 text-primary" />
-                        </div>
-                      )}
+                      <span className="text-[10px] font-medium truncate w-full">{cat.label}</span>
                     </button>
                   );
                 })}
@@ -286,59 +227,30 @@ export function AddTransactionSheet() {
             </div>
             
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Data</Label>
+              <Label className="text-xs text-muted-foreground uppercase font-bold">Data</Label>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left h-11 text-sm rounded-xl"
-                  >
-                    <CalendarIcon className="mr-3 h-4 w-4 text-muted-foreground" />
+                  <Button variant="outline" className="w-full justify-start h-11 text-sm rounded-xl">
+                    <CalendarIcon className="mr-3 h-4 w-4" />
                     {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => {
-                      if (d) setDate(d);
-                      setDatePickerOpen(false);
-                    }}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
+                  <Calendar mode="single" selected={date} onSelect={(d) => { if (d) setDate(d); setDatePickerOpen(false); }} initialFocus />
                 </PopoverContent>
               </Popover>
             </div>
             
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Descrição / Estabelecimento</Label>
-              <Textarea
-                placeholder="Ex: Almoço no Restaurante X"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[60px] text-sm rounded-xl resize-none"
-              />
+              <Label className="text-xs text-muted-foreground uppercase font-bold">Descrição</Label>
+              <Textarea placeholder="Ex: Mercado" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[60px] text-sm rounded-xl" />
             </div>
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10 safe-bottom">
-          <Button
-            onClick={handleSubmit}
-            disabled={addTransaction.isPending || isScanning}
-            className={cn(
-              "w-full h-12 text-base font-semibold rounded-xl shadow-lg text-white",
-              type === 'income' ? "gradient-income" : "gradient-expense"
-            )}
-          >
-            {addTransaction.isPending ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Salvando...
-              </div>
-            ) : 'Confirmar e Salvar'}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background pt-10 safe-bottom">
+          <Button onClick={handleSubmit} disabled={addTransaction.isPending || isScanning} className={cn("w-full h-12 text-base font-semibold rounded-xl", type === 'income' ? "gradient-income" : "gradient-expense")}>
+            {addTransaction.isPending ? 'Salvando...' : 'Confirmar'}
           </Button>
         </div>
       </SheetContent>
