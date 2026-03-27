@@ -21,7 +21,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
   
   const currentDate = selectedDate || new Date();
   
-  // Define o intervalo do mês para a busca
+  // Define o intervalo do mês usando o formato ISO padrão do banco
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-01');
   const monthEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
@@ -34,8 +34,8 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     queryFn: async (): Promise<TransactionWithAuthor[]> => {
       if (!currentUserId) return [];
       
-      // Deixamos o Supabase filtrar o que podemos ver via RLS (Regras de Segurança)
-      // Isso é mais seguro e evita erros de 'ID não encontrado'
+      // Buscamos as transações sem filtros complexos de ID no JS, 
+      // deixando o RLS do banco fazer o trabalho de segurança.
       const { data: transactions, error: tError } = await supabase
         .from('transactions')
         .select('*')
@@ -44,11 +44,11 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         .order('date', { ascending: false });
 
       if (tError) {
-        console.error('Erro na query de transações:', tError);
+        console.error('Erro ao buscar transações:', tError);
         throw tError;
       }
 
-      // Buscar perfis para colocar os nomes na lista
+      // Buscar perfis para identificar quem fez a transação (Você ou Parceiro)
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, name, email');
@@ -65,8 +65,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       }));
     },
     enabled: !!currentUserId,
-    staleTime: 0,
-    refetchOnWindowFocus: true
+    staleTime: 0, // Garante que os dados não fiquem "velhos" no cache
   });
 
   const addTransaction = useMutation({
@@ -84,7 +83,7 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
       return true;
     },
     onSuccess: () => {
-      // Forçamos a atualização de todas as listas que dependem de transações
+      // Invalida todas as queries relacionadas a transações para forçar o refresh
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dateRangeTransactions'] });
     },
