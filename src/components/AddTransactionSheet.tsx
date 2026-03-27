@@ -57,43 +57,44 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Analisando imagem com IA...');
+    const toastId = toast.loading('Analisando nota fiscal...');
 
     try {
-      // Tentativa 1: gemini-1.5-flash (O mais estável para OCR)
-      let model;
-      try {
-        model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      } catch (e) {
-        // Fallback para pro-vision se o flash falhar na inicialização
-        model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
-      }
-
       const imagePart = await fileToGenerativePart(file);
       const allowedCategories = categories.map(c => c.id).join(', ');
+      const prompt = `Extraia dados desta nota/comprovante. Retorne APENAS um JSON: {"amount": 0.00, "category": "string", "date": "YYYY-MM-DD", "description": "local"}. Categorias: ${allowedCategories}.`;
 
-      const prompt = `Analise este comprovante/nota fiscal e extraia os dados. 
-      Retorne APENAS um JSON no seguinte formato:
-      {"amount": 10.50, "category": "id_da_categoria", "date": "YYYY-MM-DD", "description": "nome_do_local"}
-      
-      Regras:
-      1. Se o tipo for ${type === 'expense' ? 'Despesa' : 'Receita'}, use uma destas categorias: ${allowedCategories}.
-      2. Se não tiver certeza da categoria, use "other".
-      3. Use ponto para decimais no valor.`;
+      // Lista de modelos para tentar em ordem de preferência
+      const modelsToTry = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro-vision"];
+      let lastError = null;
+      let responseText = "";
 
-      const result = await model.generateContent([prompt, imagePart]);
-      const response = await result.response;
-      const text = response.text();
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`Tentando modelo: ${modelName}`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent([prompt, imagePart]);
+          const response = await result.response;
+          responseText = response.text();
+          if (responseText) break; // Sucesso!
+        } catch (err: any) {
+          console.warn(`Falha no modelo ${modelName}:`, err);
+          lastError = err;
+          // Se for 404, continua para o próximo. Se for outro erro (ex: limite), para aqui.
+          if (!err.message?.includes('404')) break;
+        }
+      }
+
+      if (!responseText) {
+        throw lastError || new Error("Nenhum modelo disponível respondeu.");
+      }
       
-      // Limpeza de possíveis marcações de markdown do JSON
-      const jsonStr = text.replace(/```json|```/g, "").trim();
+      const jsonStr = responseText.replace(/```json|```/g, "").trim();
       const data = JSON.parse(jsonStr);
 
       if (data.amount) {
         const val = typeof data.amount === 'string' ? parseFloat(data.amount.replace(',', '.')) : data.amount;
-        if (!isNaN(val)) {
-          setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-        }
+        if (!isNaN(val)) setAmount(val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
       }
 
       if (data.category) {
@@ -105,21 +106,13 @@ export function AddTransactionSheet() {
       
       if (data.date) {
         const parsedDate = parseISO(data.date);
-        if (isValid(parsedDate)) {
-          setDate(parsedDate);
-        }
+        if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success('Dados extraídos com sucesso!', { id: toastId });
+      toast.success('Nota lida com sucesso!', { id: toastId });
     } catch (error: any) {
-      console.error('Erro na IA:', error);
-      let errorMessage = 'Não foi possível ler a nota. Tente novamente ou digite manualmente.';
-      
-      if (error.message?.includes('404')) {
-        errorMessage = 'Erro de configuração na IA (404). Por favor, verifique se o modelo Gemini está habilitado para sua chave.';
-      }
-      
-      toast.error(errorMessage, { id: toastId, duration: 5000 });
+      console.error('Erro final na IA:', error);
+      toast.error('Não foi possível ler a nota automaticamente. Tente uma foto mais nítida.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
