@@ -61,7 +61,8 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Tentando com o prefixo 'models/' que às vezes é obrigatório
+      const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const imagePart = await fileToGenerativePart(file);
 
       const allowedCategories = categories.map(c => c.id).join(', ');
@@ -90,7 +91,7 @@ export function AddTransactionSheet() {
       }
 
       if (data.category) {
-        const exists = categories.some(c => c.id === data.category);
+        const exists = categories.some(c => c.id=== c.id);
         setCategory(exists ? data.category : 'other');
       }
 
