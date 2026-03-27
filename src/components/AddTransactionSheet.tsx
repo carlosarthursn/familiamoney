@@ -60,8 +60,8 @@ export function AddTransactionSheet() {
     const toastId = toast.loading('Analisando imagem com IA...');
 
     try {
-      // Usando o nome do modelo sem o prefixo 'models/' para testar compatibilidade
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Usando o nome mais compatível atualmente
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
       const imagePart = await fileToGenerativePart(file);
 
       const allowedCategories = categories.map(c => c.id).join(', ');
@@ -90,6 +90,7 @@ export function AddTransactionSheet() {
       }
 
       if (data.category) {
+        // Correção na verificação da categoria
         const exists = categories.some(c => c.id === data.category);
         setCategory(exists ? data.category : 'other');
       }
@@ -107,7 +108,7 @@ export function AddTransactionSheet() {
     } catch (error: any) {
       console.error('Erro detalhado do Gemini:', error);
       let msg = 'Erro ao processar nota.';
-      if (error.message?.includes('404')) msg = 'Modelo não encontrado. Tente novamente.';
+      if (error.message?.includes('404')) msg = 'Modelo não encontrado. Verifique sua chave API.';
       else if (error.message?.includes('API key')) msg = 'Chave de API inválida.';
       toast.error(msg, { id: toastId });
     } finally {
