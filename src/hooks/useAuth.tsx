@@ -31,27 +31,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     try {
-      // Tenta buscar o perfil
+      // Tenta buscar o perfil do usuário atual
       const { data: dbProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
         .maybeSingle();
       
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error("Erro ao buscar perfil:", fetchError);
+        return;
+      }
 
       if (dbProfile) {
         const profileData = dbProfile as any;
         let pName: string | null = null;
 
-        // Busca o nome do parceiro se houver vínculo
+        // Se houver um parceiro vinculado, tenta buscar o nome dele
         if (profileData.linked_user_id) {
           const { data: partner } = await supabase
             .from('profiles')
             .select('name, email')
-            .eq('user_id', profileData.linked_user_id)
+            .eq('id', profileData.linked_user_id)
             .maybeSingle();
-          if (partner) pName = (partner as any).name || (partner as any).email?.split('@')[0];
+          if (partner) {
+            pName = (partner as any).name || (partner as any).email?.split('@')[0];
+          }
         }
 
         setProfile({
@@ -61,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: Number(profileData.monthly_budget) || 0
         });
       } else {
-        // Se não existir perfil, cria um básico para que o RLS funcione
+        // Criação automática de perfil caso não exista
         const newProfile = {
           id: currentUser.id,
           user_id: currentUser.id,
@@ -70,11 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           monthly_budget: 0
         };
 
-        await supabase.from('profiles').upsert(newProfile);
+        await supabase.from('profiles').insert(newProfile);
         setProfile({ name: newProfile.name, monthly_budget: 0 });
       }
     } catch (e) {
-      console.error("Auth: Erro ao carregar perfil:", e);
+      console.error("Auth: Falha crítica ao carregar perfil:", e);
     }
   }, []);
 
