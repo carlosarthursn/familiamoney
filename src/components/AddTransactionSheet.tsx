@@ -15,9 +15,8 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
 import { createWorker } from 'tesseract.js';
 
-// Mapeamento de palavras-chave para categorias
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  food: ['MERCADO', 'SUPERMERCADO', 'RESTAURANTE', 'LANCHONETE', 'IFOOD', 'PADARIA', 'AÇOUGUE', 'ALIMENTOS', 'BEBIDAS'],
+  food: ['MERCADO', 'SUPERMERCADO', 'RESTAURANTE', 'LANCHONETE', 'IFOOD', 'PADARIA', 'AÇOUGUE', 'ALIMENTOS', 'BEBIDAS', 'LANCHE', 'PIZZA'],
   transport: ['POSTO', 'GASOLINA', 'UBER', '99APP', 'ESTACIONAMENTO', 'PEDAGIO', 'COMBUSTIVEL', 'AUTO'],
   health: ['FARMACIA', 'DROGARIA', 'HOSPITAL', 'CLINICA', 'EXAME', 'MEDICAMENTO', 'SAUDE'],
   leisure: ['CINEMA', 'SHOW', 'TEATRO', 'BAR', 'PUB', 'ENTRETENIMENTO'],
@@ -61,35 +60,60 @@ export function AddTransactionSheet() {
       await worker.terminate();
 
       const upperText = text.toUpperCase();
-      console.log('--- TEXTO BRUTO ---');
-      console.log(upperText);
+      const lines = upperText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      
+      console.log('--- OCR LINES ---', lines);
 
-      // 1. Extração de Valor (Lógica aprimorada)
+      // Regex para valores monetários (ex: 57,00 ou 1.234,56)
       const moneyRegex = /(\d{1,3}(?:[\.,\s]\d{3})*[\.,]\d{2})/g;
-      const lines = upperText.split('\n');
-      let totalCandidate = '';
-      let maxVal = 0;
+      
+      let detectedAmount = 0;
+      let foundByKeyword = false;
 
-      lines.forEach(line => {
-        const matches = line.match(moneyRegex);
-        if (matches) {
-          matches.forEach(match => {
-            const cleanVal = match.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-            const val = parseFloat(cleanVal);
-            if (!isNaN(val)) {
-              if (line.includes('TOTAL') || line.includes('PAGAR') || line.includes('SUBTOTAL')) {
-                totalCandidate = val.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-              }
-              if (val > maxVal) maxVal = val;
+      // 1. Busca por palavras-chave de TOTAL
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.includes('TOTAL') || line.includes('VALOR A PAGAR') || line.includes('PAGAR') || line.includes('SUBTOTAL')) {
+          // Tenta achar o valor na mesma linha ou nas próximas 2
+          const searchArea = lines.slice(i, i + 3).join(' ');
+          const matches = searchArea.match(moneyRegex);
+          
+          if (matches) {
+            // Pega o maior valor encontrado perto da palavra TOTAL
+            const values = matches.map(m => parseFloat(m.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')));
+            const maxInArea = Math.max(...values);
+            if (maxInArea > 0) {
+              detectedAmount = maxInArea;
+              foundByKeyword = true;
+              break;
             }
-          });
+          }
         }
-      });
+      }
 
-      const finalAmount = totalCandidate || (maxVal > 0 ? maxVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '');
-      if (finalAmount) setAmount(finalAmount);
+      // 2. Se não achou por palavra-chave, pega o maior valor da nota (ignorando números gigantes como CNPJ)
+      if (!foundByKeyword) {
+        const allMatches = upperText.match(moneyRegex);
+        if (allMatches) {
+          const allValues = allMatches
+            .map(m => parseFloat(m.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')))
+            .filter(v => v < 5000); // Filtro de segurança para evitar CNPJ/Inscrições
+          
+          if (allValues.length > 0) {
+            detectedAmount = Math.max(...allValues);
+          }
+        }
+      }
 
-      // 2. Extração de Data
+      if (detectedAmount > 0) {
+        const formatted = detectedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        setAmount(formatted);
+        toast.success(`Valor identificado: R$ ${formatted}`, { id: toastId });
+      } else {
+        toast.error('Não consegui ler o valor total. Tente focar no final da nota.', { id: toastId });
+      }
+
+      // Detecção de Data
       const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
       const dateMatch = upperText.match(dateRegex);
       if (dateMatch) {
@@ -98,31 +122,19 @@ export function AddTransactionSheet() {
           const month = dateMatch[2];
           let year = dateMatch[3];
           if (year.length === 2) year = '20' + year;
-          
           const parsedDate = parse(`${day}/${month}/${year}`, 'dd/MM/yyyy', new Date());
-          if (!isNaN(parsedDate.getTime())) {
-            setDate(parsedDate);
-          }
-        } catch (e) {
-          console.error('Erro ao processar data da nota:', e);
-        }
+          if (!isNaN(parsedDate.getTime())) setDate(parsedDate);
+        } catch (e) {}
       }
 
-      // 3. Sugestão de Categoria
-      let suggestedCategory = '';
+      // Sugestão de Categoria
       for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
         if (keywords.some(kw => upperText.includes(kw))) {
-          suggestedCategory = catId;
+          setCategory(catId);
           break;
         }
       }
-      if (suggestedCategory) setCategory(suggestedCategory);
 
-      if (finalAmount) {
-        toast.success(`Identificado: R$ ${finalAmount}${suggestedCategory ? ' em ' + suggestedCategory : ''}`, { id: toastId });
-      } else {
-        toast.error('Não consegui ler o valor total. Tente focar no final da nota.', { id: toastId });
-      }
     } catch (error) {
       console.error('Erro no OCR:', error);
       toast.error('Erro ao processar imagem.', { id: toastId });
