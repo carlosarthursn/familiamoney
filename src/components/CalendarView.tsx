@@ -23,7 +23,7 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
     const expenseDates: Date[] = [];
     const bothDates: Date[] = [];
     
-    const dayMap = new Record<string, { income: boolean, expense: boolean }>();
+    const dayMap: Record<string, { income: boolean, expense: boolean }> = {};
     
     transactions.forEach(t => {
       if (!dayMap[t.date]) dayMap[t.date] = { income: false, expense: false };
