@@ -27,13 +27,13 @@ export interface CategoryInfo {
   icon: string;
 }
 
-// New types for planning features
+// Ajustado para bater com o banco de dados (tudo minúsculo)
 export interface SavingsGoal {
   id: string;
   name: string;
-  targetAmount: number;
-  currentAmount: number;
-  targetDate: string; // YYYY-MM-DD
+  targetamount: number;
+  currentamount: number;
+  targetdate: string; // YYYY-MM-DD
 }
 
 export interface WishlistItem {

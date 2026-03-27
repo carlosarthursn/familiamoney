@@ -28,8 +28,8 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
   const [amountToAdd, setAmountToAdd] = useState('');
   const { updateGoalAmount } = usePlanning();
 
-  const progress = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100);
-  const remaining = goal.targetAmount - goal.currentAmount;
+  const progress = Math.min(100, (goal.currentamount / goal.targetamount) * 100);
+  const remaining = goal.targetamount - goal.currentamount;
   const isComplete = progress >= 100;
 
   const handleAddFunds = async () => {
@@ -41,7 +41,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
 
     try {
       await updateGoalAmount.mutateAsync({ id: goal.id, amountChange: val });
-      toast.success(`R$ ${val} adicionados à meta!`);
+      toast.success(`R$ ${val} adicionados!`);
       setAmountToAdd('');
       setIsAdding(false);
     } catch (error) {
@@ -58,8 +58,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
         </CardTitle>
         <button
           onClick={() => onDelete(goal.id)}
-          className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive transition-all touch-target -mr-2"
-          aria-label="Excluir meta"
+          className="p-2 text-muted-foreground hover:text-destructive transition-all"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -68,7 +67,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground">Progresso:</span>
           <span className={cn("font-medium", isComplete ? "text-success" : "text-primary")}>
-            {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+            {formatCurrency(goal.currentamount)} / {formatCurrency(goal.targetamount)}
           </span>
         </div>
         
@@ -77,14 +76,13 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
         <div className="flex justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <CalendarDays className="h-3 w-3" />
-            <span>Meta: {format(new Date(goal.targetDate + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>
+            <span>Meta: {format(new Date(goal.targetdate + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>
           </div>
           <span className={cn(isComplete ? "text-success font-medium" : "text-destructive font-medium")}>
             {isComplete ? 'Concluído!' : `${formatCurrency(remaining)} restantes`}
           </span>
         </div>
 
-        {/* Quick Add Funds */}
         <div className="pt-2 border-t border-border/50">
           {isAdding ? (
             <div className="flex gap-2 animate-slide-down">
@@ -97,31 +95,17 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
                 className="h-8 text-xs"
                 autoFocus
               />
-              <Button 
-                size="sm" 
-                className="h-8 px-3 text-xs" 
-                onClick={handleAddFunds}
-                disabled={updateGoalAmount.isPending}
-              >
-                {updateGoalAmount.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'OK'}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 px-2 text-xs" 
-                onClick={() => setIsAdding(false)}
-              >
-                X
-              </Button>
+              <Button size="sm" className="h-8 text-xs" onClick={handleAddFunds}>OK</Button>
+              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setIsAdding(false)}>X</Button>
             </div>
           ) : (
             <Button 
               variant="ghost" 
               size="sm" 
-              className="w-full h-8 text-xs text-primary hover:bg-primary/5 flex items-center justify-center gap-1.5"
+              className="w-full h-8 text-xs text-primary"
               onClick={() => setIsAdding(true)}
             >
-              <PlusCircle className="h-3.5 w-3.5" />
+              <PlusCircle className="h-3.5 w-3.5 mr-1" />
               Adicionar Economia
             </Button>
           )}
