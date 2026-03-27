@@ -18,13 +18,14 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const GEMINI_API_KEY = "AIzaSyAGJBKwhjhES8w22jphdURI9530pkQZ7BQ";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Lista de modelos para tentar em ordem de prioridade
-const POSSIBLE_MODELS = [
+// Lista exaustiva de modelos para garantir compatibilidade
+const MODELS_TO_TRY = [
   "gemini-1.5-flash",
-  "gemini-1.5-flash-latest",
+  "gemini-1.5-flash-8b",
   "gemini-1.5-pro",
   "gemini-pro-vision",
-  "gemini-1.0-pro-vision-latest"
+  "gemini-1.0-pro-vision-latest",
+  "gemini-2.0-flash-exp"
 ];
 
 export function AddTransactionSheet() {
@@ -69,40 +70,41 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Buscando modelo de IA compatível...');
+    const toastId = toast.loading('Testando modelos de IA...');
 
     try {
       const imagePart = await fileToGenerativePart(file);
       const allowedCategories = categories.map(c => c.id).join(', ');
-      const prompt = `Analise esta nota fiscal/comprovante e extraia: valor total, data e local.
-      Retorne APENAS um JSON: {"amount": 0.00, "category": "escolha_da_lista", "date": "YYYY-MM-DD", "description": "nome"}
-      Categorias permitidas: ${allowedCategories}`;
+      const prompt = `Analise este comprovante. Retorne APENAS o JSON: {"amount": 0.00, "category": "id", "date": "YYYY-MM-DD", "description": "nome"}. Categorias: ${allowedCategories}.`;
 
-      let result = null;
+      let successfulResult = null;
       let modelUsed = "";
+      let lastTechnicalError = "";
 
-      // Tenta cada modelo da lista até um funcionar
-      for (const modelName of POSSIBLE_MODELS) {
+      // Loop de tentativas em múltiplos modelos
+      for (const modelName of MODELS_TO_TRY) {
         try {
-          console.log(`Tentando modelo: ${modelName}`);
+          console.log(`Tentando: ${modelName}`);
           const model = genAI.getGenerativeModel({ model: modelName });
-          result = await model.generateContent([prompt, imagePart as any]);
+          const result = await model.generateContent([prompt, imagePart as any]);
           if (result) {
+            successfulResult = result;
             modelUsed = modelName;
             break;
           }
         } catch (e: any) {
           console.warn(`Modelo ${modelName} falhou:`, e.message);
-          // Se não for erro 404 (ex: limite de quota), paramos de tentar
+          lastTechnicalError = e.message || "Erro desconhecido";
+          // Se não for erro de "não encontrado", pode ser outro problema (API key, quota)
           if (!e.message?.includes('404')) break;
         }
       }
 
-      if (!result) {
-        throw new Error("Nenhum modelo de IA encontrado para sua chave.");
+      if (!successfulResult) {
+        throw new Error(`A Google retornou: ${lastTechnicalError}`);
       }
 
-      const response = await result.response;
+      const response = await successfulResult.response;
       const text = response.text().replace(/```json|```/g, "").trim();
       const data = JSON.parse(text);
 
@@ -120,10 +122,10 @@ export function AddTransactionSheet() {
         if (isValid(parsedDate)) setDate(parsedDate);
       }
 
-      toast.success(`Leitura concluída via ${modelUsed}!`, { id: toastId });
+      toast.success(`Sucesso! Lido via ${modelUsed}`, { id: toastId });
     } catch (error: any) {
-      console.error('ERRO IA:', error);
-      toast.error(error.message || 'Erro ao acessar a IA. Verifique sua chave.', { id: toastId });
+      console.error('ERRO IA COMPLETO:', error);
+      toast.error(`Falha técnica: ${error.message}`, { id: toastId, duration: 6000 });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
