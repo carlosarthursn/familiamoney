@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from 'react';
 import { SavingsGoal, WishlistItem } from '@/types/finance';
 import { SavingsGoalCard } from './SavingsGoalCard';
 import { WishListItemCard } from './WishListItemCard';
@@ -10,6 +13,7 @@ import { AddGoalSheet } from './AddGoalSheet';
 import { AddWishItemSheet } from './AddWishItemSheet';
 import { BudgetSheet } from './BudgetSheet';
 import { BudgetProgress } from './BudgetProgress';
+import { SuccessOverlay } from './SuccessOverlay';
 
 // Componente auxiliar para exibir quando não há itens
 function EmptyState({ icon: Icon, title, description, trigger }: { icon: React.ElementType, title: string, description: string, trigger: React.ReactNode }) {
@@ -24,6 +28,9 @@ function EmptyState({ icon: Icon, title, description, trigger }: { icon: React.E
 }
 
 export function PlanningView() {
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const { 
     goals, 
     isLoadingGoals, 
@@ -35,20 +42,33 @@ export function PlanningView() {
 
   const handleDeleteGoal = (id: string) => {
     deleteGoal.mutate(id, {
-      onSuccess: () => toast.success('Meta removida'),
+      onSuccess: () => {
+        setSuccessMessage('Meta removida!');
+        setShowSuccess(true);
+      },
       onError: () => toast.error('Erro ao remover meta'),
     });
   };
   
   const handleDeleteWishItem = (id: string) => {
     deleteItem.mutate(id, {
-      onSuccess: () => toast.success('Item removido'),
+      onSuccess: () => {
+        setSuccessMessage('Item removido!');
+        setShowSuccess(true);
+      },
       onError: () => toast.error('Erro ao remover item'),
     });
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {showSuccess && (
+        <SuccessOverlay 
+          message={successMessage} 
+          onFinished={() => setShowSuccess(false)} 
+        />
+      )}
+
       <h2 className="text-xl font-bold">Planejamento Financeiro</h2>
 
       {/* Savings Goals Section */}

@@ -8,12 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { SuccessOverlay } from './SuccessOverlay';
 
 export function ProfileSettings() {
   const { user, profile, updateProfile, linkPartner, unlinkPartner } = useAuth();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,7 +41,8 @@ export function ProfileSettings() {
     if (error) {
       toast.error('Erro ao atualizar perfil.');
     } else {
-      toast.success('Perfil atualizado!');
+      setSuccessMessage('Perfil atualizado!');
+      setShowSuccess(true);
     }
   };
 
@@ -52,24 +56,22 @@ export function ProfileSettings() {
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}-${Math.random()}.${fileExt}`;
 
-      // Upload da imagem
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Pegar URL pública
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Atualizar perfil
       const { error: updateError } = await updateProfile({ avatar_url: publicUrl });
       
       if (updateError) throw updateError;
 
-      toast.success('Foto de perfil atualizada!');
+      setSuccessMessage('Foto de perfil salva!');
+      setShowSuccess(true);
     } catch (error: any) {
       toast.error('Erro no upload: ' + error.message);
     } finally {
@@ -104,7 +106,8 @@ export function ProfileSettings() {
       const { error } = await linkPartner(partner.user_id);
       if (error) throw error;
       
-      toast.success('Vínculo realizado!');
+      setSuccessMessage('Contas vinculadas!');
+      setShowSuccess(true);
       setPartnerEmail('');
     } catch (err) {
       toast.error('Erro ao realizar vínculo.');
@@ -119,11 +122,21 @@ export function ProfileSettings() {
     const { error } = await unlinkPartner();
     setLoading(false);
     if (error) toast.error('Erro ao desvincular.');
-    else toast.success('Desvinculado com sucesso.');
+    else {
+      setSuccessMessage('Vínculo removido!');
+      setShowSuccess(true);
+    }
   };
 
   return (
     <div className="space-y-6">
+      {showSuccess && (
+        <SuccessOverlay 
+          message={successMessage} 
+          onFinished={() => setShowSuccess(false)} 
+        />
+      )}
+
       <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
         <h3 className="font-semibold flex items-center gap-2">
           <UserIcon className="h-5 w-5 text-primary" />

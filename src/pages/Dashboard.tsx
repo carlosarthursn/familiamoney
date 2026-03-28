@@ -20,12 +20,16 @@ import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { SuccessOverlay } from '@/components/SuccessOverlay';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showBalance, setShowBalance] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  
   const { user, profile, signOut } = useAuth();
   
   const { 
@@ -54,7 +58,10 @@ export default function Dashboard() {
   
   const handleDelete = (id: string) => {
     deleteTransaction.mutate(id, {
-      onSuccess: () => toast.success('Transação removida'),
+      onSuccess: () => {
+        setSuccessMessage('Transação removida!');
+        setShowSuccess(true);
+      },
       onError: () => toast.error('Erro ao remover'),
     });
   };
@@ -153,6 +160,12 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen bg-background pb-24">
+      {showSuccess && (
+        <SuccessOverlay 
+          message={successMessage} 
+          onFinished={() => setShowSuccess(false)} 
+        />
+      )}
       {shouldShowHeader && (
         <Header 
           displayName={displayName} 
