@@ -55,22 +55,6 @@
 
     --radius: 1rem;
 
-    /* Sidebar */
-    --sidebar-background: 220 25% 14%;
-    --sidebar-foreground: 210 20% 92%;
-    --sidebar-primary: 24 95% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 20%;
-    --sidebar-accent-foreground: 24 60% 70%;
-    --sidebar-border: 220 15% 22%;
-    --sidebar-ring: 24 95% 53%;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(24 95% 53%), hsl(30 90% 58%));
-    --gradient-income: linear-gradient(135deg, hsl(152 60% 38%), hsl(152 50% 48%));
-    --gradient-expense: linear-gradient(135deg, hsl(0 75% 52%), hsl(10 75% 58%));
-    --gradient-card: linear-gradient(180deg, hsl(30 10% 99%), hsl(30 15% 96%));
-
     /* Shadows */
     --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
     --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
@@ -78,7 +62,35 @@
     --shadow-glow: 0 0 20px hsl(24 95% 53% / 0.15);
   }
 
-  /* ... (seção dark omitida para brevidade, mas mantida no arquivo) ... */
+  .dark {
+    --background: 220 22% 8%;
+    --foreground: 210 20% 96%;
+    --card: 220 22% 12%;
+    --card-foreground: 210 20% 96%;
+    --popover: 220 22% 12%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 24 90% 55%;
+    --primary-foreground: 220 22% 8%;
+    --secondary: 220 20% 18%;
+    --secondary-foreground: 24 70% 65%;
+    --muted: 220 18% 18%;
+    --muted-foreground: 220 10% 58%;
+    --accent: 220 18% 20%;
+    --accent-foreground: 24 70% 65%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 55% 50%;
+    --success-foreground: 220 22% 8%;
+    --warning: 38 90% 55%;
+    --warning-foreground: 220 22% 8%;
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 24 90% 55%;
+    --gradient-primary: linear-gradient(135deg, hsl(24 90% 55%), hsl(30 85% 48%));
+    --gradient-income: linear-gradient(135deg, hsl(152 55% 50%), hsl(152 45% 42%));
+    --gradient-expense: linear-gradient(135deg, hsl(0 70% 55%), hsl(10 70% 50%));
+    --gradient-card: linear-gradient(180deg, hsl(220 22% 12%), hsl(220 22% 10%));
+  }
 }
 
 @layer base {
@@ -95,8 +107,15 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Efeito Global de Botões e Cards - "Overlay" ao clicar */
+  button, [role="button"], .card-interactive {
+    @apply transition-all duration-200 active:scale-[0.98];
+  }
+
+  button:active, [role="button"]:active {
+    @apply bg-accent/20;
   }
 }
 
@@ -117,14 +136,6 @@
     background: var(--gradient-primary);
   }
 
-  .gradient-income {
-    background: var(--gradient-income);
-  }
-
-  .gradient-expense {
-    background: var(--gradient-expense);
-  }
-
   .touch-target {
     @apply min-h-[48px] min-w-[48px];
   }
@@ -137,29 +148,33 @@
     padding-top: env(safe-area-inset-top, 24px);
   }
 
-  /* Estilos para o Calendário - Marcadores de Underline */
+  /* Estilos para o Calendário - Exatamente como na imagem do usuário */
+  .rdp-day {
+    @apply relative transition-all duration-200 rounded-2xl !important;
+  }
+
+  /* Dia Selecionado - Borda grossa laranja e fundo claro */
+  .rdp-day_selected {
+    @apply bg-primary/10 border-[3px] border-primary text-foreground font-bold !important;
+  }
+
+  /* Marcadores de Underline - Ajustados para ficarem colados na borda inferior */
   .day-has-income {
-    @apply font-bold !important;
-    background: linear-gradient(to right, hsl(var(--success)) 100%, transparent 100%) bottom / 60% 3px no-repeat !important;
-    background-position: bottom center !important;
+    background: linear-gradient(to right, hsl(var(--success)) 100%, transparent 100%) bottom 4px center / 45% 3px no-repeat !important;
   }
   
   .day-has-expense {
-    @apply font-bold !important;
-    background: linear-gradient(to right, hsl(var(--destructive)) 100%, transparent 100%) bottom / 60% 3px no-repeat !important;
-    background-position: bottom center !important;
+    background: linear-gradient(to right, hsl(var(--destructive)) 100%, transparent 100%) bottom 4px center / 45% 3px no-repeat !important;
   }
   
   .day-has-both {
-    @apply font-bold !important;
-    background: linear-gradient(to right, hsl(var(--success)) 50%, hsl(var(--destructive)) 50%) bottom / 60% 3px no-repeat !important;
-    background-position: bottom center !important;
+    background: linear-gradient(to right, hsl(var(--success)) 50%, hsl(var(--destructive)) 50%) bottom 4px center / 45% 3px no-repeat !important;
   }
   
-  /* Garantir que o dia selecionado mantenha os marcadores visíveis */
+  /* Mantendo visibilidade no dia selecionado */
   .rdp-day_selected.day-has-income, 
   .rdp-day_selected.day-has-expense, 
   .rdp-day_selected.day-has-both {
-    @apply text-primary-foreground !important;
+    @apply text-foreground !important;
   }
 }
