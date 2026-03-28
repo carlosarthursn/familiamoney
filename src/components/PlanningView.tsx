@@ -5,10 +5,9 @@ import { SavingsGoalCard } from './SavingsGoalCard';
 import { WishListItemCard } from './WishListItemCard';
 import { RecurringCard } from './RecurringCard';
 import { AddRecurringSheet } from './AddRecurringSheet';
-import { ListChecks, Target, Repeat, Loader2 } from 'lucide-react';
+import { ListChecks, Target, Repeat, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { usePlanning } from '@/hooks/usePlanning';
 import { useRecurring } from '@/hooks/useRecurring';
-import { toast } from 'sonner';
 import { AddGoalSheet } from './AddGoalSheet';
 import { AddWishItemSheet } from './AddWishItemSheet';
 import { SuccessOverlay } from './SuccessOverlay';
@@ -49,17 +48,20 @@ export function PlanningView() {
     });
   };
 
+  const recurringIncomes = recurring.filter(r => r.type === 'income');
+  const recurringExpenses = recurring.filter(r => r.type === 'expense');
+
   return (
     <div className="space-y-8 animate-fade-in pb-10">
       {showSuccess && <SuccessOverlay message={successMessage} onFinished={() => setShowSuccess(false)} />}
 
       <h2 className="text-2xl font-black tracking-tight">Planejamento</h2>
 
-      {/* Gastos Recorrentes Section */}
-      <div className="space-y-4">
+      {/* Planejamento Fixo Section */}
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="font-bold flex items-center gap-2 text-base">
-            <Repeat className="h-5 w-5 text-primary" /> Gastos Recorrentes
+            <Repeat className="h-5 w-5 text-primary" /> Planejamento Fixo
           </h3>
           <AddRecurringSheet />
         </div>
@@ -69,15 +71,41 @@ export function PlanningView() {
         ) : recurring.length === 0 ? (
           <EmptyState 
             icon={Repeat} 
-            title="Nenhum gasto fixo" 
-            description="Luz, aluguel, parcelas... cadastre aqui."
+            title="Nada planejado" 
+            description="Cadastre seus ganhos e gastos fixos mensais."
             trigger={<AddRecurringSheet />}
           />
         ) : (
-          <div className="space-y-2">
-            {recurring.map(item => (
-              <RecurringCard key={item.id} item={item} onDelete={handleDeleteRec} />
-            ))}
+          <div className="space-y-6">
+            {/* Ganhos Group */}
+            {recurringIncomes.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <TrendingUp className="h-3.5 w-3.5 text-success" />
+                  <span className="text-[10px] font-bold text-success uppercase tracking-widest">Ganhos Fixos</span>
+                </div>
+                <div className="space-y-2">
+                  {recurringIncomes.map(item => (
+                    <RecurringCard key={item.id} item={item} onDelete={handleDeleteRec} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Gastos Group */}
+            {recurringExpenses.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+                  <span className="text-[10px] font-bold text-destructive uppercase tracking-widest">Gastos Fixos</span>
+                </div>
+                <div className="space-y-2">
+                  {recurringExpenses.map(item => (
+                    <RecurringCard key={item.id} item={item} onDelete={handleDeleteRec} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
