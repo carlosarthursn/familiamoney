@@ -12,6 +12,7 @@ interface BudgetRow {
   category: string;
   monthly_limit: number;
   user_id: string;
+  custom_label: string | null;
 }
 
 function formatCurrency(value: number): string {
@@ -44,17 +45,22 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
         .in('user_id', userIds);
       if (error) throw error;
       
-      // Se ambos tiverem limites para a mesma categoria, pegamos o maior ou somamos? 
-      // Em família, geralmente o limite é único. Vamos agrupar por categoria.
-      const consolidated: Record<string, number> = {};
+      // Agrupamos por categoria. Se houver nomes personalizados, eles prevalecem.
+      const consolidated: Record<string, { limit: number, label: string | null }> = {};
       (data as unknown as BudgetRow[]).forEach(b => {
-        consolidated[b.category] = Math.max(consolidated[b.category] || 0, b.monthly_limit);
+        if (!consolidated[b.category] || b.monthly_limit > consolidated[b.category].limit) {
+          consolidated[b.category] = { 
+            limit: b.monthly_limit, 
+            label: b.custom_label 
+          };
+        }
       });
       
-      return Object.entries(consolidated).map(([cat, limit]) => ({
+      return Object.entries(consolidated).map(([cat, data]) => ({
         id: cat,
         category: cat,
-        monthly_limit: limit
+        monthly_limit: data.limit,
+        custom_label: data.label
       }));
     },
     enabled: !!user,
@@ -73,6 +79,7 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
         const spent = expensesByCategory[budget.category] || 0;
         const percentage = Math.min(100, (spent / budget.monthly_limit) * 100);
         const isOver = spent > budget.monthly_limit;
+        const displayName = budget.custom_label || catInfo.label;
 
         return (
           <div key={budget.id} className="bg-card rounded-xl p-3 shadow-card">
@@ -80,8 +87,8 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
               <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <Icon className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-              <span className="text-sm font-medium flex-1">{catInfo.label}</span>
-              <span className={cn("text-xs font-semibold", isOver ? "text-destructive" : "text-muted-foreground")}>
+              <span className="text-sm font-medium flex-1 truncate">{displayName}</span>
+              <span className={cn("text-xs font-semibold shrink-0", isOver ? "text-destructive" : "text-muted-foreground")}>
                 {formatCurrency(spent)} / {formatCurrency(budget.monthly_limit)}
               </span>
             </div>
