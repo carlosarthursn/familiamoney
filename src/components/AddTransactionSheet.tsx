@@ -14,9 +14,9 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
-import { supabase } from '@/integrations/supabase/client';
 
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
@@ -31,6 +31,7 @@ export function AddTransactionSheet() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addTransaction } = useTransactions();
+  const { session } = useAuth();
   
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   
@@ -51,8 +52,8 @@ export function AddTransactionSheet() {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1024;
-          const MAX_HEIGHT = 1024;
+          const MAX_WIDTH = 800; // Reduzi um pouco para ser mais rápido
+          const MAX_HEIGHT = 800;
           let width = img.width;
           let height = img.height;
           if (width > height) {
@@ -64,7 +65,7 @@ export function AddTransactionSheet() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
           resolve(dataUrl.split(',')[1]);
         };
         img.onerror = (err) => reject(err);
@@ -78,16 +79,28 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('IA lendo nota fiscal...');
+    const toastId = toast.loading('Claude Vision analisando nota...');
 
     try {
       const imageBase64 = await compressImage(file);
       
-      const { data, error } = await supabase.functions.invoke('scan-receipt', {
-        body: { imageBase64 }
+      // Usando a URL absoluta da Edge Function conforme instruções
+      const response = await fetch("https://vipigovrygzyjaibssra.supabase.co/functions/v1/scan-receipt", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpcGlnb3ZyeWd6eWphaWJzc3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzgzNTMsImV4cCI6MjA4NTA1NDM1M30.Z5hyETn-WMuagY6yiBlyFWTahUm7SSWl4j-m1uI4x9U'
+        },
+        body: JSON.stringify({ imageBase64 })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao processar imagem');
+      }
+
+      const data = await response.json();
 
       if (data) {
         if (data.valor) setAmount(Number(data.valor).toFixed(2).replace('.', ','));
