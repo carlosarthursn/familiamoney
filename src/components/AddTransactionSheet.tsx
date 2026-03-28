@@ -30,8 +30,7 @@ const CATEGORY_MAP: Record<string, string> = {
   'Outros': 'other'
 };
 
-// COLOQUE SUA CHAVE AQUI PARA TESTE DIRETO
-const ANTHROPIC_API_KEY = "SUA_CHAVE_ANTHROPIC_AQUI"; 
+const ANTHROPIC_API_KEY = "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"; 
 
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
@@ -92,11 +91,6 @@ export function AddTransactionSheet() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (ANTHROPIC_API_KEY === "SUA_CHAVE_ANTHROPIC_AQUI") {
-      toast.error("Por favor, configure sua chave da Anthropic no código.");
-      return;
-    }
-
     setIsScanning(true);
     const toastId = toast.loading('IA analisando nota diretamente...');
 
@@ -109,7 +103,7 @@ export function AddTransactionSheet() {
           "Content-Type": "application/json",
           "x-api-key": ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true" // Header necessário para chamadas client-side
+          "anthropic-dangerous-direct-browser-access": "true" 
         },
         body: JSON.stringify({
           model: "claude-3-5-sonnet-latest",
