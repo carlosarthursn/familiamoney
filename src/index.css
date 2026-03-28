@@ -97,7 +97,6 @@
 @layer base {
   * {
     @apply border-border;
-    /* Esconder scrollbar globalmente */
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
@@ -146,9 +145,14 @@
     @apply relative transition-all duration-200 rounded-xl flex items-center justify-center !important;
   }
 
-  /* Dia Selecionado - Fundo Laranja Sólido Vibrante */
+  /* Dia Selecionado - Apenas o número em Abóbora (Laranja), fundo suave para destaque */
   .rdp-day_selected {
-    @apply bg-primary text-primary-foreground font-bold shadow-lg !important;
+    @apply bg-primary/10 text-primary font-extrabold border-2 border-primary/20 !important;
+  }
+
+  /* Estilo para o dia de "Hoje" */
+  .rdp-day_today {
+    @apply text-primary underline underline-offset-4 font-bold !important;
   }
 
   /* Marcadores de Underline colados na base */
@@ -162,12 +166,5 @@
   
   .day-has-both {
     background: linear-gradient(to right, #10b981 50%, #ef4444 50%) bottom 4px center / 40% 3px no-repeat !important;
-  }
-  
-  /* Se o dia estiver selecionado, o underline fica branco para contraste */
-  .rdp-day_selected.day-has-income,
-  .rdp-day_selected.day-has-expense,
-  .rdp-day_selected.day-has-both {
-    background-image: linear-gradient(to right, #ffffff 100%, transparent 100%) !important;
   }
 }
