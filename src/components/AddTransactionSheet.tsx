@@ -48,20 +48,23 @@ export function AddTransactionSheet() {
     let detectedDate: Date | null = null;
     let detectedCategory = '';
 
-    const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/;
+    // Regex mais flexível: aceita espaços opcionais perto da vírgula/ponto e trata ponto ou vírgula como decimal
+    const moneyRegex = /(\d{1,3}(?:\.\d{3})*[.,]\s?\d{2})/;
 
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].toUpperCase();
       if (line.includes('TROCO')) continue;
       
-      const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('VALOR RECEBIDO') || line.includes('SUBTOTAL');
+      const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('RECEBIDO') || line.includes('VALOR') || line.includes('SUBTOTAL');
       
       if (isTotalLine) {
         if ((line.includes('ITENS') || line.includes('QTDE')) && !line.includes('VALOR')) continue;
 
         const match = line.match(moneyRegex);
         if (match) {
-          const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+          // Normaliza o valor removendo espaços e tratando separadores
+          const cleanVal = match[1].replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+          const val = parseFloat(cleanVal);
           if (val > 0 && val < 10000) {
             detectedAmount = val;
             break; 
@@ -77,7 +80,10 @@ export function AddTransactionSheet() {
         const l = line.toUpperCase();
         if (l.includes('TROCO') || l.includes('ITENS')) return;
         const match = line.match(moneyRegex);
-        if (match) candidates.push(parseFloat(match[1].replace(/\./g, '').replace(',', '.')));
+        if (match) {
+          const cleanVal = match[1].replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+          candidates.push(parseFloat(cleanVal));
+        }
       });
       if (candidates.length > 0) detectedAmount = Math.max(...candidates);
     }
@@ -91,7 +97,7 @@ export function AddTransactionSheet() {
     }
 
     const keywordsMap: Record<string, string[]> = {
-      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute'],
+      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute', 'doceria'],
       transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga'],
       leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube'],
       health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame', 'raia', 'pacheco'],
@@ -123,25 +129,32 @@ export function AddTransactionSheet() {
       });
 
       const parsedData = parseReceiptText(text);
+      let foundSomething = false;
 
-      if (parsedData.amount !== null) {
-        // Formatação direta para o campo de input (ex: 124,50)
+      if (parsedData.amount !== null && parsedData.amount > 0) {
         const formattedValue = parsedData.amount.toFixed(2).replace('.', ',');
         setAmount(formattedValue);
+        foundSomething = true;
       }
       
       if (parsedData.category && categories.some(c => c.id === parsedData.category)) {
         setCategory(parsedData.category);
+        foundSomething = true;
       }
       
       if (parsedData.date) {
         setDate(parsedData.date);
+        foundSomething = true;
       }
       
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
       if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
 
-      toast.success('Total identificado!', { id: toastId });
+      if (foundSomething) {
+        toast.success(parsedData.amount ? 'Valor identificado!' : 'Categoria identificada!', { id: toastId });
+      } else {
+        toast.error('Não consegui ler os dados da nota.', { id: toastId });
+      }
     } catch (error) {
       console.error(error);
       toast.error('Erro na leitura da nota.', { id: toastId });
