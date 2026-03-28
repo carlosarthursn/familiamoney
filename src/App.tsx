@@ -17,33 +17,35 @@ import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
-  const [showSplash, setShowSplash] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!loading) setShowSplash(false);
-    }, 1600);
-    return () => clearTimeout(timer);
-  }, [loading]);
-
-  if (showSplash || loading) return <SplashScreen />;
-  if (!user) return <Navigate to="/auth" replace />;
-
-  return <>{children}</>;
-};
-
 const AppRoutes = () => {
   const { user, loading } = useAuth();
-  
-  if (loading) return <SplashScreen />;
+  const [showInitialSplash, setShowInitialSplash] = useState(true);
+
+  useEffect(() => {
+    // Garante que o splash apareça por pelo menos 1.8s para a animação completar
+    const timer = setTimeout(() => {
+      setShowInitialSplash(false);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Enquanto estiver carregando os dados do usuário ou o tempo mínimo do splash não passou
+  if (loading || showInitialSplash) {
+    return <SplashScreen />;
+  }
 
   return (
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
+      {/* Se não houver usuário, qualquer rota leva para /auth */}
+      <Route 
+        path="/auth" 
+        element={user ? <Navigate to="/" replace /> : <Auth />} 
+      />
       
-      <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+      <Route 
+        path="/" 
+        element={user ? <AppLayout /> : <Navigate to="/auth" replace />}
+      >
         <Route index element={<Dashboard />} />
         <Route path="calendar" element={<CalendarView selectedDate={new Date()} onDateChange={() => {}} />} />
         <Route path="analysis" element={<AnalysisView selectedDate={new Date()} />} />
