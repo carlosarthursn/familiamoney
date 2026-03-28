@@ -43,7 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', currentUser.id)
         .maybeSingle();
       
-      if (fetchError || !dbProfile) return;
+      if (fetchError) throw fetchError;
+      
+      // Se não houver perfil no banco mas houver usuário (erro de sincronia)
+      if (!dbProfile) {
+        console.warn("Perfil não encontrado para o usuário logado.");
+        return null;
+      }
 
       const profileData = dbProfile as any;
       let pName: string | null = null;
@@ -59,15 +65,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      setProfile({
+      return {
         name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
         avatar_url: profileData.avatar_url,
         linked_user_id: profileData.linked_user_id,
         partnerName: pName,
         monthly_budget: Number(profileData.monthly_budget) || 0
-      });
+      };
     } catch (e) {
-      console.error("Auth profile fetch error:", e);
+      console.error("Erro ao buscar perfil:", e);
+      return null;
     }
   }, []);
 
@@ -82,48 +89,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!mounted) return;
 
-        setSession(s);
-        setUser(s?.user ?? null);
-        
         if (s?.user) {
-          await fetchProfile(s.user);
+          setUser(s.user);
+          setSession(s);
+          const p = await fetchProfile(s.user);
+          if (mounted) {
+            if (p) {
+              setProfile(p);
+              setLoading(false);
+            } else {
+              // Se houver sessão mas o perfil falhar/não existir, forçamos logout para limpar
+              await supabase.auth.signOut();
+              setUser(null);
+              setSession(null);
+              setLoading(false);
+            }
+          }
+        } else {
+          setLoading(false);
         }
       } catch (err) {
-        console.error("Auth init error:", err);
-      } finally {
+        console.error("Erro na inicialização da auth:", err);
         if (mounted) setLoading(false);
       }
     };
 
     initAuth();
 
-    // Timeout de segurança: Se em 5 segundos não carregar, libera a tela
+    // Trava de segurança final: se em 8s nada acontecer, reseta tudo para a tela de login
     const safetyTimer = setTimeout(() => {
-      if (mounted && loading) setLoading(false);
-    }, 5000);
+      if (mounted && loading) {
+        console.warn("Timeout de carregamento atingido. Resetando estado.");
+        setLoading(false);
+      }
+    }, 8000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
       
-      const newUser = newSession?.user ?? null;
-      
       if (event === 'SIGNED_OUT') {
-        setSession(null);
         setUser(null);
+        setSession(null);
         setProfile(null);
         setLoading(false);
         return;
       }
 
-      setSession(newSession);
-      setUser(newUser);
-      
-      if (newUser) {
-        await fetchProfile(newUser);
-      } else {
-        setProfile(null);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const newUser = newSession?.user ?? null;
+        if (newUser) {
+          setUser(newUser);
+          setSession(newSession);
+          const p = await fetchProfile(newUser);
+          if (mounted) setProfile(p);
+        }
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -131,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfile, loading]);
+  }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string) => {
     return supabase.auth.signUp({ email, password, options: { data: { name } } });
@@ -166,24 +187,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: any) => {
     if (!user) return { error: new Error('Não autenticado') };
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-    if (!error) await fetchProfile(user);
+    if (!error) {
+      const p = await fetchProfile(user);
+      setProfile(p);
+    }
     return { error: error as Error | null };
   };
 
   const linkPartner = async (partnerId: string) => {
     const { error } = await supabase.rpc('link_profiles', { partner_uuid: partnerId });
-    if (!error && user) await fetchProfile(user);
+    if (!error && user) {
+      const p = await fetchProfile(user);
+      setProfile(p);
+    }
     return { error };
   };
 
   const unlinkPartner = async () => {
     const { error } = await supabase.rpc('unlink_profiles');
-    if (!error && user) await fetchProfile(user);
+    if (!error && user) {
+      const p = await fetchProfile(user);
+      setProfile(p);
+    }
     return { error };
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user);
+    if (user) {
+      const p = await fetchProfile(user);
+      setProfile(p);
+    }
   };
 
   return (
