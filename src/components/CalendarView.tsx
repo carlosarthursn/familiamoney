@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { format, isSameDay, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -6,6 +6,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { Loader2 } from 'lucide-react';
 import { TransactionList } from './TransactionList';
 import { toast } from 'sonner';
+import { SuccessOverlay } from './SuccessOverlay';
 
 interface CalendarViewProps {
   selectedDate: Date;
@@ -13,6 +14,7 @@ interface CalendarViewProps {
 }
 
 export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) {
+  const [showSuccess, setShowSuccess] = useState(false);
   const { transactions, isLoading, deleteTransaction } = useTransactions({ selectedDate });
 
   // Agrupando transações por dia e tipo
@@ -55,13 +57,22 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
   
   const handleDelete = (id: string) => {
     deleteTransaction.mutate(id, {
-      onSuccess: () => toast.success('Transação removida'),
+      onSuccess: () => {
+        setShowSuccess(true);
+      },
       onError: () => toast.error('Erro ao remover'),
     });
   };
 
   return (
     <div className="space-y-4 max-w-sm mx-auto w-full">
+      {showSuccess && (
+        <SuccessOverlay 
+          message="Transação removida!" 
+          onFinished={() => setShowSuccess(false)} 
+        />
+      )}
+
       <div className="bg-card rounded-2xl p-2 shadow-card flex justify-center overflow-hidden">
         <Calendar
           mode="single"
