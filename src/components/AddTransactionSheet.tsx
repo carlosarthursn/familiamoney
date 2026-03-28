@@ -72,8 +72,6 @@ export function AddTransactionSheet() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Qualidade 0.7 para reduzir drasticamente o peso sem perder leitura
           const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
           resolve(dataUrl.split(',')[1]);
         };
@@ -88,19 +86,29 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('IA processando imagem compactada...');
+    const toastId = toast.loading('IA processando imagem...');
 
     try {
       const imageBase64 = await compressImage(file);
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // Chamada usando a URL completa conforme diretriz de estabilidade
-      const { data, error } = await supabase.functions.invoke('scan-receipt', {
-        body: { imageBase64 }
+      // Chamada direta via fetch para evitar problemas de proxy do invoke
+      const response = await fetch('https://vipigovrygzyjaibssra.supabase.co/functions/v1/scan-receipt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpcGlnb3ZyeWd6eWphaWJzc3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzgzNTMsImV4cCI6MjA4NTA1NDM1M30.Z5hyETn-WMuagY6yiBlyFWTahUm7SSWl4j-m1uI4x9U'
+        },
+        body: JSON.stringify({ imageBase64 })
       });
 
-      if (error) throw new Error(error.message || 'Falha na conexão com a IA');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro na resposta do servidor');
+      }
 
-      if (data?.error) throw new Error(data.error);
+      const data = await response.json();
 
       if (data) {
         if (data.valor) setAmount(data.valor.toFixed(2).replace('.', ','));
