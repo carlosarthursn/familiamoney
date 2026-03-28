@@ -8,29 +8,44 @@ import { SplashScreen } from '@/components/SplashScreen';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const [splashFinished, setSplashFinished] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    // Se não estiver carregando e o usuário for nulo, não precisamos de splash longo
-    if (!loading && !user) {
-      setSplashFinished(true);
-    }
-    
-    // Timer de segurança para a animação da splash
-    if (user) {
-      const timer = setTimeout(() => {
-        setSplashFinished(true);
-      }, 1800);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, user]);
+    // Timer para garantir que a Splash dure pelo menos 1.6s para a animação ficar bonita
+    const minTimer = setTimeout(() => {
+      // Só escondemos a splash se o auth já terminou de carregar
+      if (!loading) {
+        setShowSplash(false);
+      }
+    }, 1600);
 
-  // Se estiver carregando inicialmente ou a animação da splash não acabou, mostra Splash
-  if (loading || (!splashFinished && user)) {
+    // Se o loading terminar ANTES do timer, esperamos o timer.
+    // Se o loading terminar DEPOIS do timer, escondemos assim que o loading mudar.
+    if (!loading) {
+      const checkLoading = setTimeout(() => {
+        setShowSplash(false);
+      }, 100);
+      return () => {
+        clearTimeout(minTimer);
+        clearTimeout(checkLoading);
+      };
+    }
+
+    return () => clearTimeout(minTimer);
+  }, [loading]);
+
+  // Válvula de segurança extra: se em 6 segundos a splash ainda estiver lá, removemos
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 6000);
+    return () => clearTimeout(safetyTimer);
+  }, []);
+
+  if (showSplash) {
     return <SplashScreen />;
   }
 
-  // Uma vez carregado e splash finalizada (ou se for pra tela de login)
   return user ? <Dashboard /> : <Auth />;
 }
 

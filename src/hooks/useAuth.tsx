@@ -42,31 +42,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', currentUser.id)
         .maybeSingle();
       
-      if (fetchError) return;
+      if (fetchError || !dbProfile) return;
 
-      if (dbProfile) {
-        const profileData = dbProfile as any;
-        let pName: string | null = null;
+      const profileData = dbProfile as any;
+      let pName: string | null = null;
 
-        if (profileData.linked_user_id) {
-          const { data: partner } = await supabase
-            .from('profiles')
-            .select('name, email')
-            .eq('id', profileData.linked_user_id)
-            .maybeSingle();
-          if (partner) {
-            pName = (partner as any).name || (partner as any).email?.split('@')[0];
-          }
+      if (profileData.linked_user_id) {
+        const { data: partner } = await supabase
+          .from('profiles')
+          .select('name, email')
+          .eq('id', profileData.linked_user_id)
+          .maybeSingle();
+        if (partner) {
+          pName = (partner as any).name || (partner as any).email?.split('@')[0];
         }
-
-        setProfile({
-          name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
-          avatar_url: profileData.avatar_url,
-          linked_user_id: profileData.linked_user_id,
-          partnerName: pName,
-          monthly_budget: Number(profileData.monthly_budget) || 0
-        });
       }
+
+      setProfile({
+        name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
+        avatar_url: profileData.avatar_url,
+        linked_user_id: profileData.linked_user_id,
+        partnerName: pName,
+        monthly_budget: Number(profileData.monthly_budget) || 0
+      });
     } catch (e) {
       console.error("Auth profile fetch error:", e);
     }
@@ -76,32 +74,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initAuth = async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (mounted) {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        if (currentSession?.user) await fetchProfile(currentSession.user);
-        setLoading(false);
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        setSession(s);
+        setUser(s?.user ?? null);
+        
+        if (s?.user) {
+          // Buscamos o perfil mas NÃO bloqueamos o loading por isso
+          fetchProfile(s.user);
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
     initAuth();
+
+    // Válvula de segurança: se após 5 segundos ainda estiver carregando, força o fim
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) {
+        console.log("Auth: Safety timeout triggered");
+        setLoading(false);
+      }
+    }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
       setSession(newSession);
       const newUser = newSession?.user ?? null;
       setUser(newUser);
+      
       if (newUser) await fetchProfile(newUser);
       else setProfile(null);
+      
       setLoading(false);
     });
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, loading]);
 
   const signUp = async (email: string, password: string, name: string) => {
     return supabase.auth.signUp({ email, password, options: { data: { name } } });
