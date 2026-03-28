@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles, Wand2, AlertCircle } from 'lucide-react';
+import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles, Wand2 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -94,15 +94,11 @@ export function AddTransactionSheet() {
         body: JSON.stringify({ imageBase64 })
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        if (err.error?.includes('insufficient_quota') || response.status === 429) {
-          throw new Error('Créditos da IA esgotados. Verifique sua conta Anthropic.');
-        }
-        throw new Error(err.error || 'Erro ao processar imagem');
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao processar imagem');
+      }
 
       if (data) {
         if (data.valor) setAmount(data.valor.toFixed(2).replace('.', ','));
