@@ -1,0 +1,66 @@
+"use client";
+
+import React from 'react';
+import { cn } from '@/lib/utils';
+
+interface SuccessOverlayProps {
+  message?: string;
+  onFinished?: () => void;
+  className?: string;
+}
+
+export function SuccessOverlay({ message = "Concluído!", onFinished, className }: SuccessOverlayProps) {
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onFinished) onFinished();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [onFinished]);
+
+  return (
+    <div className={cn(
+      "fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in",
+      className
+    )}>
+      <div className="relative w-32 h-32">
+        <svg viewBox="0 0 100 100" className="w-full h-full text-primary">
+          {/* Círculo de fundo discreto */}
+          <circle 
+            cx="46" cy="56" r="38" 
+            stroke="currentColor" 
+            strokeWidth="8" 
+            className="opacity-20"
+            fill="none" 
+          />
+          {/* Círculo que preenche (relógio) */}
+          <circle 
+            cx="46" cy="56" r="38" 
+            stroke="currentColor" 
+            strokeWidth="8" 
+            strokeLinecap="round"
+            fill="none" 
+            strokeDasharray="240"
+            strokeDashoffset="240"
+            className="animate-circle-fill"
+            transform="rotate(-90 46 56)"
+          />
+          {/* Check que desenha depois */}
+          <path 
+            d="M26 54L44 72L84 22" 
+            stroke="currentColor" 
+            strokeWidth="12" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            fill="none"
+            strokeDasharray="100"
+            strokeDashoffset="100"
+            className="animate-check-draw"
+          />
+        </svg>
+      </div>
+      <p className="mt-6 text-lg font-bold text-foreground animate-slide-up">
+        {message}
+      </p>
+    </div>
+  );
+}

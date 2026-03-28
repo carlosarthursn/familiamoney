@@ -114,6 +114,14 @@ export default {
           "30%": { transform: "scale(1.1)", opacity: "1" },
           "70%": { transform: "scale(1)", opacity: "1" },
           "100%": { transform: "scale(12)", opacity: "0" },
+        },
+        "circle-fill": {
+          "0%": { "stroke-dashoffset": "240" },
+          "100%": { "stroke-dashoffset": "0" }
+        },
+        "check-draw": {
+          "0%": { "stroke-dashoffset": "100" },
+          "100%": { "stroke-dashoffset": "0" }
         }
       },
       animation: {
@@ -126,6 +134,8 @@ export default {
         "scale-in": "scale-in 0.2s ease-out",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
         "splash": "splash-logo 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards",
+        "circle-fill": "circle-fill 0.8s ease-out forwards",
+        "check-draw": "check-draw 0.5s ease-out 0.8s forwards"
       },
       boxShadow: {
         sm: 'var(--shadow-sm)',

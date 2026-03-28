@@ -16,7 +16,7 @@ import { Header } from '@/components/Header';
 import { FinancialTips } from '@/components/FinancialTips';
 import { DailyBudgetCard } from '@/components/DailyBudgetCard';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showBalance, setShowBalance] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { user, profile, signOut } = useAuth();
   
   const { 
@@ -39,12 +40,16 @@ export default function Dashboard() {
   const displayName = profile?.name || 'Usuário';
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      toast.success('Até logo!');
-    } catch (error) {
-      toast.error('Erro ao sair da conta.');
-    }
+    setIsLoggingOut(true);
+    setTimeout(async () => {
+      try {
+        await signOut();
+        toast.success('Até logo!');
+      } catch (error) {
+        toast.error('Erro ao sair da conta.');
+        setIsLoggingOut(false);
+      }
+    }, 1200);
   };
   
   const handleDelete = (id: string) => {
@@ -54,8 +59,19 @@ export default function Dashboard() {
     });
   };
   
-  // O cabeçalho só deve aparecer no início e no perfil
   const shouldShowHeader = activeTab === 'home' || activeTab === 'profile';
+
+  if (isLoggingOut) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-[#ff7a00] flex flex-col items-center justify-center animate-fade-in">
+        <svg viewBox="0 0 100 100" className="h-24 w-24 text-white mb-4">
+          <circle cx="46" cy="56" r="38" stroke="currentColor" strokeWidth="8" fill="none" />
+          <path d="M26 54L44 72L84 22" stroke="currentColor" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        </svg>
+        <p className="text-white font-bold text-lg animate-pulse">Saindo...</p>
+      </div>
+    );
+  }
   
   const renderContent = () => {
     switch (activeTab) {
@@ -69,11 +85,8 @@ export default function Dashboard() {
               expenses={totalExpensesAll} 
               showBalance={showBalance}
             />
-            
             <DailyBudgetCard />
-            
             <FinancialTips />
-
             <div>
               <h2 className="text-lg font-semibold mb-3">Últimas transações</h2>
               <TransactionList transactions={allTransactions.slice(0, 5)} isLoading={isLoading} onDelete={handleDelete} />
@@ -122,9 +135,7 @@ export default function Dashboard() {
                 Membro desde {format(new Date(user?.created_at || Date.now()), "MMMM 'de' yyyy", { locale: ptBR })}
               </p>
             </div>
-            
             <ProfileSettings />
-            
             <Button 
               variant="outline" 
               onClick={handleSignOut}
