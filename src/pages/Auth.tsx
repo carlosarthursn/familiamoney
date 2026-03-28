@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -13,6 +13,31 @@ const authSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres').max(100, 'Senha muito longa'),
   name: z.string().min(2, 'Nome muito curto').max(50, 'Nome muito longo').optional(),
 });
+
+// Componente do novo Logo baseado na imagem fornecida
+const Logo = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 100 100" 
+    className={className} 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle 
+      cx="46" 
+      cy="56" 
+      r="38" 
+      stroke="currentColor" 
+      strokeWidth="8" 
+    />
+    <path 
+      d="M26 54L44 72L84 22" 
+      stroke="currentColor" 
+      strokeWidth="12" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+    />
+  </svg>
+);
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -54,8 +79,8 @@ export default function Auth() {
     <div className="min-h-screen bg-[#ff7a00] flex flex-col items-center justify-center px-8 relative overflow-hidden">
       {/* Brand Section - Super Clean */}
       <div className="mb-12 text-center animate-fade-in z-10">
-        <div className="flex justify-center mb-4">
-          <Check className="h-16 w-16 text-white stroke-[2.5px]" />
+        <div className="flex justify-center mb-6">
+          <Logo className="h-20 w-20 text-white" />
         </div>
         <h1 className="text-4xl font-bold text-white tracking-tighter mb-1">
           confere
