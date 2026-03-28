@@ -13,24 +13,14 @@ import { ProfileSettings } from "./components/ProfileSettings";
 import { AppLayout } from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import { SplashScreen } from "./components/SplashScreen";
-import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
-  const [showInitialSplash, setShowInitialSplash] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowInitialSplash(false);
-    }, 2000); // Aumentado levemente para dar tempo ao banco
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Mostra o splash enquanto o banco carrega OU enquanto o tempo mínimo não passou
-  // Mas se o banco já carregou e o tempo passou, libera a tela
-  if (showInitialSplash || loading) {
+  // Agora o splash só aparece enquanto o Auth está realmente verificando o estado
+  if (loading) {
     return <SplashScreen />;
   }
 

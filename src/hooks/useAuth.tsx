@@ -44,12 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       
       if (fetchError) throw fetchError;
-      
-      // Se não houver perfil no banco mas houver usuário (erro de sincronia)
-      if (!dbProfile) {
-        console.warn("Perfil não encontrado para o usuário logado.");
-        return null;
-      }
+      if (!dbProfile) return null;
 
       const profileData = dbProfile as any;
       let pName: string | null = null;
@@ -87,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
+        
         if (!mounted) return;
 
         if (s?.user) {
@@ -94,19 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(s);
           const p = await fetchProfile(s.user);
           if (mounted) {
-            if (p) {
-              setProfile(p);
-              setLoading(false);
-            } else {
-              // Se houver sessão mas o perfil falhar/não existir, forçamos logout para limpar
-              await supabase.auth.signOut();
-              setUser(null);
-              setSession(null);
-              setLoading(false);
-            }
+            setProfile(p);
+            setLoading(false);
           }
         } else {
-          setLoading(false);
+          if (mounted) setLoading(false);
         }
       } catch (err) {
         console.error("Erro na inicialização da auth:", err);
@@ -116,14 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
 
-    // Trava de segurança final: se em 8s nada acontecer, reseta tudo para a tela de login
-    const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn("Timeout de carregamento atingido. Resetando estado.");
-        setLoading(false);
-      }
-    }, 8000);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
       
@@ -132,10 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setProfile(null);
         setLoading(false);
-        return;
-      }
-
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const newUser = newSession?.user ?? null;
         if (newUser) {
           setUser(newUser);
@@ -149,7 +126,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, [fetchProfile]);
@@ -171,17 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    try {
-      setLoading(true);
-      await supabase.auth.signOut();
-      setProfile(null);
-      setUser(null);
-      setSession(null);
-    } catch (error) {
-      console.error("Erro no logout:", error);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    setLoading(false);
   };
 
   const updateProfile = async (updates: any) => {
