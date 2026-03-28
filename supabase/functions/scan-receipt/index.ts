@@ -6,6 +6,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -14,14 +15,22 @@ serve(async (req) => {
     const { imageBase64 } = await req.json()
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
 
+    console.log("[scan-receipt] Recebida solicitação de análise de imagem")
+
     if (!anthropicKey) {
-      console.error("[scan-receipt] ANTHROPIC_API_KEY não configurada")
-      return new Response(JSON.stringify({ error: 'Chave API não configurada no Supabase' }), { 
+      console.error("[scan-receipt] ERRO: ANTHROPIC_API_KEY não encontrada no ambiente")
+      return new Response(JSON.stringify({ error: 'Chave ANTHROPIC_API_KEY não configurada no Supabase' }), { 
         status: 500, headers: corsHeaders 
       })
     }
 
-    console.log("[scan-receipt] Solicitando análise ao Claude 3.5 Sonnet Vision")
+    if (!imageBase64) {
+      return new Response(JSON.stringify({ error: 'Imagem não fornecida' }), { 
+        status: 400, headers: corsHeaders 
+      })
+    }
+
+    console.log("[scan-receipt] Chamando API do Claude 3.5 Sonnet...")
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -32,7 +41,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20241022",
-        max_tokens: 1000,
+        max_tokens: 1024,
         messages: [{
           role: "user",
           content: [
@@ -46,25 +55,16 @@ serve(async (req) => {
             },
             {
               type: "text",
-              text: `Analise esta nota fiscal ou cupom e retorne APENAS um JSON puro (sem markdown ou blocos de código).
+              text: `Analise esta nota fiscal ou cupom e retorne APENAS um JSON puro.
               
-              Mapeie a categoria para um destes IDs específicos:
-              - 'food' para Alimentação
-              - 'transport' para Transporte
-              - 'rent' para Aluguel
-              - 'leisure' para Lazer
-              - 'bills' para Contas/Boletos
-              - 'health' para Saúde
-              - 'education' para Educação
-              - 'shopping' para Compras
-              - 'other' para Outros
+              IDs de categorias permitidos: food, transport, rent, leisure, bills, health, education, shopping, other.
               
-              Estrutura estrita do JSON:
+              Retorne neste formato exato:
               {
                 "valor": 0.00,
-                "categoria": "ID_MATEADO",
+                "categoria": "id_da_categoria",
                 "data": "YYYY-MM-DD",
-                "descricao": "Resumo do estabelecimento e itens"
+                "descricao": "Resumo curto"
               }`
             }
           ]
@@ -75,21 +75,31 @@ serve(async (req) => {
     const data = await response.json()
     
     if (data.error) {
-      throw new Error(data.error.message || 'Erro na API da Anthropic')
+      console.error("[scan-receipt] Erro da Anthropic:", data.error)
+      return new Response(JSON.stringify({ error: data.error.message || 'Erro na API Vision' }), { 
+        status: 500, headers: corsHeaders 
+      })
     }
 
     const textResponse = data.content[0].text
-    console.log("[scan-receipt] Resposta bruta:", textResponse)
+    console.log("[scan-receipt] Resposta bruta do Claude:", textResponse)
     
-    // Extração robusta de JSON
-    const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(textResponse)
+    // Tenta extrair o JSON de forma segura
+    let result;
+    try {
+      const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
+      result = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(textResponse)
+    } catch (e) {
+      console.error("[scan-receipt] Erro ao parsear JSON do Claude:", textResponse)
+      throw new Error("Resposta da IA não está em formato JSON válido")
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
+
   } catch (error) {
-    console.error("[scan-receipt] Erro crítico:", error)
+    console.error("[scan-receipt] Erro fatal na Edge Function:", error.message)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: corsHeaders
     })

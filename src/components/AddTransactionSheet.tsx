@@ -46,14 +46,13 @@ export function AddTransactionSheet() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Verificar tamanho (Claude aceita até 5MB em base64 geralmente, mas vamos ser cautelosos)
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error('A imagem é muito grande. Tente uma foto mais simples.');
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('A imagem é muito pesada (máx 5MB).');
       return;
     }
 
     setIsScanning(true);
-    const toastId = toast.loading('IA analisando imagem...');
+    const toastId = toast.loading('IA analisando nota...');
 
     try {
       const reader = new FileReader();
@@ -71,7 +70,15 @@ export function AddTransactionSheet() {
         body: { imageBase64 }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Tenta ler o erro do corpo da resposta se for um erro de função
+        const errorMsg = error instanceof Error ? error.message : 'Erro na função do servidor';
+        throw new Error(errorMsg);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       if (data) {
         if (data.valor) setAmount(data.valor.toFixed(2).replace('.', ','));
@@ -81,11 +88,11 @@ export function AddTransactionSheet() {
           const parsedDate = parseISO(data.data);
           if (isValid(parsedDate)) setDate(parsedDate);
         }
-        toast.success('Nota identificada com sucesso!', { id: toastId });
+        toast.success('Dados preenchidos automaticamente!', { id: toastId });
       }
     } catch (error: any) {
       console.error("[IA Scan Error]", error);
-      toast.error('Não foi possível ler a nota. Verifique sua chave da Anthropic.', { id: toastId });
+      toast.error(error.message || 'Não foi possível ler a nota.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
