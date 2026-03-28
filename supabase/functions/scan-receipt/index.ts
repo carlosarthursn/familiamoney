@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Sua chave de teste adicionada diretamente conforme solicitado
+// Chave da Anthropic fornecida
 const ANTHROPIC_API_KEY = "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";
 
 const CATEGORY_MAP: Record<string, string> = {
@@ -28,7 +28,7 @@ serve(async (req) => {
   try {
     const { imageBase64 } = await req.json()
 
-    console.log("[scan-receipt] Iniciando análise com Claude 3.5 Haiku...");
+    console.log("[scan-receipt] Iniciando análise com Claude 3 Haiku (Vision)...");
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -38,7 +38,7 @@ serve(async (req) => {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022",
+        model: "claude-3-haiku-20240307", // Modelo ultra estável com suporte a visão
         max_tokens: 1024,
         messages: [{
           role: "user",
@@ -58,7 +58,7 @@ serve(async (req) => {
   "valor": 0.00,
   "categoria": "Alimentação|Transporte|Aluguel|Lazer|Contas|Saúde|Educação|Compras|Outros",
   "data": "DD/MM/YYYY",
-  "descricao": "breve resumo"
+  "descricao": "nome do estabelecimento ou item principal"
 }`
             }
           ]
@@ -89,7 +89,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error("[scan-receipt] Erro:", error.message)
+    console.error("[scan-receipt] Erro crítico:", error.message)
     return new Response(JSON.stringify({ error: "Falha ao processar nota." }), {
       status: 500, headers: corsHeaders
     })

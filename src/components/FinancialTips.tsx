@@ -14,13 +14,10 @@ export function FinancialTips() {
   const fetchTip = async () => {
     setLoading(true);
     try {
-      // Forçando a versão 'v1' da API para evitar o erro 404 do v1beta
-      const model = genAI.getGenerativeModel(
-        { model: "gemini-1.5-flash" },
-        { apiVersion: 'v1' }
-      );
+      // Usando o modelo gemini-1.5-flash com a versão v1 da API
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
-      const prompt = "Dê uma dica financeira curta e prática para uma família. Máximo 100 caracteres.";
+      const prompt = "Dê uma dica financeira curta e prática para uma família em português do Brasil. Máximo 100 caracteres.";
       
       const result = await model.generateContent(prompt);
       const response = await result.response;
