@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Upload } from 'lucide-react';
+import { Link, UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
 
@@ -18,11 +18,26 @@ export function ProfileSettings() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile?.name) setName(profile.name);
+    // Detecta tema atual
+    const isDark = document.documentElement.classList.contains('dark');
+    setTheme(isDark ? 'dark' : 'light');
   }, [profile]);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', newTheme);
+  };
 
   const currentUserEmail = user?.email || '';
   const isLinked = !!profile?.linked_user_id;
@@ -85,11 +100,6 @@ export function ProfileSettings() {
       toast.error('Insira um email válido.');
       return;
     }
-    if (cleanEmail === currentUserEmail.toLowerCase()) {
-      toast.error('Você não pode se auto-vincular.');
-      return;
-    }
-
     setLoading(true);
     try {
       const { data: partner, error: searchError } = await supabase
@@ -137,6 +147,22 @@ export function ProfileSettings() {
         />
       )}
 
+      {/* Tema */}
+      <div className="bg-card rounded-xl p-4 shadow-card flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+            {theme === 'light' ? <Sun className="h-5 w-5 text-warning" /> : <Moon className="h-5 w-5 text-primary" />}
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Tema do App</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">Atualmente: {theme === 'light' ? 'Claro' : 'Escuro'}</p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={toggleTheme} className="rounded-full px-4">
+          Alternar
+        </Button>
+      </div>
+
       <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
         <h3 className="font-semibold flex items-center gap-2">
           <UserIcon className="h-5 w-5 text-primary" />
@@ -161,37 +187,20 @@ export function ProfileSettings() {
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg border-2 border-background active:scale-90 transition-transform"
+                className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg border-2 border-background"
               >
                 <Camera className="h-4 w-4" />
               </button>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*" 
-                onChange={handleFileUpload}
-              />
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             </div>
-            <p className="text-[10px] text-muted-foreground uppercase font-bold">Toque na câmera para mudar a foto</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="user-name" className="text-muted-foreground text-xs font-bold uppercase">Seu Nome</Label>
-            <Input
-              id="user-name"
-              placeholder="Ex: Carlos"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="h-11 rounded-xl"
-            />
+            <Label className="text-muted-foreground text-xs font-bold uppercase">Seu Nome</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-11 rounded-xl" />
           </div>
 
-          <Button 
-            onClick={handleUpdateProfile} 
-            disabled={loading}
-            className="w-full h-11 rounded-xl gradient-primary"
-          >
+          <Button onClick={handleUpdateProfile} disabled={loading} className="w-full h-11 rounded-xl gradient-primary">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
             Salvar Nome
           </Button>
@@ -200,8 +209,8 @@ export function ProfileSettings() {
 
       <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
         <h3 className="font-semibold flex items-center gap-2">
-          <Link className="h-5 w-5 text-primary" />
-          Compartilhar Conta
+          <Heart className="h-5 w-5 text-primary" />
+          Vínculo Familiar
         </h3>
 
         {isLinked ? (
@@ -210,42 +219,22 @@ export function ProfileSettings() {
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <Heart className="h-5 w-5 text-primary fill-primary/20" />
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase font-bold">Vinculado a:</p>
-                <p className="text-sm font-semibold text-foreground">
-                  {partnerDisplayName}
-                </p>
+              <div className="min-w-0">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Conectado com:</p>
+                <p className="text-sm font-semibold truncate">{partnerDisplayName}</p>
               </div>
             </div>
-            
-            <Button 
-              variant="destructive" 
-              onClick={handleUnlink} 
-              disabled={loading}
-              className="w-full h-11 rounded-xl"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remover Vínculo'}
+            <Button variant="destructive" onClick={handleUnlink} disabled={loading} className="w-full h-11 rounded-xl">
+              Remover Vínculo
             </Button>
           </div>
         ) : (
           <div className="space-y-2">
-            <Label htmlFor="partner-email" className="text-muted-foreground text-xs font-bold uppercase">Email do Parceiro</Label>
+            <Label className="text-muted-foreground text-xs font-bold uppercase">Email do Parceiro</Label>
             <div className="flex gap-2">
-              <Input
-                id="partner-email"
-                type="email"
-                placeholder="email@do.parceiro.com"
-                value={partnerEmail}
-                onChange={(e) => setPartnerEmail(e.target.value)}
-                className="flex-1 h-11 rounded-xl"
-              />
-              <Button 
-                onClick={handleLink} 
-                disabled={loading}
-                className="h-11 px-4 shrink-0 rounded-xl"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
-                {!loading && 'Vincular'}
+              <Input type="email" placeholder="email@parceiro.com" value={partnerEmail} onChange={(e) => setPartnerEmail(e.target.value)} className="flex-1 h-11 rounded-xl" />
+              <Button onClick={handleLink} disabled={loading} className="h-11 px-4 rounded-xl">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               </Button>
             </div>
           </div>
