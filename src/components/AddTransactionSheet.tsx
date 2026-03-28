@@ -48,46 +48,49 @@ export function AddTransactionSheet() {
     let detectedDate: Date | null = null;
     let detectedCategory = '';
 
-    // Regex mais flexível: aceita espaços opcionais perto da vírgula/ponto e trata ponto ou vírgula como decimal
-    const moneyRegex = /(\d{1,3}(?:\.\d{3})*[.,]\s?\d{2})/;
+    // Regex ultra-flexível: Procura por sequências de números que terminam em 2 casas decimais,
+    // permitindo qualquer caractere não numérico (ponto, vírgula, espaço) entre eles.
+    const broadMoneyRegex = /(\d+[\s\.,]*\d{2})/g;
+    const matches = text.match(broadMoneyRegex);
+    const candidates: number[] = [];
 
+    if (matches) {
+      matches.forEach(match => {
+        // Limpa tudo que não é número e assume que os últimos 2 dígitos são centavos
+        const digits = match.replace(/\D/g, '');
+        if (digits.length >= 3) {
+          const val = parseInt(digits) / 100;
+          if (val > 0 && val < 5000) candidates.push(val);
+        }
+      });
+    }
+
+    // 1. Tentar encontrar o valor na linha do TOTAL
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].toUpperCase();
-      if (line.includes('TROCO')) continue;
+      if (line.includes('TROCO')) continue; // Ignora troco explicitamente
       
       const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('RECEBIDO') || line.includes('VALOR') || line.includes('SUBTOTAL');
       
       if (isTotalLine) {
-        if ((line.includes('ITENS') || line.includes('QTDE')) && !line.includes('VALOR')) continue;
-
-        const match = line.match(moneyRegex);
-        if (match) {
-          // Normaliza o valor removendo espaços e tratando separadores
-          const cleanVal = match[1].replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-          const val = parseFloat(cleanVal);
-          if (val > 0 && val < 10000) {
+        const lineDigits = line.match(/(\d+[\s\.,]*\d{2})/);
+        if (lineDigits) {
+          const digits = lineDigits[0].replace(/\D/g, '');
+          const val = parseInt(digits) / 100;
+          if (val > 0) {
             detectedAmount = val;
-            break; 
+            break;
           }
         }
       }
     }
 
-    if (!detectedAmount) {
-      const recentLines = lines.slice(-10);
-      const candidates: number[] = [];
-      recentLines.forEach(line => {
-        const l = line.toUpperCase();
-        if (l.includes('TROCO') || l.includes('ITENS')) return;
-        const match = line.match(moneyRegex);
-        if (match) {
-          const cleanVal = match[1].replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-          candidates.push(parseFloat(cleanVal));
-        }
-      });
-      if (candidates.length > 0) detectedAmount = Math.max(...candidates);
+    // 2. Se não achou na linha do total, pega o maior valor plausível encontrado no texto
+    if (!detectedAmount && candidates.length > 0) {
+      detectedAmount = Math.max(...candidates);
     }
 
+    // 3. Extração de Data
     const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
     const dateMatch = text.match(dateRegex);
     if (dateMatch) {
@@ -96,13 +99,14 @@ export function AddTransactionSheet() {
       if (isValid(parsedDate)) detectedDate = parsedDate;
     }
 
+    // 4. Categorização
     const keywordsMap: Record<string, string[]> = {
-      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute', 'doceria'],
-      transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga'],
-      leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube'],
-      health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame', 'raia', 'pacheco'],
-      shopping: ['loja', 'vestuario', 'roupa', 'calcado', 'eletronico', 'amazon', 'mercadolivre', 'shopee'],
-      bills: ['luz', 'agua', 'internet', 'celular', 'vivo', 'tim', 'claro', 'energia', 'sabesp']
+      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute', 'doceria', 'pao', 'supermercado'],
+      transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga', 'br', 'gas'],
+      leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube', 'ingresso'],
+      health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame', 'raia', 'pacheco', 'farma'],
+      shopping: ['loja', 'vestuario', 'roupa', 'calcado', 'eletronico', 'amazon', 'mercadolivre', 'shopee', 'magazine'],
+      bills: ['luz', 'agua', 'internet', 'celular', 'vivo', 'tim', 'claro', 'energia', 'sabesp', 'iptu', 'ipva']
     };
 
     const lowercaseText = text.toLowerCase();
@@ -121,7 +125,7 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Lendo rodapé da nota...');
+    const toastId = toast.loading('Analisando cupom...');
 
     try {
       const { data: { text } } = await Tesseract.recognize(file, 'por', {
@@ -129,29 +133,28 @@ export function AddTransactionSheet() {
       });
 
       const parsedData = parseReceiptText(text);
-      let foundSomething = false;
+      let foundCount = 0;
 
-      if (parsedData.amount !== null && parsedData.amount > 0) {
-        const formattedValue = parsedData.amount.toFixed(2).replace('.', ',');
-        setAmount(formattedValue);
-        foundSomething = true;
+      if (parsedData.amount && parsedData.amount > 0) {
+        setAmount(parsedData.amount.toFixed(2).replace('.', ','));
+        foundCount++;
       }
       
       if (parsedData.category && categories.some(c => c.id === parsedData.category)) {
         setCategory(parsedData.category);
-        foundSomething = true;
+        foundCount++;
       }
       
       if (parsedData.date) {
         setDate(parsedData.date);
-        foundSomething = true;
+        foundCount++;
       }
       
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
       if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
 
-      if (foundSomething) {
-        toast.success(parsedData.amount ? 'Valor identificado!' : 'Categoria identificada!', { id: toastId });
+      if (foundCount > 0) {
+        toast.success(parsedData.amount ? 'Valor e categoria identificados!' : 'Dados identificados!', { id: toastId });
       } else {
         toast.error('Não consegui ler os dados da nota.', { id: toastId });
       }
