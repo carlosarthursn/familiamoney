@@ -1,21 +1,18 @@
 "use client";
 
 import { useState } from 'react';
-import { SavingsGoal, WishlistItem } from '@/types/finance';
 import { SavingsGoalCard } from './SavingsGoalCard';
 import { WishListItemCard } from './WishListItemCard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, ListChecks, Target, Plus, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { RecurringCard } from './RecurringCard';
+import { AddRecurringSheet } from './AddRecurringSheet';
+import { ListChecks, Target, Repeat, Loader2 } from 'lucide-react';
 import { usePlanning } from '@/hooks/usePlanning';
+import { useRecurring } from '@/hooks/useRecurring';
 import { toast } from 'sonner';
 import { AddGoalSheet } from './AddGoalSheet';
 import { AddWishItemSheet } from './AddWishItemSheet';
-import { BudgetSheet } from './BudgetSheet';
-import { BudgetProgress } from './BudgetProgress';
 import { SuccessOverlay } from './SuccessOverlay';
 
-// Componente auxiliar para exibir quando não há itens
 function EmptyState({ icon: Icon, title, description, trigger }: { icon: React.ElementType, title: string, description: string, trigger: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/50 rounded-xl border border-dashed border-border">
@@ -31,69 +28,78 @@ export function PlanningView() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  const { 
-    goals, 
-    isLoadingGoals, 
-    deleteGoal, 
-    wishList, 
-    isLoadingWishList, 
-    deleteItem 
-  } = usePlanning();
+  const { goals, isLoadingGoals, deleteGoal, wishList, isLoadingWishList, deleteItem } = usePlanning();
+  const { recurring, isLoading: isLoadingRec, deleteRecurring } = useRecurring();
 
   const handleDeleteGoal = (id: string) => {
     deleteGoal.mutate(id, {
-      onSuccess: () => {
-        setSuccessMessage('Meta removida!');
-        setShowSuccess(true);
-      },
-      onError: () => toast.error('Erro ao remover meta'),
+      onSuccess: () => { setSuccessMessage('Meta removida!'); setShowSuccess(true); },
     });
   };
   
   const handleDeleteWishItem = (id: string) => {
     deleteItem.mutate(id, {
-      onSuccess: () => {
-        setSuccessMessage('Item removido!');
-        setShowSuccess(true);
-      },
-      onError: () => toast.error('Erro ao remover item'),
+      onSuccess: () => { setSuccessMessage('Item removido!'); setShowSuccess(true); },
+    });
+  };
+
+  const handleDeleteRec = (id: string) => {
+    deleteRecurring.mutate(id, {
+      onSuccess: () => { setSuccessMessage('Gasto removido!'); setShowSuccess(true); },
     });
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {showSuccess && (
-        <SuccessOverlay 
-          message={successMessage} 
-          onFinished={() => setShowSuccess(false)} 
-        />
-      )}
+    <div className="space-y-8 animate-fade-in pb-10">
+      {showSuccess && <SuccessOverlay message={successMessage} onFinished={() => setShowSuccess(false)} />}
 
-      <h2 className="text-xl font-bold">Planejamento Financeiro</h2>
+      <h2 className="text-2xl font-black tracking-tight">Planejamento</h2>
+
+      {/* Gastos Recorrentes Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold flex items-center gap-2 text-base">
+            <Repeat className="h-5 w-5 text-primary" /> Gastos Recorrentes
+          </h3>
+          <AddRecurringSheet />
+        </div>
+        
+        {isLoadingRec ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : recurring.length === 0 ? (
+          <EmptyState 
+            icon={Repeat} 
+            title="Nenhum gasto fixo" 
+            description="Luz, aluguel, parcelas... cadastre aqui."
+            trigger={<AddRecurringSheet />}
+          />
+        ) : (
+          <div className="space-y-2">
+            {recurring.map(item => (
+              <RecurringCard key={item.id} item={item} onDelete={handleDeleteRec} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Savings Goals Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold flex items-center gap-2 text-lg">
-            <Target className="h-5 w-5 text-primary" />
-            Metas de Poupança
+          <h3 className="font-bold flex items-center gap-2 text-base">
+            <Target className="h-5 w-5 text-primary" /> Metas de Poupança
           </h3>
           <AddGoalSheet />
         </div>
         
         {isLoadingGoals ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
+          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : goals.length === 0 ? (
           <EmptyState 
-            icon={Target} 
-            title="Nenhuma meta definida" 
-            description="Comece a planejar seu futuro financeiro."
+            icon={Target} title="Nenhuma meta" description="Comece a planejar seu futuro."
             trigger={<AddGoalSheet />}
           />
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3">
             {goals.map(goal => (
               <SavingsGoalCard key={goal.id} goal={goal} onDelete={handleDeleteGoal} />
             ))}
@@ -104,50 +110,26 @@ export function PlanningView() {
       {/* Wish List Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold flex items-center gap-2 text-lg">
-            <ListChecks className="h-5 w-5 text-primary" />
-            Lista de Desejos
+          <h3 className="font-bold flex items-center gap-2 text-base">
+            <ListChecks className="h-5 w-5 text-primary" /> Lista de Desejos
           </h3>
           <AddWishItemSheet />
         </div>
         
         {isLoadingWishList ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
+          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : wishList.length === 0 ? (
           <EmptyState 
-            icon={ListChecks} 
-            title="Lista de desejos vazia" 
-            description="Adicione itens que você planeja comprar."
+            icon={ListChecks} title="Lista vazia" description="O que você quer comprar em breve?"
             trigger={<AddWishItemSheet />}
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {wishList.map(item => (
               <WishListItemCard key={item.id} item={item} onDelete={handleDeleteWishItem} />
             ))}
           </div>
         )}
-      </div>
-
-      {/* Budgeting Section */}
-      <div className="space-y-4">
-        <h3 className="font-semibold flex items-center gap-2 text-lg">
-          <DollarSign className="h-5 w-5 text-primary" />
-          Orçamento Mensal
-        </h3>
-        
-        <BudgetProgress selectedDate={new Date()} />
-        
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground mb-3">
-              Defina limites mensais por categoria e acompanhe seus gastos.
-            </p>
-            <BudgetSheet />
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
