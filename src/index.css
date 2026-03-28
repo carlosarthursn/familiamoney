@@ -115,15 +115,14 @@
     @apply transition-all duration-200 active:scale-[0.98];
   }
 
-  /* Fix para o fundo branco/azul do autofill dos navegadores */
+  /* Fix definitivo para o fundo indesejado do autofill */
   input:-webkit-autofill,
   input:-webkit-autofill:hover, 
   input:-webkit-autofill:focus, 
   input:-webkit-autofill:active {
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: inherit !important;
+    -webkit-box-shadow: 0 0 0 1000px #ff7a00 inset !important;
+    -webkit-text-fill-color: white !important;
     transition: background-color 5000s ease-in-out 0s;
-    box-shadow: inset 0 0 20px 20px transparent;
   }
 }
 
