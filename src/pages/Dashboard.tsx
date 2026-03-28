@@ -45,15 +45,14 @@ export default function Dashboard() {
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
-    setTimeout(async () => {
-      try {
-        await signOut();
-        toast.success('Até logo!');
-      } catch (error) {
-        toast.error('Erro ao sair da conta.');
-        setIsLoggingOut(false);
-      }
-    }, 1200);
+    try {
+      await signOut();
+      toast.success('Até logo!');
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+      toast.error('Erro ao sair da conta.');
+      setIsLoggingOut(false);
+    }
   };
   
   const handleDelete = (id: string) => {

@@ -82,8 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(s?.user ?? null);
         
         if (s?.user) {
-          // Buscamos o perfil mas NÃO bloqueamos o loading por isso
-          fetchProfile(s.user);
+          await fetchProfile(s.user);
         }
       } catch (err) {
         console.error("Auth init error:", err);
@@ -94,32 +93,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
 
-    // Válvula de segurança: se após 5 segundos ainda estiver carregando, força o fim
-    const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
-        console.log("Auth: Safety timeout triggered");
-        setLoading(false);
-      }
-    }, 5000);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
-      setSession(newSession);
+      
       const newUser = newSession?.user ?? null;
+      
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setSession(newSession);
       setUser(newUser);
       
-      if (newUser) await fetchProfile(newUser);
-      else setProfile(null);
-      
+      if (newUser) {
+        await fetchProfile(newUser);
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
     });
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfile, loading]);
+  }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string) => {
     return supabase.auth.signUp({ email, password, options: { data: { name } } });
@@ -138,11 +140,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    window.location.assign('/');
+    try {
+      setLoading(true);
+      await supabase.auth.signOut();
+      // Limpeza local forçada
+      setProfile(null);
+      setUser(null);
+      setSession(null);
+    } catch (error) {
+      console.error("Erro no logout:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateProfile = async (updates: any) => {
