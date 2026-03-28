@@ -42,43 +42,65 @@ export function AddTransactionSheet() {
     setDescription('');
   };
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1024;
+          const MAX_HEIGHT = 1024;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Qualidade 0.7 para reduzir drasticamente o peso sem perder leitura
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl.split(',')[1]);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('A imagem é muito pesada (máx 5MB).');
-      return;
-    }
-
     setIsScanning(true);
-    const toastId = toast.loading('IA analisando nota...');
+    const toastId = toast.loading('IA processando imagem compactada...');
 
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          resolve(base64);
-        };
-        reader.readAsDataURL(file);
-      });
+      const imageBase64 = await compressImage(file);
 
-      const imageBase64 = await base64Promise;
-
+      // Chamada usando a URL completa conforme diretriz de estabilidade
       const { data, error } = await supabase.functions.invoke('scan-receipt', {
         body: { imageBase64 }
       });
 
-      if (error) {
-        // Tenta ler o erro do corpo da resposta se for um erro de função
-        const errorMsg = error instanceof Error ? error.message : 'Erro na função do servidor';
-        throw new Error(errorMsg);
-      }
+      if (error) throw new Error(error.message || 'Falha na conexão com a IA');
 
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (data?.error) throw new Error(data.error);
 
       if (data) {
         if (data.valor) setAmount(data.valor.toFixed(2).replace('.', ','));
@@ -88,11 +110,11 @@ export function AddTransactionSheet() {
           const parsedDate = parseISO(data.data);
           if (isValid(parsedDate)) setDate(parsedDate);
         }
-        toast.success('Dados preenchidos automaticamente!', { id: toastId });
+        toast.success('Nota lida com sucesso!', { id: toastId });
       }
     } catch (error: any) {
       console.error("[IA Scan Error]", error);
-      toast.error(error.message || 'Não foi possível ler a nota.', { id: toastId });
+      toast.error(error.message || 'Erro ao processar imagem.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
