@@ -55,19 +55,11 @@ export function AddTransactionSheet() {
           const MAX_HEIGHT = 1024;
           let width = img.width;
           let height = img.height;
-
           if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
+            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
           } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
+            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
           }
-
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
@@ -86,13 +78,13 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('IA processando imagem...');
+    const toastId = toast.loading('IA analisando nota...');
 
     try {
       const imageBase64 = await compressImage(file);
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Chamada direta via fetch para evitar problemas de proxy do invoke
+      // Chamada direta para o endpoint da função para máxima estabilidade
       const response = await fetch('https://vipigovrygzyjaibssra.supabase.co/functions/v1/scan-receipt', {
         method: 'POST',
         headers: {
@@ -104,8 +96,8 @@ export function AddTransactionSheet() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro na resposta do servidor');
+        const err = await response.json();
+        throw new Error(err.error || 'Erro no servidor');
       }
 
       const data = await response.json();
@@ -118,11 +110,11 @@ export function AddTransactionSheet() {
           const parsedDate = parseISO(data.data);
           if (isValid(parsedDate)) setDate(parsedDate);
         }
-        toast.success('Nota lida com sucesso!', { id: toastId });
+        toast.success('Pronto! Verifique os dados.', { id: toastId });
       }
     } catch (error: any) {
       console.error("[IA Scan Error]", error);
-      toast.error(error.message || 'Erro ao processar imagem.', { id: toastId });
+      toast.error(error.message || 'Falha ao ler nota.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
