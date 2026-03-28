@@ -6,12 +6,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Moon, Sun, Fingerprint } from 'lucide-react';
+import { UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Moon, Sun, Fingerprint, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
 
 export function ProfileSettings() {
-  const { user, profile, updateProfile, linkPartner, unlinkPartner, registerPasskey } = useAuth();
+  const { user, profile, updateProfile, linkPartner, unlinkPartner, registerPasskey, signOut } = useAuth();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -170,6 +170,17 @@ export function ProfileSettings() {
             <Button onClick={handleLink} disabled={loading} className="h-11 px-4 rounded-xl"><UserPlus className="h-4 w-4" /></Button>
           </div>
         )}
+      </div>
+
+      <div className="pt-4">
+        <Button 
+          variant="ghost" 
+          onClick={() => signOut()} 
+          className="w-full h-12 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10 font-bold"
+        >
+          <LogOut className="h-5 w-5 mr-2" />
+          Sair da Conta
+        </Button>
       </div>
     </div>
   );
