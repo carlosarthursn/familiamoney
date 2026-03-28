@@ -14,9 +14,24 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
+
+// MAPA DE CATEGORIAS PARA O RETORNO DA IA
+const CATEGORY_MAP: Record<string, string> = {
+  'Alimentação': 'food',
+  'Transporte': 'transport',
+  'Aluguel': 'rent',
+  'Lazer': 'leisure',
+  'Contas': 'bills',
+  'Saúde': 'health',
+  'Educação': 'education',
+  'Compras': 'shopping',
+  'Outros': 'other'
+};
+
+// COLOQUE SUA CHAVE AQUI PARA TESTE DIRETO
+const ANTHROPIC_API_KEY = "SUA_CHAVE_ANTHROPIC_AQUI"; 
 
 export function AddTransactionSheet() {
   const [open, setOpen] = useState(false);
@@ -77,38 +92,84 @@ export function AddTransactionSheet() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (ANTHROPIC_API_KEY === "SUA_CHAVE_ANTHROPIC_AQUI") {
+      toast.error("Por favor, configure sua chave da Anthropic no código.");
+      return;
+    }
+
     setIsScanning(true);
-    const toastId = toast.loading('IA analisando nota...');
+    const toastId = toast.loading('IA analisando nota diretamente...');
 
     try {
       const imageBase64 = await compressImage(file);
       
-      // Usando o método oficial invoke para evitar erros de 404 e cabeçalhos manuais
-      const { data, error } = await supabase.functions.invoke('scan-receipt', {
-        body: { imageBase64 }
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true" // Header necessário para chamadas client-side
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-latest",
+          max_tokens: 1024,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: "image/jpeg",
+                    data: imageBase64,
+                  },
+                },
+                {
+                  type: "text",
+                  text: `Analise essa nota fiscal ou cupom e retorne APENAS JSON puro sem markdown nem backticks:
+{
+  "valor": 0.00,
+  "categoria": "Alimentação|Transporte|Aluguel|Lazer|Contas|Saúde|Educação|Compras|Outros",
+  "data": "DD/MM/YYYY",
+  "descricao": "resumo breve do estabelecimento ou compra"
+}`,
+                },
+              ],
+            },
+          ],
+        }),
       });
 
-      if (error) {
-        // Se for erro de cota ou limite
-        if (error.message?.includes('insufficient_quota') || error.message?.includes('429')) {
-          throw new Error('Créditos da IA esgotados ou limite atingido.');
-        }
-        throw new Error(error.message || 'Erro ao processar imagem');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Erro na API da Anthropic');
       }
 
-      if (data) {
-        if (data.valor) setAmount(data.valor.toFixed(2).replace('.', ','));
-        if (data.categoria) setCategory(data.categoria);
-        if (data.descricao) setDescription(data.descricao);
-        if (data.data) {
-          const parsedDate = parseISO(data.data);
-          if (isValid(parsedDate)) setDate(parsedDate);
+      const data = await response.json();
+      const rawText = data.content.find((c: any) => c.type === 'text')?.text || '';
+      const cleanJson = rawText.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
+
+      if (parsed) {
+        if (parsed.valor) setAmount(Number(parsed.valor).toFixed(2).replace('.', ','));
+        if (parsed.categoria) setCategory(CATEGORY_MAP[parsed.categoria] || 'other');
+        if (parsed.descricao) setDescription(parsed.descricao);
+        
+        if (parsed.data && parsed.data.includes('/')) {
+          const parts = parsed.data.split('/');
+          if (parts.length === 3) {
+            const formattedDateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            const parsedDate = parseISO(formattedDateStr);
+            if (isValid(parsedDate)) setDate(parsedDate);
+          }
         }
         toast.success('Leitura concluída!', { id: toastId });
       }
     } catch (error: any) {
-      console.error("[IA Scan Error]", error);
-      toast.error(error.message || 'Falha na leitura.', { id: toastId });
+      console.error("[Direct IA Scan Error]", error);
+      toast.error(error.message || 'Falha na leitura direta.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
