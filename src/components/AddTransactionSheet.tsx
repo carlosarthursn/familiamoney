@@ -48,28 +48,20 @@ export function AddTransactionSheet() {
     let detectedDate: Date | null = null;
     let detectedCategory = '';
 
-    // Regex para capturar valores monetários no formato 0,00 ou 0.000,00
     const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/;
 
-    // 1. Localizar o TOTAL (Ignorando Troco e Itens)
-    // Varremos de baixo para cima, pois o fechamento está no rodapé
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].toUpperCase();
-      
-      // Se a linha for de troco, ignoramos completamente para não ler o valor errado
       if (line.includes('TROCO')) continue;
       
-      // Procuramos por palavras que indiquem o fechamento da conta
       const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('VALOR RECEBIDO') || line.includes('SUBTOTAL');
       
       if (isTotalLine) {
-        // Ignora contagem de itens
         if ((line.includes('ITENS') || line.includes('QTDE')) && !line.includes('VALOR')) continue;
 
         const match = line.match(moneyRegex);
         if (match) {
           const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-          // Geralmente o total é maior que zero e menor que um valor absurdo (filtro de ruído)
           if (val > 0 && val < 10000) {
             detectedAmount = val;
             break; 
@@ -78,28 +70,18 @@ export function AddTransactionSheet() {
       }
     }
 
-    // 2. Fallback: Se não achou na linha do Total, busca o maior valor entre as últimas 10 linhas (que não seja troco)
     if (!detectedAmount) {
       const recentLines = lines.slice(-10);
       const candidates: number[] = [];
-      
       recentLines.forEach(line => {
         const l = line.toUpperCase();
         if (l.includes('TROCO') || l.includes('ITENS')) return;
-        
         const match = line.match(moneyRegex);
-        if (match) {
-          candidates.push(parseFloat(match[1].replace(/\./g, '').replace(',', '.')));
-        }
+        if (match) candidates.push(parseFloat(match[1].replace(/\./g, '').replace(',', '.')));
       });
-
-      if (candidates.length > 0) {
-        // Pegamos o maior valor das últimas linhas (Total costuma ser maior que os impostos ou taxas)
-        detectedAmount = Math.max(...candidates);
-      }
+      if (candidates.length > 0) detectedAmount = Math.max(...candidates);
     }
 
-    // 3. Extração de Data
     const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
     const dateMatch = text.match(dateRegex);
     if (dateMatch) {
@@ -108,7 +90,6 @@ export function AddTransactionSheet() {
       if (isValid(parsedDate)) detectedDate = parsedDate;
     }
 
-    // 4. Categorização por palavras-chave
     const keywordsMap: Record<string, string[]> = {
       food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute'],
       transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga'],
@@ -143,9 +124,19 @@ export function AddTransactionSheet() {
 
       const parsedData = parseReceiptText(text);
 
-      if (parsedData.amount) setAmount(parsedData.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-      if (parsedData.category && categories.some(c => c.id === parsedData.category)) setCategory(parsedData.category);
-      if (parsedData.date) setDate(parsedData.date);
+      if (parsedData.amount !== null) {
+        // Formatação direta para o campo de input (ex: 124,50)
+        const formattedValue = parsedData.amount.toFixed(2).replace('.', ',');
+        setAmount(formattedValue);
+      }
+      
+      if (parsedData.category && categories.some(c => c.id === parsedData.category)) {
+        setCategory(parsedData.category);
+      }
+      
+      if (parsedData.date) {
+        setDate(parsedData.date);
+      }
       
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
       if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
@@ -208,17 +199,11 @@ export function AddTransactionSheet() {
           </Button>
         </SheetTrigger>
         <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl flex flex-col p-0 overflow-hidden bg-background">
-          <SheetHeader className="px-6 pt-6 pb-2 relative">
+          <SheetHeader className="px-6 pt-6 pb-2">
             <SheetTitle className="text-xl flex items-center gap-2">
               Nova Movimentação <Sparkles className="h-4 w-4 text-primary animate-pulse" />
             </SheetTitle>
             <SheetDescription className="sr-only">Adicione uma nova transação.</SheetDescription>
-            <button 
-              onClick={() => setOpen(false)}
-              className="absolute right-6 top-6 p-2 rounded-full bg-muted/50 text-muted-foreground hover:bg-muted"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </SheetHeader>
           
           <div className="flex-1 overflow-y-auto px-6 pb-24">
@@ -259,7 +244,7 @@ export function AddTransactionSheet() {
                   <Camera className="h-5 w-5" />
                 )}
                 <span className="font-bold text-xs uppercase tracking-wider">
-                  {isScanning ? 'Lendo rodapé...' : 'Escanear Nota'}
+                  {isScanning ? 'Lendo nota...' : 'Escanear Nota'}
                 </span>
               </Button>
               <input 
