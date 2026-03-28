@@ -48,44 +48,56 @@ export function AddTransactionSheet() {
     let detectedDate: Date | null = null;
     let detectedCategory = '';
 
-    // 1. Procurar por TOTAL Financeiro (Ignorando contagem de itens)
-    // Procuramos de baixo para cima, pois o total financeiro costuma estar no fim
-    const financialTotalRegex = /(?:valor\s+total|total\s+a\s+pagar|total\s+r\$|pago|valor\s+pago|total)\s*[:\s]*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i;
-    
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      // Pula linhas que falam de "itens" ou "quantidade"
-      if (/itens|quantidade|qtde|unidades/i.test(line)) continue;
+    // Palavras-chave de fechamento financeiro
+    const totalKeywords = ['VALOR TOTAL', 'TOTAL A PAGAR', 'TOTAL R$', 'TOTAL', 'PAGO', 'VALOR PAGO', 'SUBTOTAL'];
+    const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/;
 
-      const match = line.match(financialTotalRegex);
-      if (match) {
-        detectedAmount = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-        break; 
+    // Busca de baixo para cima (Rodapé da nota)
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].toUpperCase();
+      
+      // Verifica se a linha contém alguma palavra de total
+      const hasKeyword = totalKeywords.some(key => line.includes(key));
+      
+      if (hasKeyword) {
+        // Se a linha fala de itens ou quantidade, mas NÃO fala de valor, ignoramos (evita pegar "Total de Itens 12")
+        if ((line.includes('ITENS') || line.includes('QTDE') || line.includes('QUANTIDADE')) && !line.includes('VALOR')) {
+          continue;
+        }
+
+        // Tenta achar o valor na própria linha
+        let match = line.match(moneyRegex);
+        if (match) {
+          detectedAmount = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+          if (detectedAmount > 0) break;
+        }
+
+        // Se não achou na linha, tenta na linha debaixo (comum em cupons)
+        if (i + 1 < lines.length) {
+          match = lines[i+1].match(moneyRegex);
+          if (match) {
+            detectedAmount = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+            if (detectedAmount > 0) break;
+          }
+        }
       }
     }
 
-    // 2. Fallback: Se não achou por palavra-chave, busca o maior valor que tenha vírgula e 2 casas decimais
+    // Fallback: Pega o ÚLTIMO valor financeiro da nota se nada for encontrado
     if (!detectedAmount) {
-      const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
       const allPrices: number[] = [];
+      const globalMoneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
       let match;
-      
-      while ((match = moneyRegex.exec(text)) !== null) {
+      while ((match = globalMoneyRegex.exec(text)) !== null) {
         const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-        // Filtra valores exorbitantes que podem ser CNPJ ou números de série
         if (!isNaN(val) && val < 5000) allPrices.push(val);
       }
-
       if (allPrices.length > 0) {
-        const hasTroco = /troco/i.test(text);
-        const sorted = [...allPrices].sort((a, b) => b - a);
-        // Se tem troco, o total é o segundo maior (Dinheiro > Total > Troco)
-        // Se não tem, pegamos o maior valor financeiro encontrado
-        detectedAmount = hasTroco && sorted.length > 1 ? sorted[1] : sorted[0];
+        detectedAmount = allPrices[allPrices.length - 1]; // Pega o último
       }
     }
 
-    // 3. Regex para data (DD/MM/AAAA ou DD/MM/AA)
+    // Extração de Data
     const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
     const dateMatch = text.match(dateRegex);
     if (dateMatch) {
@@ -94,8 +106,8 @@ export function AddTransactionSheet() {
       if (isValid(parsedDate)) detectedDate = parsedDate;
     }
 
-    // 4. Categorização
-    const keywords: Record<string, string[]> = {
+    // Categorização
+    const keywordsMap: Record<string, string[]> = {
       food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute'],
       transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga'],
       leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube'],
@@ -105,18 +117,14 @@ export function AddTransactionSheet() {
     };
 
     const lowercaseText = text.toLowerCase();
-    for (const [catId, words] of Object.entries(keywords)) {
+    for (const [catId, words] of Object.entries(keywordsMap)) {
       if (words.some(word => lowercaseText.includes(word))) {
         detectedCategory = catId;
         break;
       }
     }
 
-    return {
-      amount: detectedAmount,
-      date: detectedDate,
-      category: detectedCategory
-    };
+    return { amount: detectedAmount, date: detectedDate, category: detectedCategory };
   };
 
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,7 +132,7 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Analisando cupom fiscal...');
+    const toastId = toast.loading('Analisando rodapé da nota...');
 
     try {
       const { data: { text } } = await Tesseract.recognize(file, 'por', {
@@ -137,14 +145,13 @@ export function AddTransactionSheet() {
       if (parsedData.category && categories.some(c => c.id === parsedData.category)) setCategory(parsedData.category);
       if (parsedData.date) setDate(parsedData.date);
       
-      // Tentar pegar o nome do estabelecimento (geralmente primeira ou segunda linha)
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
       if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
 
-      toast.success('Nota lida com sucesso!', { id: toastId });
+      toast.success('Valor identificado no rodapé!', { id: toastId });
     } catch (error) {
       console.error(error);
-      toast.error('Erro ao ler a imagem. Tente uma foto mais nítida.', { id: toastId });
+      toast.error('Erro na leitura. Tente uma foto mais clara.', { id: toastId });
     } finally {
       setIsScanning(false);
     }
@@ -176,7 +183,7 @@ export function AddTransactionSheet() {
       setShowSuccess(true);
       resetForm();
     } catch (error) {
-      toast.error('Erro ao salvar. Tente novamente.');
+      toast.error('Erro ao salvar.');
     }
   };
   
@@ -214,7 +221,6 @@ export function AddTransactionSheet() {
           
           <div className="flex-1 overflow-y-auto px-6 pb-24">
             <div className="space-y-6 py-2">
-              {/* Type Selector */}
               <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 rounded-2xl">
                 <button 
                   type="button" 
@@ -238,7 +244,6 @@ export function AddTransactionSheet() {
                 </button>
               </div>
 
-              {/* Scan Button */}
               <Button 
                 type="button" 
                 variant="outline" 
@@ -252,7 +257,7 @@ export function AddTransactionSheet() {
                   <Camera className="h-5 w-5" />
                 )}
                 <span className="font-bold text-xs uppercase tracking-wider">
-                  {isScanning ? 'Lendo dados...' : 'Escanear Nota'}
+                  {isScanning ? 'Buscando Rodapé...' : 'Escanear Nota'}
                 </span>
               </Button>
               <input 
@@ -264,7 +269,6 @@ export function AddTransactionSheet() {
                 onChange={handleScanReceipt} 
               />
               
-              {/* Valor */}
               <div className="space-y-2">
                 <Label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest px-1">Valor</Label>
                 <div className="relative">
@@ -280,7 +284,6 @@ export function AddTransactionSheet() {
                 </div>
               </div>
               
-              {/* Categorias */}
               <div className="space-y-2">
                 <Label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest px-1">Categoria</Label>
                 <div className="grid grid-cols-3 gap-2">
@@ -307,7 +310,6 @@ export function AddTransactionSheet() {
                 </div>
               </div>
               
-              {/* Data */}
               <div className="space-y-2">
                 <Label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest px-1">Data</Label>
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -329,7 +331,6 @@ export function AddTransactionSheet() {
                 </Popover>
               </div>
               
-              {/* Descrição */}
               <div className="space-y-2">
                 <Label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest px-1">Descrição</Label>
                 <Textarea 
@@ -342,7 +343,6 @@ export function AddTransactionSheet() {
             </div>
           </div>
 
-          {/* Action Button */}
           <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10 safe-bottom">
             <Button 
               onClick={handleSubmit} 
