@@ -52,7 +52,7 @@ export function AddTransactionSheet() {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Reduzi um pouco para ser mais rápido
+          const MAX_WIDTH = 800; 
           const MAX_HEIGHT = 800;
           let width = img.width;
           let height = img.height;
@@ -84,7 +84,6 @@ export function AddTransactionSheet() {
     try {
       const imageBase64 = await compressImage(file);
       
-      // Usando a URL absoluta da Edge Function conforme instruções
       const response = await fetch("https://vipigovrygzyjaibssra.supabase.co/functions/v1/scan-receipt", {
         method: 'POST',
         headers: {
@@ -217,7 +216,13 @@ export function AddTransactionSheet() {
                 </div>
               </Button>
               
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleScanReceipt} />
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleScanReceipt} 
+              />
               
               <div className="space-y-2">
                 <Label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest px-1">Valor</Label>
