@@ -87,15 +87,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initAuth = async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-      if (currentSession) {
-        setSession(currentSession);
-        setUser(currentSession.user);
-        await fetchProfile(currentSession.user);
+        if (currentSession) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          await fetchProfile(currentSession.user);
+        }
+      } catch (error) {
+        console.error("Erro na inicialização do auth:", error);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
     };
 
     initAuth();

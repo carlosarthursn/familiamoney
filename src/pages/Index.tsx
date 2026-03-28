@@ -5,44 +5,33 @@ import { useAuth, AuthProvider } from '@/hooks/useAuth';
 import Auth from '@/pages/Auth';
 import Dashboard from '@/pages/Dashboard';
 import { SplashScreen } from '@/components/SplashScreen';
-import { Loader2 } from 'lucide-react';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const [showSplash, setShowSplash] = useState(false);
-  const [authReady, setAuthReady] = useState(false);
+  const [splashFinished, setSplashFinished] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        // Se o usuário está logado, mostra o splash antes do dashboard
-        setShowSplash(true);
-        const timer = setTimeout(() => {
-          setShowSplash(false);
-          setAuthReady(true);
-        }, 1600); // Tempo da animação do splash
-        return () => clearTimeout(timer);
-      } else {
-        // Se não está logado, vai direto para o Auth
-        setAuthReady(true);
-      }
+    // Se não estiver carregando e o usuário for nulo, não precisamos de splash longo
+    if (!loading && !user) {
+      setSplashFinished(true);
+    }
+    
+    // Timer de segurança para a animação da splash
+    if (user) {
+      const timer = setTimeout(() => {
+        setSplashFinished(true);
+      }, 1800);
+      return () => clearTimeout(timer);
     }
   }, [loading, user]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#ff7a00]">
-        <Loader2 className="h-8 w-8 animate-spin text-white" />
-      </div>
-    );
+  // Se estiver carregando inicialmente ou a animação da splash não acabou, mostra Splash
+  if (loading || (!splashFinished && user)) {
+    return <SplashScreen />;
   }
 
-  return (
-    <>
-      {showSplash && <SplashScreen />}
-      {authReady && (user ? <Dashboard /> : <Auth />)}
-    </>
-  );
+  // Uma vez carregado e splash finalizada (ou se for pra tela de login)
+  return user ? <Dashboard /> : <Auth />;
 }
 
 const Index = () => {
