@@ -1,11 +1,11 @@
 {
-  "name": "Finanças App",
-  "short_name": "Finanças",
-  "description": "Controle suas finanças de forma simples e moderna.",
+  "name": "confere",
+  "short_name": "confere",
+  "description": "seus gastos, do seu jeito",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f5f7fa",
-  "theme_color": "#10b981",
+  "background_color": "#ff7a00",
+  "theme_color": "#ff7a00",
   "icons": [
     {
       "src": "/app-icon.svg",
