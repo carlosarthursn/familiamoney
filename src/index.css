@@ -190,18 +190,30 @@
     background: linear-gradient(to right, #10b981 50%, #ef4444 50%) bottom 4px center / 40% 3px no-repeat !important;
   }
 
-  /* Novo: Marcador para Gastos Recorrentes (Contas a pagar) */
-  .day-has-recurring {
-    &::after {
-      content: '';
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 6px;
-      height: 6px;
-      background-color: #ff7a00;
-      border-radius: 50%;
-      border: 1px solid white;
-    }
+  /* Indicadores de Recorrência (Bolinhas no topo) */
+  .day-has-rec-expense::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    background-color: #ff7a00;
+    border-radius: 50%;
+    border: 1px solid white;
+    z-index: 1;
+  }
+
+  .day-has-rec-income::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 12px;
+    width: 6px;
+    height: 6px;
+    background-color: #10b981;
+    border-radius: 50%;
+    border: 1px solid white;
+    z-index: 1;
   }
 }

@@ -32,7 +32,8 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
     const hasIncome: Date[] = [];
     const hasExpense: Date[] = [];
     const hasBoth: Date[] = [];
-    const hasRecurring: Date[] = [];
+    const hasRecIncome: Date[] = [];
+    const hasRecExpense: Date[] = [];
     
     const dayMap: Record<string, { income: boolean, expense: boolean }> = {};
     transactions.forEach(t => {
@@ -52,11 +53,15 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
     recurring.forEach(item => {
       if (item.is_active) {
         const dueDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), item.due_day);
-        hasRecurring.push(dueDate);
+        if (item.type === 'income') {
+          hasRecIncome.push(dueDate);
+        } else {
+          hasRecExpense.push(dueDate);
+        }
       }
     });
 
-    return { hasIncome, hasExpense, hasBoth, hasRecurring };
+    return { hasIncome, hasExpense, hasBoth, hasRecIncome, hasRecExpense };
   }, [transactions, recurring, selectedDate]);
 
   const transactionsForSelectedDay = transactions.filter(t => 
@@ -105,7 +110,8 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
             hasIncome: "day-has-income",
             hasExpense: "day-has-expense",
             hasBoth: "day-has-both",
-            hasRecurring: "day-has-recurring",
+            hasRecIncome: "day-has-rec-income",
+            hasRecExpense: "day-has-rec-expense",
           }}
         />
       </div>
