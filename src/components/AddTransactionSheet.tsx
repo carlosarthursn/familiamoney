@@ -82,22 +82,18 @@ export function AddTransactionSheet() {
 
     try {
       const imageBase64 = await compressImage(file);
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const response = await fetch('https://vipigovrygzyjaibssra.supabase.co/functions/v1/scan-receipt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpcGlnb3ZyeWd6eWphaWJzc3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzgzNTMsImV4cCI6MjA4NTA1NDM1M30.Z5hyETn-WMuagY6yiBlyFWTahUm7SSWl4j-m1uI4x9U'
-        },
-        body: JSON.stringify({ imageBase64 })
+      
+      // Usando o método oficial invoke para evitar erros de 404 e cabeçalhos manuais
+      const { data, error } = await supabase.functions.invoke('scan-receipt', {
+        body: { imageBase64 }
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao processar imagem');
+      if (error) {
+        // Se for erro de cota ou limite
+        if (error.message?.includes('insufficient_quota') || error.message?.includes('429')) {
+          throw new Error('Créditos da IA esgotados ou limite atingido.');
+        }
+        throw new Error(error.message || 'Erro ao processar imagem');
       }
 
       if (data) {
