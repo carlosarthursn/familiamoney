@@ -1,9 +1,11 @@
+"use client";
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wallet, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
+import { Check, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { z } from 'zod';
@@ -59,66 +61,72 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 safe-top safe-bottom">
-      {/* Logo */}
-      <div className="mb-8 text-center">
-        <div className="h-20 w-20 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
-          <Wallet className="h-10 w-10 text-primary-foreground" />
+    <div className="min-h-screen bg-[#ff7a00] flex flex-col items-center justify-center px-6 safe-top safe-bottom relative overflow-hidden">
+      {/* Elementos decorativos de fundo */}
+      <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-black/5 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Brand Section */}
+      <div className="mb-12 text-center animate-fade-in z-10">
+        <div className="flex justify-center mb-2">
+          <Check className="h-24 w-24 text-white stroke-[3px]" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground">Finanças</h1>
-        <p className="text-muted-foreground mt-1">
-          Controle suas finanças de forma simples
+        <h1 className="text-5xl font-extrabold text-white tracking-tighter mb-1">
+          confere
+        </h1>
+        <p className="text-white/90 text-sm font-medium tracking-tight">
+          seus gastos, do seu jeito
         </p>
       </div>
 
-      {/* Form */}
-      <div className="w-full max-w-sm">
+      {/* Form Container */}
+      <div className="w-full max-w-sm bg-white/95 backdrop-blur-sm p-8 rounded-[2.5rem] shadow-2xl animate-slide-up z-10">
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
-            <div className="space-y-2 animate-slide-down">
-              <Label htmlFor="name" className="text-muted-foreground">Nome</Label>
+            <div className="space-y-1.5 animate-slide-down">
+              <Label htmlFor="name" className="text-muted-foreground text-[10px] uppercase font-bold ml-1">Nome</Label>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ff7a00]" />
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Seu nome"
+                  placeholder="Como quer ser chamado?"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="pl-12 h-12 touch-target"
+                  className="pl-12 h-12 rounded-2xl border-muted bg-muted/30 focus:bg-white transition-all"
                   required={!isLogin}
                 />
               </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-muted-foreground">Email</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-muted-foreground text-[10px] uppercase font-bold ml-1">Email</Label>
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ff7a00]" />
               <Input
                 id="email"
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-12 h-12 touch-target"
+                className="pl-12 h-12 rounded-2xl border-muted bg-muted/30 focus:bg-white transition-all"
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-muted-foreground">Senha</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-muted-foreground text-[10px] uppercase font-bold ml-1">Senha</Label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ff7a00]" />
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-12 h-12 touch-target"
+                className="pl-12 h-12 rounded-2xl border-muted bg-muted/30 focus:bg-white transition-all"
                 required
                 minLength={6}
               />
@@ -128,34 +136,39 @@ export default function Auth() {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-12 font-semibold rounded-xl gradient-primary touch-target"
+            className="w-full h-14 font-bold text-lg rounded-2xl bg-[#ff7a00] hover:bg-[#ff8a20] text-white shadow-lg active:scale-95 transition-all mt-4"
           >
             {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
-              <>
-                {isLogin ? 'Entrar' : 'Criar conta'}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
+              <div className="flex items-center justify-center">
+                {isLogin ? 'Acessar Conta' : 'Criar Minha Conta'}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </div>
             )}
           </Button>
         </form>
 
-        {/* Toggle */}
-        <div className="mt-6 text-center">
+        {/* Toggle Account Action */}
+        <div className="mt-8 text-center">
           <button
             type="button"
             onClick={() => setIsLogin(!isLogin)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-muted-foreground hover:text-[#ff7a00] transition-colors"
           >
             {isLogin ? (
-              <>Não tem conta? <span className="text-primary font-medium">Criar conta</span></>
+              <>Ainda não tem conta? <span className="text-[#ff7a00] font-bold">Cadastre-se</span></>
             ) : (
-              <>Já tem conta? <span className="text-primary font-medium">Entrar</span></>
+              <>Já possui cadastro? <span className="text-[#ff7a00] font-bold">Faça login</span></>
             )}
           </button>
         </div>
       </div>
+      
+      {/* Footer Info */}
+      <p className="mt-8 text-white/60 text-[10px] font-medium uppercase tracking-widest z-10">
+        Seguro e Privado
+      </p>
     </div>
   );
 }
