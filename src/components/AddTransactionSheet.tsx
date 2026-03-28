@@ -106,7 +106,7 @@ export function AddTransactionSheet() {
           "anthropic-dangerous-direct-browser-access": "true" 
         },
         body: JSON.stringify({
-          model: "claude-3-5-sonnet-latest",
+          model: "claude-3-5-sonnet-20241022", // Usando o ID fixo em vez do alias 'latest'
           max_tokens: 1024,
           messages: [
             {
