@@ -73,6 +73,10 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
   const recurringForSelectedDay = recurring.filter(item => 
     item.due_day === getDate(selectedDate) && item.is_active
   );
+
+  const totalRecurringForDay = useMemo(() => {
+    return recurringForSelectedDay.reduce((sum, item) => sum + Number(item.amount), 0);
+  }, [recurringForSelectedDay]);
   
   const handleDelete = (id: string) => {
     deleteTransaction.mutate(id, {
@@ -135,6 +139,12 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
                 </div>
               );
             })}
+
+            {/* Totalizador dos compromissos */}
+            <div className="flex items-center justify-between pt-2 border-t border-primary/10 mt-2 px-1">
+              <span className="text-[10px] font-bold text-primary uppercase">Total Previsto</span>
+              <span className="text-sm font-black text-primary">{formatCurrency(totalRecurringForDay)}</span>
+            </div>
           </div>
         </div>
       )}
