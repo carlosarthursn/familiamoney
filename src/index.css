@@ -147,18 +147,23 @@
   }
 
   /* Dia Selecionado - Apenas o número em Abóbora (Laranja) */
-  /* Removemos o fundo escuro e focamos na cor do texto/número */
   .rdp-day_selected, 
   .rdp-day_selected:hover,
   .rdp-day_selected:focus {
     background-color: hsl(var(--primary) / 0.15) !important;
-    color: #ff7a00 !important; /* Cor abóbora direta */
+    color: #ff7a00 !important; /* Força a cor abóbora */
     font-weight: 800 !important;
     border: 2px solid #ff7a00 !important;
   }
 
-  /* Estilo para o dia de "Hoje" */
-  .rdp-day_today {
+  /* Se o dia for "hoje" E estiver selecionado, o laranja deve prevalecer sobre o branco */
+  .rdp-day_selected.rdp-day_today {
+    color: #ff7a00 !important;
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  /* Estilo para o dia de "Hoje" (quando não selecionado) */
+  .rdp-day_today:not(.rdp-day_selected) {
     @apply text-primary underline underline-offset-4 font-bold !important;
   }
 
