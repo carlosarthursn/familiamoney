@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     try {
@@ -74,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initAuth = async () => {
+      if (initialized.current) return;
+      initialized.current = true;
+
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!mounted) return;
@@ -92,6 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initAuth();
+
+    // Timeout de segurança: Se em 5 segundos não carregar, libera a tela
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) setLoading(false);
+    }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
@@ -119,9 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, loading]);
 
   const signUp = async (email: string, password: string, name: string) => {
     return supabase.auth.signUp({ email, password, options: { data: { name } } });
@@ -143,7 +153,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       await supabase.auth.signOut();
-      // Limpeza local forçada
       setProfile(null);
       setUser(null);
       setSession(null);

@@ -22,21 +22,20 @@ const AppRoutes = () => {
   const [showInitialSplash, setShowInitialSplash] = useState(true);
 
   useEffect(() => {
-    // Garante que o splash apareça por pelo menos 1.8s para a animação completar
     const timer = setTimeout(() => {
       setShowInitialSplash(false);
-    }, 1800);
+    }, 2000); // Aumentado levemente para dar tempo ao banco
     return () => clearTimeout(timer);
   }, []);
 
-  // Enquanto estiver carregando os dados do usuário ou o tempo mínimo do splash não passou
-  if (loading || showInitialSplash) {
+  // Mostra o splash enquanto o banco carrega OU enquanto o tempo mínimo não passou
+  // Mas se o banco já carregou e o tempo passou, libera a tela
+  if (showInitialSplash || loading) {
     return <SplashScreen />;
   }
 
   return (
     <Routes>
-      {/* Se não houver usuário, qualquer rota leva para /auth */}
       <Route 
         path="/auth" 
         element={user ? <Navigate to="/" replace /> : <Auth />} 
