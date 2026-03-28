@@ -43,24 +43,28 @@ export function AddTransactionSheet() {
   };
 
   const parseReceiptText = (text: string) => {
-    const lines = text.split('\n');
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     let detectedAmount: number | null = null;
     let detectedDate: Date | null = null;
     let detectedCategory = '';
 
-    // 1. Procurar por TOTAL ou SUBTOTAL (Prioridade Máxima)
-    // Regex que busca a palavra TOTAL/SUBTOTAL seguida de um valor monetário
-    const totalKeywordsRegex = /(?:total|subtotal|valor\s*a\s*pagar|pago|valor\s*liquido|a\s*receber)\s*[:\s]*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i;
+    // 1. Procurar por TOTAL Financeiro (Ignorando contagem de itens)
+    // Procuramos de baixo para cima, pois o total financeiro costuma estar no fim
+    const financialTotalRegex = /(?:valor\s+total|total\s+a\s+pagar|total\s+r\$|pago|valor\s+pago|total)\s*[:\s]*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i;
     
-    for (const line of lines) {
-      const match = line.match(totalKeywordsRegex);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      // Pula linhas que falam de "itens" ou "quantidade"
+      if (/itens|quantidade|qtde|unidades/i.test(line)) continue;
+
+      const match = line.match(financialTotalRegex);
       if (match) {
         detectedAmount = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-        break; // Encontrou o total, para de procurar
+        break; 
       }
     }
 
-    // 2. Se não achou por palavra-chave, busca o maior valor que não seja troco ou dinheiro
+    // 2. Fallback: Se não achou por palavra-chave, busca o maior valor que tenha vírgula e 2 casas decimais
     if (!detectedAmount) {
       const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
       const allPrices: number[] = [];
@@ -68,20 +72,16 @@ export function AddTransactionSheet() {
       
       while ((match = moneyRegex.exec(text)) !== null) {
         const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-        // Filtra valores que parecem CNPJ ou datas (muito grandes ou com formatos específicos)
-        if (!isNaN(val) && val < 100000) allPrices.push(val);
+        // Filtra valores exorbitantes que podem ser CNPJ ou números de série
+        if (!isNaN(val) && val < 5000) allPrices.push(val);
       }
 
       if (allPrices.length > 0) {
-        // Remove valores de "Troco" se a palavra troco existir no texto
         const hasTroco = /troco/i.test(text);
-        if (hasTroco) {
-          // Geralmente o total é o segundo maior valor quando tem troco (Dinheiro > Total > Troco)
-          const sorted = [...allPrices].sort((a, b) => b - a);
-          detectedAmount = sorted.length > 1 ? sorted[1] : sorted[0];
-        } else {
-          detectedAmount = Math.max(...allPrices);
-        }
+        const sorted = [...allPrices].sort((a, b) => b - a);
+        // Se tem troco, o total é o segundo maior (Dinheiro > Total > Troco)
+        // Se não tem, pegamos o maior valor financeiro encontrado
+        detectedAmount = hasTroco && sorted.length > 1 ? sorted[1] : sorted[0];
       }
     }
 
@@ -94,13 +94,13 @@ export function AddTransactionSheet() {
       if (isValid(parsedDate)) detectedDate = parsedDate;
     }
 
-    // 4. Categorização por palavras-chave
+    // 4. Categorização
     const keywords: Record<string, string[]> = {
-      food: ['restaurante', 'ifood', 'mercado', 'supermercado', 'lanche', 'pizza', 'comida', 'padaria', 'burger', 'batata', 'refrigerante', 'esfiha', 'quibe'],
-      transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio'],
+      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute'],
+      transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga'],
       leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube'],
-      health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame'],
-      shopping: ['loja', 'vestuario', 'roupa', 'calcado', 'eletronico', 'amazon', 'mercadolivre'],
+      health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame', 'raia', 'pacheco'],
+      shopping: ['loja', 'vestuario', 'roupa', 'calcado', 'eletronico', 'amazon', 'mercadolivre', 'shopee'],
       bills: ['luz', 'agua', 'internet', 'celular', 'vivo', 'tim', 'claro', 'energia', 'sabesp']
     };
 
@@ -137,8 +137,9 @@ export function AddTransactionSheet() {
       if (parsedData.category && categories.some(c => c.id === parsedData.category)) setCategory(parsedData.category);
       if (parsedData.date) setDate(parsedData.date);
       
-      const firstLine = text.split('\n').find(l => l.trim().length > 3)?.trim();
-      if (firstLine && firstLine.length < 40) setDescription(firstLine);
+      // Tentar pegar o nome do estabelecimento (geralmente primeira ou segunda linha)
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
+      if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
 
       toast.success('Nota lida com sucesso!', { id: toastId });
     } catch (error) {
