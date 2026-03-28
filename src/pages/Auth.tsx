@@ -41,9 +41,30 @@ export default function Auth() {
     if (!validation.success) return toast.error(validation.error.errors[0].message);
     
     setLoading(true);
-    const { error } = isLogin ? await signIn(email, password) : await signUp(email, password, name);
-    if (error) {
-      toast.error(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos' : error.message);
+    try {
+      if (isLogin) {
+        const { error } = await signIn(email, password);
+        if (error) {
+          toast.error(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos' : error.message);
+          setLoading(false);
+        }
+      } else {
+        const { data, error } = await (signUp(email, password, name) as any);
+        if (error) {
+          toast.error(error.message);
+          setLoading(false);
+        } else if (data?.user && !data?.session) {
+          // Caso o Supabase exija confirmação de e-mail
+          toast.success('Conta criada! Verifique seu e-mail para confirmar o acesso.');
+          setLoading(false);
+          setIsLogin(true);
+        } else {
+          toast.success('Bem-vindo!');
+          // O onAuthStateChange no useAuth cuidará do redirecionamento
+        }
+      }
+    } catch (err: any) {
+      toast.error('Ocorreu um erro inesperado.');
       setLoading(false);
     }
   };
@@ -86,7 +107,7 @@ export default function Auth() {
             <Input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-transparent border-0 border-b border-white/20 rounded-none h-10 pl-7 text-white placeholder:text-white/30 focus-visible:ring-0 transition-all" />
           </div>
           <Button type="submit" disabled={loading} className="w-full h-12 font-semibold rounded-full bg-white text-[#ff7a00] hover:bg-white/90 active:scale-95 transition-all mt-6 shadow-none">
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <span className="flex items-center">Entrar <ArrowRight className="ml-2 h-4 w-4" /></span>}
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <span className="flex items-center">{isLogin ? 'Entrar' : 'Criar Conta'} <ArrowRight className="ml-2 h-4 w-4" /></span>}
           </Button>
         </form>
 
