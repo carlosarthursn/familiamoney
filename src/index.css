@@ -97,10 +97,18 @@
 @layer base {
   * {
     @apply border-border;
+    /* Esconder scrollbar globalmente */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: hidden;
   }
 
   button, [role="button"], .card-interactive {
@@ -138,9 +146,9 @@
     @apply relative transition-all duration-200 rounded-xl flex items-center justify-center !important;
   }
 
-  /* Dia Selecionado - Fundo Laranja Sólido (Abóbora) */
+  /* Dia Selecionado - Fundo Laranja Sólido Vibrante */
   .rdp-day_selected {
-    @apply bg-primary text-white font-bold shadow-lg !important;
+    @apply bg-primary text-primary-foreground font-bold shadow-lg !important;
   }
 
   /* Marcadores de Underline colados na base */
