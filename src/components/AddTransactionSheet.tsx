@@ -48,35 +48,32 @@ export function AddTransactionSheet() {
     let detectedDate: Date | null = null;
     let detectedCategory = '';
 
-    // Regex ultra-flexível: Procura por sequências de números que terminam em 2 casas decimais,
-    // permitindo qualquer caractere não numérico (ponto, vírgula, espaço) entre eles.
-    const broadMoneyRegex = /(\d+[\s\.,]*\d{2})/g;
-    const matches = text.match(broadMoneyRegex);
-    const candidates: number[] = [];
+    // Regex 1: Procura valores com decimais (ex: 57,00 ou 57.00 ou 57 00)
+    const decimalMoneyRegex = /(\d+[\s\.,]*\d{2})/g;
+    // Regex 2: Procura números inteiros puros (ex: 57)
+    const integerMoneyRegex = /(\d+)/g;
 
-    if (matches) {
-      matches.forEach(match => {
-        // Limpa tudo que não é número e assume que os últimos 2 dígitos são centavos
-        const digits = match.replace(/\D/g, '');
-        if (digits.length >= 3) {
-          const val = parseInt(digits) / 100;
-          if (val > 0 && val < 5000) candidates.push(val);
-        }
-      });
-    }
+    const allCandidates: number[] = [];
 
-    // 1. Tentar encontrar o valor na linha do TOTAL
+    // Tentar encontrar o valor na linha do TOTAL primeiro
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].toUpperCase();
-      if (line.includes('TROCO')) continue; // Ignora troco explicitamente
+      if (line.includes('TROCO')) continue;
       
-      const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('RECEBIDO') || line.includes('VALOR') || line.includes('SUBTOTAL');
+      const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('RECEBIDO') || line.includes('VALOR') || line.includes('FECHAMENTO');
       
       if (isTotalLine) {
-        const lineDigits = line.match(/(\d+[\s\.,]*\d{2})/);
-        if (lineDigits) {
-          const digits = lineDigits[0].replace(/\D/g, '');
-          const val = parseInt(digits) / 100;
+        // Tenta primeiro o padrão com decimais na linha do total
+        const decimalMatch = line.match(/(\d+[\s\.,]*\d{2})/);
+        if (decimalMatch) {
+          const digits = decimalMatch[0].replace(/\D/g, '');
+          detectedAmount = parseInt(digits) / 100;
+          break;
+        }
+        // Se não achou decimais, mas a linha diz "TOTAL 57", pega o número puro
+        const integerMatch = line.match(/(\d+)/);
+        if (integerMatch) {
+          const val = parseInt(integerMatch[0]);
           if (val > 0) {
             detectedAmount = val;
             break;
@@ -85,12 +82,33 @@ export function AddTransactionSheet() {
       }
     }
 
-    // 2. Se não achou na linha do total, pega o maior valor plausível encontrado no texto
-    if (!detectedAmount && candidates.length > 0) {
-      detectedAmount = Math.max(...candidates);
+    // Se não achou na linha do total, varre o texto todo
+    if (!detectedAmount) {
+      const matches = text.match(decimalMoneyRegex);
+      if (matches) {
+        matches.forEach(match => {
+          const digits = match.replace(/\D/g, '');
+          if (digits.length >= 3) allCandidates.push(parseInt(digits) / 100);
+        });
+      }
+      
+      // Se ainda não achou nada, tenta pegar o maior número inteiro (acima de 5 pra evitar lixo)
+      if (allCandidates.length === 0) {
+        const intMatches = text.match(integerMoneyRegex);
+        if (intMatches) {
+          intMatches.forEach(m => {
+            const val = parseInt(m);
+            if (val > 5 && val < 5000) allCandidates.push(val);
+          });
+        }
+      }
+
+      if (allCandidates.length > 0) {
+        detectedAmount = Math.max(...allCandidates);
+      }
     }
 
-    // 3. Extração de Data
+    // Extração de Data
     const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
     const dateMatch = text.match(dateRegex);
     if (dateMatch) {
@@ -99,14 +117,14 @@ export function AddTransactionSheet() {
       if (isValid(parsedDate)) detectedDate = parsedDate;
     }
 
-    // 4. Categorização
+    // Categorização
     const keywordsMap: Record<string, string[]> = {
-      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute', 'doceria', 'pao', 'supermercado'],
-      transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga', 'br', 'gas'],
-      leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube', 'ingresso'],
-      health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame', 'raia', 'pacheco', 'farma'],
-      shopping: ['loja', 'vestuario', 'roupa', 'calcado', 'eletronico', 'amazon', 'mercadolivre', 'shopee', 'magazine'],
-      bills: ['luz', 'agua', 'internet', 'celular', 'vivo', 'tim', 'claro', 'energia', 'sabesp', 'iptu', 'ipva']
+      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute', 'doceria', 'pao', 'supermercado', 'açougue', 'hortifruti'],
+      transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga', 'br', 'gas', 'etanol'],
+      leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube', 'ingresso', 'parque'],
+      health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame', 'raia', 'pacheco', 'farma', 'dentista'],
+      shopping: ['loja', 'vestuario', 'roupa', 'calcado', 'eletronico', 'amazon', 'mercadolivre', 'shopee', 'magazine', 'renner', 'cea', 'riachuelo'],
+      bills: ['luz', 'agua', 'internet', 'celular', 'vivo', 'tim', 'claro', 'energia', 'sabesp', 'iptu', 'ipva', 'aluguel']
     };
 
     const lowercaseText = text.toLowerCase();
@@ -135,8 +153,13 @@ export function AddTransactionSheet() {
       const parsedData = parseReceiptText(text);
       let foundCount = 0;
 
-      if (parsedData.amount && parsedData.amount > 0) {
-        setAmount(parsedData.amount.toFixed(2).replace('.', ','));
+      if (parsedData.amount !== null && parsedData.amount > 0) {
+        // Se for um número inteiro redondo, formata com ,00
+        const formatted = parsedData.amount % 1 === 0 
+          ? parsedData.amount.toString() + ',00'
+          : parsedData.amount.toFixed(2).replace('.', ',');
+        
+        setAmount(formatted);
         foundCount++;
       }
       
@@ -154,7 +177,7 @@ export function AddTransactionSheet() {
       if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
 
       if (foundCount > 0) {
-        toast.success(parsedData.amount ? 'Valor e categoria identificados!' : 'Dados identificados!', { id: toastId });
+        toast.success(parsedData.amount ? `Valor de R$ ${amount} identificado!` : 'Dados identificados!', { id: toastId });
       } else {
         toast.error('Não consegui ler os dados da nota.', { id: toastId });
       }
