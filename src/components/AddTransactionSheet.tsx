@@ -48,56 +48,58 @@ export function AddTransactionSheet() {
     let detectedDate: Date | null = null;
     let detectedCategory = '';
 
-    // Palavras-chave de fechamento financeiro
-    const totalKeywords = ['VALOR TOTAL', 'TOTAL A PAGAR', 'TOTAL R$', 'TOTAL', 'PAGO', 'VALOR PAGO', 'SUBTOTAL'];
+    // Regex para capturar valores monetários no formato 0,00 ou 0.000,00
     const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/;
 
-    // Busca de baixo para cima (Rodapé da nota)
+    // 1. Localizar o TOTAL (Ignorando Troco e Itens)
+    // Varremos de baixo para cima, pois o fechamento está no rodapé
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].toUpperCase();
       
-      // Verifica se a linha contém alguma palavra de total
-      const hasKeyword = totalKeywords.some(key => line.includes(key));
+      // Se a linha for de troco, ignoramos completamente para não ler o valor errado
+      if (line.includes('TROCO')) continue;
       
-      if (hasKeyword) {
-        // Se a linha fala de itens ou quantidade, mas NÃO fala de valor, ignoramos (evita pegar "Total de Itens 12")
-        if ((line.includes('ITENS') || line.includes('QTDE') || line.includes('QUANTIDADE')) && !line.includes('VALOR')) {
-          continue;
-        }
+      // Procuramos por palavras que indiquem o fechamento da conta
+      const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('VALOR RECEBIDO') || line.includes('SUBTOTAL');
+      
+      if (isTotalLine) {
+        // Ignora contagem de itens
+        if ((line.includes('ITENS') || line.includes('QTDE')) && !line.includes('VALOR')) continue;
 
-        // Tenta achar o valor na própria linha
-        let match = line.match(moneyRegex);
+        const match = line.match(moneyRegex);
         if (match) {
-          detectedAmount = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-          if (detectedAmount > 0) break;
-        }
-
-        // Se não achou na linha, tenta na linha debaixo (comum em cupons)
-        if (i + 1 < lines.length) {
-          match = lines[i+1].match(moneyRegex);
-          if (match) {
-            detectedAmount = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-            if (detectedAmount > 0) break;
+          const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+          // Geralmente o total é maior que zero e menor que um valor absurdo (filtro de ruído)
+          if (val > 0 && val < 10000) {
+            detectedAmount = val;
+            break; 
           }
         }
       }
     }
 
-    // Fallback: Pega o ÚLTIMO valor financeiro da nota se nada for encontrado
+    // 2. Fallback: Se não achou na linha do Total, busca o maior valor entre as últimas 10 linhas (que não seja troco)
     if (!detectedAmount) {
-      const allPrices: number[] = [];
-      const globalMoneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
-      let match;
-      while ((match = globalMoneyRegex.exec(text)) !== null) {
-        const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-        if (!isNaN(val) && val < 5000) allPrices.push(val);
-      }
-      if (allPrices.length > 0) {
-        detectedAmount = allPrices[allPrices.length - 1]; // Pega o último
+      const recentLines = lines.slice(-10);
+      const candidates: number[] = [];
+      
+      recentLines.forEach(line => {
+        const l = line.toUpperCase();
+        if (l.includes('TROCO') || l.includes('ITENS')) return;
+        
+        const match = line.match(moneyRegex);
+        if (match) {
+          candidates.push(parseFloat(match[1].replace(/\./g, '').replace(',', '.')));
+        }
+      });
+
+      if (candidates.length > 0) {
+        // Pegamos o maior valor das últimas linhas (Total costuma ser maior que os impostos ou taxas)
+        detectedAmount = Math.max(...candidates);
       }
     }
 
-    // Extração de Data
+    // 3. Extração de Data
     const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
     const dateMatch = text.match(dateRegex);
     if (dateMatch) {
@@ -106,7 +108,7 @@ export function AddTransactionSheet() {
       if (isValid(parsedDate)) detectedDate = parsedDate;
     }
 
-    // Categorização
+    // 4. Categorização por palavras-chave
     const keywordsMap: Record<string, string[]> = {
       food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute'],
       transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga'],
@@ -132,7 +134,7 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Analisando rodapé da nota...');
+    const toastId = toast.loading('Lendo rodapé da nota...');
 
     try {
       const { data: { text } } = await Tesseract.recognize(file, 'por', {
@@ -148,10 +150,10 @@ export function AddTransactionSheet() {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
       if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
 
-      toast.success('Valor identificado no rodapé!', { id: toastId });
+      toast.success('Total identificado!', { id: toastId });
     } catch (error) {
       console.error(error);
-      toast.error('Erro na leitura. Tente uma foto mais clara.', { id: toastId });
+      toast.error('Erro na leitura da nota.', { id: toastId });
     } finally {
       setIsScanning(false);
     }
@@ -183,7 +185,7 @@ export function AddTransactionSheet() {
       setShowSuccess(true);
       resetForm();
     } catch (error) {
-      toast.error('Erro ao salvar.');
+      toast.error('Erro ao salvar movimentação.');
     }
   };
   
@@ -257,7 +259,7 @@ export function AddTransactionSheet() {
                   <Camera className="h-5 w-5" />
                 )}
                 <span className="font-bold text-xs uppercase tracking-wider">
-                  {isScanning ? 'Buscando Rodapé...' : 'Escanear Nota'}
+                  {isScanning ? 'Lendo rodapé...' : 'Escanear Nota'}
                 </span>
               </Button>
               <input 
