@@ -97,12 +97,13 @@
 @layer base {
   * {
     @apply border-border;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    /* Esconder scrollbar globalmente */
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
   }
 
   *::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
 
   body {
@@ -145,9 +146,15 @@
     @apply relative transition-all duration-200 rounded-xl flex items-center justify-center !important;
   }
 
-  /* Dia Selecionado - Apenas o número em Abóbora (Laranja), fundo suave para destaque */
-  .rdp-day_selected {
-    @apply bg-primary/10 text-primary font-extrabold border-2 border-primary/20 !important;
+  /* Dia Selecionado - Apenas o número em Abóbora (Laranja) */
+  /* Removemos o fundo escuro e focamos na cor do texto/número */
+  .rdp-day_selected, 
+  .rdp-day_selected:hover,
+  .rdp-day_selected:focus {
+    background-color: hsl(var(--primary) / 0.15) !important;
+    color: #ff7a00 !important; /* Cor abóbora direta */
+    font-weight: 800 !important;
+    border: 2px solid #ff7a00 !important;
   }
 
   /* Estilo para o dia de "Hoje" */
