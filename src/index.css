@@ -13,7 +13,7 @@
     --foreground: 220 30% 12%;
 
     /* Cards — subtle warm tint */
-    --card: 30 10% 99%;
+    --card: 0 0% 100%;
     --card-foreground: 220 30% 12%;
 
     /* Popovers */
@@ -55,11 +55,16 @@
 
     --radius: 1rem;
 
+    /* Gradients Definition */
+    --gradient-primary: linear-gradient(135deg, #ff7a00, #ff5c00);
+    --gradient-income: linear-gradient(135deg, #10b981, #059669);
+    --gradient-expense: linear-gradient(135deg, #ef4444, #dc2626);
+
     /* Shadows */
     --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
     --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
     --shadow-lg: 0 10px 24px -4px rgb(0 0 0 / 0.1), 0 4px 8px -4px rgb(0 0 0 / 0.08);
-    --shadow-glow: 0 0 20px hsl(24 95% 53% / 0.15);
+    --shadow-glow: 0 0 20px rgba(255, 122, 0, 0.2);
   }
 
   .dark {
@@ -70,7 +75,7 @@
     --popover: 220 22% 12%;
     --popover-foreground: 210 20% 96%;
     --primary: 24 90% 55%;
-    --primary-foreground: 220 22% 8%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 220 20% 18%;
     --secondary-foreground: 24 70% 65%;
     --muted: 220 18% 18%;
@@ -80,64 +85,44 @@
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
     --success: 152 55% 50%;
-    --success-foreground: 220 22% 8%;
+    --success-foreground: 0 0% 100%;
     --warning: 38 90% 55%;
-    --warning-foreground: 220 22% 8%;
+    --warning-foreground: 0 0% 100%;
     --border: 220 15% 20%;
     --input: 220 15% 20%;
     --ring: 24 90% 55%;
-    --gradient-primary: linear-gradient(135deg, hsl(24 90% 55%), hsl(30 85% 48%));
-    --gradient-income: linear-gradient(135deg, hsl(152 55% 50%), hsl(152 45% 42%));
-    --gradient-expense: linear-gradient(135deg, hsl(0 70% 55%), hsl(10 70% 50%));
-    --gradient-card: linear-gradient(180deg, hsl(220 22% 12%), hsl(220 22% 10%));
   }
 }
 
 @layer base {
   * {
     @apply border-border;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  *::-webkit-scrollbar {
-    display: none;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
   }
 
-  /* Efeito Global de Botões e Cards - "Overlay" ao clicar */
   button, [role="button"], .card-interactive {
     @apply transition-all duration-200 active:scale-[0.98];
-  }
-
-  button:active, [role="button"]:active {
-    @apply bg-accent/20;
   }
 }
 
 @layer utilities {
-  .glass {
-    @apply bg-card/80 backdrop-blur-xl;
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-income {
+    background: var(--gradient-income);
+  }
+  
+  .gradient-expense {
+    background: var(--gradient-expense);
   }
 
   .shadow-card {
     box-shadow: var(--shadow-md);
-  }
-
-  .shadow-card-hover {
-    box-shadow: var(--shadow-lg);
-  }
-
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
-
-  .touch-target {
-    @apply min-h-[48px] min-w-[48px];
   }
 
   .safe-bottom {
@@ -148,33 +133,33 @@
     padding-top: env(safe-area-inset-top, 24px);
   }
 
-  /* Estilos para o Calendário - Exatamente como na imagem do usuário */
+  /* Estilos do Calendário */
   .rdp-day {
-    @apply relative transition-all duration-200 rounded-2xl !important;
+    @apply relative transition-all duration-200 rounded-xl flex items-center justify-center !important;
   }
 
-  /* Dia Selecionado - Borda grossa laranja e fundo claro */
+  /* Dia Selecionado - Fundo Laranja Sólido (Abóbora) */
   .rdp-day_selected {
-    @apply bg-primary/10 border-[3px] border-primary text-foreground font-bold !important;
+    @apply bg-primary text-white font-bold shadow-lg !important;
   }
 
-  /* Marcadores de Underline - Ajustados para ficarem colados na borda inferior */
+  /* Marcadores de Underline colados na base */
   .day-has-income {
-    background: linear-gradient(to right, hsl(var(--success)) 100%, transparent 100%) bottom 4px center / 45% 3px no-repeat !important;
+    background: linear-gradient(to right, #10b981 100%, transparent 100%) bottom 4px center / 40% 3px no-repeat !important;
   }
   
   .day-has-expense {
-    background: linear-gradient(to right, hsl(var(--destructive)) 100%, transparent 100%) bottom 4px center / 45% 3px no-repeat !important;
+    background: linear-gradient(to right, #ef4444 100%, transparent 100%) bottom 4px center / 40% 3px no-repeat !important;
   }
   
   .day-has-both {
-    background: linear-gradient(to right, hsl(var(--success)) 50%, hsl(var(--destructive)) 50%) bottom 4px center / 45% 3px no-repeat !important;
+    background: linear-gradient(to right, #10b981 50%, #ef4444 50%) bottom 4px center / 40% 3px no-repeat !important;
   }
   
-  /* Mantendo visibilidade no dia selecionado */
-  .rdp-day_selected.day-has-income, 
-  .rdp-day_selected.day-has-expense, 
+  /* Se o dia estiver selecionado, o underline fica branco para contraste */
+  .rdp-day_selected.day-has-income,
+  .rdp-day_selected.day-has-expense,
   .rdp-day_selected.day-has-both {
-    @apply text-foreground !important;
+    background-image: linear-gradient(to right, #ffffff 100%, transparent 100%) !important;
   }
 }
