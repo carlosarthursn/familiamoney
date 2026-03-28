@@ -43,33 +43,60 @@ export function AddTransactionSheet() {
   };
 
   const parseReceiptText = (text: string) => {
-    // Regex para encontrar valores monetários (ex: 123,45 ou 1.234,56 ou TOTAL R$ 50,00)
-    const moneyRegex = /(?:total|valor|pago|r\$)\s*[:\s]*(\d{1,3}(?:\.\d{3})*,\d{2})/gi;
-    const allPrices: number[] = [];
-    let match;
-    
-    while ((match = moneyRegex.exec(text)) !== null) {
-      const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-      if (!isNaN(val)) allPrices.push(val);
-    }
+    const lines = text.split('\n');
+    let detectedAmount: number | null = null;
+    let detectedDate: Date | null = null;
+    let detectedCategory = '';
 
-    // Se não achou com prefixo, tenta qualquer número com formato de preço no final do texto (geralmente o total é o maior ou o último)
-    if (allPrices.length === 0) {
-      const simpleMoneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
-      while ((match = simpleMoneyRegex.exec(text)) !== null) {
-        const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-        if (!isNaN(val)) allPrices.push(val);
+    // 1. Procurar por TOTAL ou SUBTOTAL (Prioridade Máxima)
+    // Regex que busca a palavra TOTAL/SUBTOTAL seguida de um valor monetário
+    const totalKeywordsRegex = /(?:total|subtotal|valor\s*a\s*pagar|pago|valor\s*liquido|a\s*receber)\s*[:\s]*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i;
+    
+    for (const line of lines) {
+      const match = line.match(totalKeywordsRegex);
+      if (match) {
+        detectedAmount = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+        break; // Encontrou o total, para de procurar
       }
     }
 
-    // Regex para data (DD/MM/AAAA ou DD/MM/AA)
+    // 2. Se não achou por palavra-chave, busca o maior valor que não seja troco ou dinheiro
+    if (!detectedAmount) {
+      const moneyRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
+      const allPrices: number[] = [];
+      let match;
+      
+      while ((match = moneyRegex.exec(text)) !== null) {
+        const val = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+        // Filtra valores que parecem CNPJ ou datas (muito grandes ou com formatos específicos)
+        if (!isNaN(val) && val < 100000) allPrices.push(val);
+      }
+
+      if (allPrices.length > 0) {
+        // Remove valores de "Troco" se a palavra troco existir no texto
+        const hasTroco = /troco/i.test(text);
+        if (hasTroco) {
+          // Geralmente o total é o segundo maior valor quando tem troco (Dinheiro > Total > Troco)
+          const sorted = [...allPrices].sort((a, b) => b - a);
+          detectedAmount = sorted.length > 1 ? sorted[1] : sorted[0];
+        } else {
+          detectedAmount = Math.max(...allPrices);
+        }
+      }
+    }
+
+    // 3. Regex para data (DD/MM/AAAA ou DD/MM/AA)
     const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
     const dateMatch = text.match(dateRegex);
+    if (dateMatch) {
+      const year = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];
+      const parsedDate = parse(`${dateMatch[1]}/${dateMatch[2]}/${year}`, 'dd/MM/yyyy', new Date());
+      if (isValid(parsedDate)) detectedDate = parsedDate;
+    }
 
-    // Tentar identificar categoria por palavras-chave
-    let detectedCategory = '';
+    // 4. Categorização por palavras-chave
     const keywords: Record<string, string[]> = {
-      food: ['restaurante', 'ifood', 'mercado', 'supermercado', 'lanche', 'pizza', 'comida', 'padaria'],
+      food: ['restaurante', 'ifood', 'mercado', 'supermercado', 'lanche', 'pizza', 'comida', 'padaria', 'burger', 'batata', 'refrigerante', 'esfiha', 'quibe'],
       transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio'],
       leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube'],
       health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame'],
@@ -86,8 +113,8 @@ export function AddTransactionSheet() {
     }
 
     return {
-      amount: allPrices.length > 0 ? Math.max(...allPrices) : null, // Assume que o maior valor é o total
-      date: dateMatch ? parse(`${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3]}`, 'dd/MM/yyyy', new Date()) : null,
+      amount: detectedAmount,
+      date: detectedDate,
       category: detectedCategory
     };
   };
@@ -97,29 +124,26 @@ export function AddTransactionSheet() {
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Processando imagem...');
+    const toastId = toast.loading('Analisando cupom fiscal...');
 
     try {
-      // Usando Tesseract para extrair texto da imagem localmente
       const { data: { text } } = await Tesseract.recognize(file, 'por', {
-        logger: m => console.log(m)
+        logger: m => console.log("[OCR]", m.status, Math.round(m.progress * 100) + "%")
       });
 
-      console.log("Texto extraído:", text);
       const parsedData = parseReceiptText(text);
 
       if (parsedData.amount) setAmount(parsedData.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
       if (parsedData.category && categories.some(c => c.id === parsedData.category)) setCategory(parsedData.category);
-      if (parsedData.date && isValid(parsedData.date)) setDate(parsedData.date);
+      if (parsedData.date) setDate(parsedData.date);
       
-      // Tentar pegar a primeira linha como descrição se for curta
-      const firstLine = text.split('\n')[0].trim();
-      if (firstLine.length > 2 && firstLine.length < 30) setDescription(firstLine);
+      const firstLine = text.split('\n').find(l => l.trim().length > 3)?.trim();
+      if (firstLine && firstLine.length < 40) setDescription(firstLine);
 
-      toast.success('Leitura concluída!', { id: toastId });
+      toast.success('Nota lida com sucesso!', { id: toastId });
     } catch (error) {
       console.error(error);
-      toast.error('Não foi possível processar a imagem.', { id: toastId });
+      toast.error('Erro ao ler a imagem. Tente uma foto mais nítida.', { id: toastId });
     } finally {
       setIsScanning(false);
     }
@@ -213,7 +237,7 @@ export function AddTransactionSheet() {
                 </button>
               </div>
 
-              {/* Scan Button - Novo formato baseado em OCR mais eficaz */}
+              {/* Scan Button */}
               <Button 
                 type="button" 
                 variant="outline" 
