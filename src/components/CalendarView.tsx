@@ -4,7 +4,7 @@ import { format, isSameDay, startOfMonth, getDate } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useRecurring } from '@/hooks/useRecurring';
-import { Loader2, CalendarClock, AlertCircle } from 'lucide-react';
+import { Loader2, CalendarClock } from 'lucide-react';
 import { TransactionList } from './TransactionList';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
@@ -25,16 +25,14 @@ function formatCurrency(value: number): string {
 export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) {
   const [showSuccess, setShowSuccess] = useState(false);
   const { transactions, isLoading, deleteTransaction } = useTransactions({ selectedDate });
-  const { recurring, isLoading: isLoadingRec } = useRecurring();
+  const { recurring } = useRecurring();
 
-  // Agrupando transações por dia e tipo + recorrentes
   const modifiers = useMemo(() => {
     const hasIncome: Date[] = [];
     const hasExpense: Date[] = [];
     const hasBoth: Date[] = [];
     const hasRecurring: Date[] = [];
     
-    // Processa transações reais
     const dayMap: Record<string, { income: boolean, expense: boolean }> = {};
     transactions.forEach(t => {
       if (!dayMap[t.date]) dayMap[t.date] = { income: false, expense: false };
@@ -49,11 +47,9 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
       else if (types.expense) hasExpense.push(date);
     });
 
-    // Processa vencimentos recorrentes para o mês atual
     const currentMonth = startOfMonth(selectedDate);
     recurring.forEach(item => {
       if (item.is_active) {
-        // Criamos uma data baseada no dia de vencimento e no mês selecionado
         const dueDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), item.due_day);
         hasRecurring.push(dueDate);
       }
@@ -61,10 +57,6 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
 
     return { hasIncome, hasExpense, hasBoth, hasRecurring };
   }, [transactions, recurring, selectedDate]);
-
-  const handleMonthChange = (newMonth: Date) => {
-    onDateChange(startOfMonth(newMonth));
-  };
 
   const transactionsForSelectedDay = transactions.filter(t => 
     isSameDay(new Date(t.date + 'T00:00:00'), selectedDate)
@@ -80,15 +72,13 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
   
   const handleDelete = (id: string) => {
     deleteTransaction.mutate(id, {
-      onSuccess: () => {
-        setShowSuccess(true);
-      },
+      onSuccess: () => setShowSuccess(true),
       onError: () => toast.error('Erro ao remover'),
     });
   };
 
   return (
-    <div className="space-y-4 max-w-sm mx-auto w-full">
+    <div className="space-y-4 max-w-sm mx-auto w-full pb-10">
       {showSuccess && (
         <SuccessOverlay 
           message="Transação removida!" 
@@ -100,13 +90,13 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
         <Calendar
           mode="single"
           month={startOfMonth(selectedDate)}
-          onMonthChange={handleMonthChange}
+          onMonthChange={onDateChange}
           selected={selectedDate}
           onSelect={(date) => {
             if (date) onDateChange(date);
           }}
           locale={ptBR}
-          className="w-full max-w-full flex justify-center"
+          className="w-full flex justify-center"
           modifiers={modifiers}
           modifiersClassNames={{
             hasIncome: "day-has-income",
@@ -114,23 +104,21 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
             hasBoth: "day-has-both",
             hasRecurring: "day-has-recurring",
           }}
-          disabled={(date) => date > new Date("2030-12-31")} // Permitir futuro para ver recorrências
         />
       </div>
       
-      {/* Contas do Dia (Recorrentes) */}
       {recurringForSelectedDay.length > 0 && (
         <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 animate-slide-up">
           <div className="flex items-center gap-2 mb-3">
             <CalendarClock className="h-4 w-4 text-primary" />
-            <h3 className="font-bold text-xs text-primary uppercase tracking-wider">Compromissos para hoje</h3>
+            <h3 className="font-bold text-xs text-primary uppercase tracking-wider">Contas para hoje</h3>
           </div>
           <div className="space-y-2">
             {recurringForSelectedDay.map(item => {
               const cat = getCategoryInfo(item.category, 'expense');
               const Icon = getCategoryIcon(cat.icon);
               return (
-                <div key={item.id} className="flex items-center justify-between bg-white/50 p-2 rounded-xl border border-primary/10">
+                <div key={item.id} className="flex items-center justify-between bg-card p-2.5 rounded-xl border border-primary/10">
                   <div className="flex items-center gap-2">
                     <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-xs font-semibold">{item.name}</span>
@@ -139,8 +127,6 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
                 </div>
               );
             })}
-
-            {/* Totalizador dos compromissos */}
             <div className="flex items-center justify-between pt-2 border-t border-primary/10 mt-2 px-1">
               <span className="text-[10px] font-bold text-primary uppercase">Total Previsto</span>
               <span className="text-sm font-black text-primary">{formatCurrency(totalRecurringForDay)}</span>
@@ -149,13 +135,9 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
         </div>
       )}
 
-      {/* Transações Reais */}
       <div className="bg-card rounded-2xl p-4 shadow-card">
-        <h3 className="font-semibold mb-3 text-sm text-muted-foreground flex items-center justify-between">
-          <span>Movimentações — {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</span>
-          {transactionsForSelectedDay.length === 0 && recurringForSelectedDay.length === 0 && (
-            <span className="text-[10px] opacity-50">Vazio</span>
-          )}
+        <h3 className="font-semibold mb-3 text-sm text-muted-foreground">
+          Movimentações — {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
         </h3>
         
         {isLoading ? (

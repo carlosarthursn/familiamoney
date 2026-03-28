@@ -10,12 +10,17 @@ interface SuccessOverlayProps {
 }
 
 export function SuccessOverlay({ message = "Concluído!", onFinished, className }: SuccessOverlayProps) {
+  // Usamos um ref para garantir que o onFinished seja chamado apenas uma vez
+  // e não dependamos da referência da função no array de dependências
+  const onFinishedRef = React.useRef(onFinished);
+  onFinishedRef.current = onFinished;
+
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      if (onFinished) onFinished();
+      if (onFinishedRef.current) onFinishedRef.current();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [onFinished]);
+  }, []); // Executa apenas uma vez ao montar
 
   return (
     <div className={cn(
@@ -24,7 +29,6 @@ export function SuccessOverlay({ message = "Concluído!", onFinished, className 
     )}>
       <div className="relative w-32 h-32">
         <svg viewBox="0 0 100 100" className="w-full h-full text-primary">
-          {/* Círculo de fundo discreto */}
           <circle 
             cx="46" cy="56" r="38" 
             stroke="currentColor" 
@@ -32,7 +36,6 @@ export function SuccessOverlay({ message = "Concluído!", onFinished, className 
             className="opacity-20"
             fill="none" 
           />
-          {/* Círculo que preenche (relógio) */}
           <circle 
             cx="46" cy="56" r="38" 
             stroke="currentColor" 
@@ -44,7 +47,6 @@ export function SuccessOverlay({ message = "Concluído!", onFinished, className 
             className="animate-circle-fill"
             transform="rotate(-90 46 56)"
           />
-          {/* Check que desenha depois */}
           <path 
             d="M26 54L44 72L84 22" 
             stroke="currentColor" 

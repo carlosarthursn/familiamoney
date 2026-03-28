@@ -13,13 +13,19 @@ import { ProfileSettings } from "./components/ProfileSettings";
 import { AppLayout } from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import { SplashScreen } from "./components/SplashScreen";
+import { useState } from "react";
 
 const queryClient = new QueryClient();
+
+// Componente para gerenciar o estado do calendário na rota
+const CalendarRoute = () => {
+  const [date, setDate] = useState(new Date());
+  return <CalendarView selectedDate={date} onDateChange={setDate} />;
+};
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
 
-  // Agora o splash só aparece enquanto o Auth está realmente verificando o estado
   if (loading) {
     return <SplashScreen />;
   }
@@ -36,7 +42,7 @@ const AppRoutes = () => {
         element={user ? <AppLayout /> : <Navigate to="/auth" replace />}
       >
         <Route index element={<Dashboard />} />
-        <Route path="calendar" element={<CalendarView selectedDate={new Date()} onDateChange={() => {}} />} />
+        <Route path="calendar" element={<CalendarRoute />} />
         <Route path="analysis" element={<AnalysisView selectedDate={new Date()} />} />
         <Route path="planning" element={<PlanningView />} />
         <Route path="profile" element={<ProfileSettings />} />
