@@ -4,10 +4,8 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Check, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { z } from 'zod';
 
 const authSchema = z.object({
@@ -42,133 +40,103 @@ export default function Auth() {
         : await signUp(email, password, name);
       
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          toast.error('Email ou senha incorretos');
-        } else if (error.message.includes('User already registered')) {
-          toast.error('Este email já está cadastrado');
-        } else {
-          toast.error(error.message);
-        }
+        toast.error(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos' : error.message);
         return;
       }
       
-      if (!isLogin) {
-        toast.success('Conta criada com sucesso!');
-      }
+      if (!isLogin) toast.success('Bem-vindo ao confere!');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#ff7a00] flex flex-col items-center justify-center px-6 safe-top safe-bottom relative overflow-hidden">
-      {/* Elementos decorativos de fundo */}
-      <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-black/5 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Brand Section */}
+    <div className="min-h-screen bg-[#ff7a00] flex flex-col items-center justify-center px-8 relative overflow-hidden">
+      {/* Brand Section - Super Clean */}
       <div className="mb-12 text-center animate-fade-in z-10">
-        <div className="flex justify-center mb-2">
-          <Check className="h-24 w-24 text-white stroke-[3px]" />
+        <div className="flex justify-center mb-4">
+          <Check className="h-16 w-16 text-white stroke-[2.5px]" />
         </div>
-        <h1 className="text-5xl font-extrabold text-white tracking-tighter mb-1">
+        <h1 className="text-4xl font-bold text-white tracking-tighter mb-1">
           confere
         </h1>
-        <p className="text-white/90 text-sm font-medium tracking-tight">
+        <p className="text-white/60 text-xs font-medium tracking-wide">
           seus gastos, do seu jeito
         </p>
       </div>
 
-      {/* Form Container */}
-      <div className="w-full max-w-sm bg-white/95 backdrop-blur-sm p-8 rounded-[2.5rem] shadow-2xl animate-slide-up z-10">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Discrete Form Area */}
+      <div className="w-full max-w-[300px] z-10">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {!isLogin && (
-            <div className="space-y-1.5 animate-slide-down">
-              <Label htmlFor="name" className="text-muted-foreground text-[10px] uppercase font-bold ml-1">Nome</Label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ff7a00]" />
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Como quer ser chamado?"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="pl-12 h-12 rounded-2xl border-muted bg-muted/30 focus:bg-white transition-all"
-                  required={!isLogin}
-                />
-              </div>
+            <div className="relative animate-slide-down">
+              <User className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+              <Input
+                type="text"
+                placeholder="Nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-transparent border-0 border-b border-white/20 rounded-none h-10 pl-7 text-white placeholder:text-white/30 focus-visible:ring-0 focus-visible:border-white transition-all"
+                required={!isLogin}
+              />
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-muted-foreground text-[10px] uppercase font-bold ml-1">Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ff7a00]" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-12 h-12 rounded-2xl border-muted bg-muted/30 focus:bg-white transition-all"
-                required
-              />
-            </div>
+          <div className="relative">
+            <Mail className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-transparent border-0 border-b border-white/20 rounded-none h-10 pl-7 text-white placeholder:text-white/30 focus-visible:ring-0 focus-visible:border-white transition-all"
+              required
+            />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-muted-foreground text-[10px] uppercase font-bold ml-1">Senha</Label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ff7a00]" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-12 h-12 rounded-2xl border-muted bg-muted/30 focus:bg-white transition-all"
-                required
-                minLength={6}
-              />
-            </div>
+          <div className="relative">
+            <Lock className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+            <Input
+              type="password"
+              placeholder="Senha"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="bg-transparent border-0 border-b border-white/20 rounded-none h-10 pl-7 text-white placeholder:text-white/30 focus-visible:ring-0 focus-visible:border-white transition-all"
+              required
+            />
           </div>
 
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-14 font-bold text-lg rounded-2xl bg-[#ff7a00] hover:bg-[#ff8a20] text-white shadow-lg active:scale-95 transition-all mt-4"
+            className="w-full h-12 font-semibold rounded-full bg-white text-[#ff7a00] hover:bg-white/90 active:scale-95 transition-all mt-6 shadow-none"
           >
             {loading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <div className="flex items-center justify-center">
-                {isLogin ? 'Acessar Conta' : 'Criar Minha Conta'}
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </div>
+              <span className="flex items-center">
+                {isLogin ? 'Entrar' : 'Começar'}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </span>
             )}
           </Button>
         </form>
 
-        {/* Toggle Account Action */}
         <div className="mt-8 text-center">
           <button
             type="button"
             onClick={() => setIsLogin(!isLogin)}
-            className="text-sm text-muted-foreground hover:text-[#ff7a00] transition-colors"
+            className="text-[11px] text-white/50 hover:text-white transition-colors tracking-tight"
           >
-            {isLogin ? (
-              <>Ainda não tem conta? <span className="text-[#ff7a00] font-bold">Cadastre-se</span></>
-            ) : (
-              <>Já possui cadastro? <span className="text-[#ff7a00] font-bold">Faça login</span></>
-            )}
+            {isLogin ? 'Não tem conta? Criar agora' : 'Já tem conta? Fazer login'}
           </button>
         </div>
       </div>
       
-      {/* Footer Info */}
-      <p className="mt-8 text-white/60 text-[10px] font-medium uppercase tracking-widest z-10">
-        Seguro e Privado
-      </p>
+      {/* Small Legal/Safe badge */}
+      <div className="absolute bottom-10 text-white/20 text-[9px] font-bold uppercase tracking-[0.2em]">
+        Private & Secure
+      </div>
     </div>
   );
 }
