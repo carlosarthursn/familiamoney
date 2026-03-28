@@ -16,12 +16,12 @@ serve(async (req) => {
 
     if (!anthropicKey) {
       console.error("[scan-receipt] ANTHROPIC_API_KEY não configurada")
-      return new Response(JSON.stringify({ error: 'Configuração ausente' }), { 
+      return new Response(JSON.stringify({ error: 'Chave API não configurada no Supabase' }), { 
         status: 500, headers: corsHeaders 
       })
     }
 
-    console.log("[scan-receipt] Iniciando análise com Claude Vision")
+    console.log("[scan-receipt] Solicitando análise ao Claude 3.5 Sonnet Vision")
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -46,16 +46,25 @@ serve(async (req) => {
             },
             {
               type: "text",
-              text: `Analise esta nota fiscal/cupom e retorne APENAS um objeto JSON válido, sem blocos de código ou explicações. 
+              text: `Analise esta nota fiscal ou cupom e retorne APENAS um JSON puro (sem markdown ou blocos de código).
               
-              Mapeie a categoria para um destes IDs: food, rent, transport, leisure, bills, health, education, shopping, other.
+              Mapeie a categoria para um destes IDs específicos:
+              - 'food' para Alimentação
+              - 'transport' para Transporte
+              - 'rent' para Aluguel
+              - 'leisure' para Lazer
+              - 'bills' para Contas/Boletos
+              - 'health' para Saúde
+              - 'education' para Educação
+              - 'shopping' para Compras
+              - 'other' para Outros
               
-              Estrutura esperada:
+              Estrutura estrita do JSON:
               {
                 "valor": 0.00,
-                "categoria": "ID_DA_CATEGORIA",
+                "categoria": "ID_MATEADO",
                 "data": "YYYY-MM-DD",
-                "descricao": "NOME DO ESTABELECIMENTO OU RESUMO"
+                "descricao": "Resumo do estabelecimento e itens"
               }`
             }
           ]
@@ -64,17 +73,23 @@ serve(async (req) => {
     })
 
     const data = await response.json()
-    const content = data.content[0].text
     
-    // Tenta extrair apenas o JSON caso o modelo retorne texto extra
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content)
+    if (data.error) {
+      throw new Error(data.error.message || 'Erro na API da Anthropic')
+    }
+
+    const textResponse = data.content[0].text
+    console.log("[scan-receipt] Resposta bruta:", textResponse)
+    
+    // Extração robusta de JSON
+    const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
+    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(textResponse)
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (error) {
-    console.error("[scan-receipt] Erro:", error)
+    console.error("[scan-receipt] Erro crítico:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: corsHeaders
     })

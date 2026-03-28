@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
+import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles, Wand2 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -46,11 +46,16 @@ export function AddTransactionSheet() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Verificar tamanho (Claude aceita até 5MB em base64 geralmente, mas vamos ser cautelosos)
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error('A imagem é muito grande. Tente uma foto mais simples.');
+      return;
+    }
+
     setIsScanning(true);
-    const toastId = toast.loading('Claude está analisando sua nota...');
+    const toastId = toast.loading('IA analisando imagem...');
 
     try {
-      // Converter imagem para base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve) => {
         reader.onload = () => {
@@ -62,7 +67,6 @@ export function AddTransactionSheet() {
 
       const imageBase64 = await base64Promise;
 
-      // Chamar Edge Function do Supabase
       const { data, error } = await supabase.functions.invoke('scan-receipt', {
         body: { imageBase64 }
       });
@@ -77,11 +81,11 @@ export function AddTransactionSheet() {
           const parsedDate = parseISO(data.data);
           if (isValid(parsedDate)) setDate(parsedDate);
         }
-        toast.success('Nota analisada com sucesso!', { id: toastId });
+        toast.success('Nota identificada com sucesso!', { id: toastId });
       }
     } catch (error: any) {
-      console.error("[Scan Error]", error);
-      toast.error('Erro ao analisar nota. Verifique se a chave da API está configurada.', { id: toastId });
+      console.error("[IA Scan Error]", error);
+      toast.error('Não foi possível ler a nota. Verifique sua chave da Anthropic.', { id: toastId });
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -139,7 +143,7 @@ export function AddTransactionSheet() {
         <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl flex flex-col p-0 overflow-hidden bg-background">
           <SheetHeader className="px-6 pt-6 pb-2">
             <SheetTitle className="text-xl flex items-center gap-2">
-              Nova Movimentação <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+              Nova Movimentação <Wand2 className="h-5 w-5 text-primary animate-pulse" />
             </SheetTitle>
             <SheetDescription className="sr-only">Adicione uma nova transação.</SheetDescription>
           </SheetHeader>
@@ -169,22 +173,31 @@ export function AddTransactionSheet() {
                 </button>
               </div>
 
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => fileInputRef.current?.click()} 
-                disabled={isScanning} 
-                className="w-full h-16 border-2 border-dashed border-primary/30 text-primary bg-primary/5 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-primary/10 transition-colors"
-              >
-                {isScanning ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Camera className="h-5 w-5" />
+              <div className="relative">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => fileInputRef.current?.click()} 
+                  disabled={isScanning} 
+                  className="w-full h-20 border-2 border-dashed border-primary/30 text-primary bg-primary/5 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-primary/10 transition-all hover:border-primary active:scale-95"
+                >
+                  {isScanning ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <Camera className="h-6 w-6" />
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-xs uppercase tracking-widest">
+                      {isScanning ? 'Lendo com IA...' : 'Escanear Nota com IA'}
+                    </span>
+                    {!isScanning && <Sparkles className="h-3 w-3 fill-primary" />}
+                  </div>
+                </Button>
+                {isScanning && (
+                  <div className="absolute inset-0 rounded-2xl bg-white/10 backdrop-blur-[1px] pointer-events-none" />
                 )}
-                <span className="font-bold text-xs uppercase tracking-wider">
-                  {isScanning ? 'Claude está lendo...' : 'Escanear com IA'}
-                </span>
-              </Button>
+              </div>
+              
               <input 
                 type="file" 
                 ref={fileInputRef} 
