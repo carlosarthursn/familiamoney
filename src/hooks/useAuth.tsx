@@ -22,6 +22,8 @@ interface AuthContextType {
   linkPartner: (partnerId: string) => Promise<{ error: any }>;
   unlinkPartner: () => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
+  registerPasskey: () => Promise<{ error: any }>;
+  signInWithPasskey: () => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,10 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', currentUser.id)
         .maybeSingle();
       
-      if (fetchError) {
-        console.error("Erro ao buscar perfil:", fetchError);
-        return;
-      }
+      if (fetchError) return;
 
       if (dbProfile) {
         const profileData = dbProfile as any;
@@ -67,19 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           partnerName: pName,
           monthly_budget: Number(profileData.monthly_budget) || 0
         });
-      } else {
-        const newProfile = {
-          id: currentUser.id,
-          user_id: currentUser.id,
-          email: currentUser.email,
-          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário',
-          monthly_budget: 0
-        };
-        await supabase.from('profiles').insert(newProfile);
-        setProfile({ name: newProfile.name, monthly_budget: 0, avatar_url: null });
       }
     } catch (e) {
-      console.error("Auth: Falha crítica ao carregar perfil:", e);
+      console.error("Auth profile fetch error:", e);
     }
   }, []);
 
@@ -87,19 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initAuth = async () => {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!mounted) return;
-
-        if (currentSession) {
-          setSession(currentSession);
-          setUser(currentSession.user);
-          await fetchProfile(currentSession.user);
-        }
-      } catch (error) {
-        console.error("Erro na inicialização do auth:", error);
-      } finally {
-        if (mounted) setLoading(false);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (mounted) {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        if (currentSession?.user) await fetchProfile(currentSession.user);
+        setLoading(false);
       }
     };
 
@@ -107,16 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
-      
       setSession(newSession);
       const newUser = newSession?.user ?? null;
       setUser(newUser);
-      
-      if (newUser) {
-        await fetchProfile(newUser);
-      } else {
-        setProfile(null);
-      }
+      if (newUser) await fetchProfile(newUser);
+      else setProfile(null);
       setLoading(false);
     });
 
@@ -127,29 +104,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    return supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } }
-    });
+    return supabase.auth.signUp({ email, password, options: { data: { name } } });
   };
 
   const signIn = async (email: string, password: string) => {
     return supabase.auth.signInWithPassword({ email, password });
   };
 
+  const registerPasskey = async () => {
+    return (supabase.auth as any).linkPasskey();
+  };
+
+  const signInWithPasskey = async () => {
+    return (supabase.auth as any).signInWithPasskey();
+  };
+
   const signOut = async () => {
-    try {
-      setLoading(true);
-      await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      window.location.assign('/');
-    } catch (error) {
-      console.error("Erro ao sair:", error);
-      window.location.assign('/');
-    }
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    window.location.assign('/');
   };
 
   const updateProfile = async (updates: any) => {
@@ -177,17 +152,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      profile, 
-      loading, 
-      signUp, 
-      signIn, 
-      signOut, 
-      updateProfile,
-      linkPartner,
-      unlinkPartner,
-      refreshProfile 
+      user, session, profile, loading, 
+      signUp, signIn, signOut, updateProfile,
+      linkPartner, unlinkPartner, refreshProfile,
+      registerPasskey, signInWithPasskey
     }}>
       {children}
     </AuthContext.Provider>
