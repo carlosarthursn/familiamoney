@@ -1,9 +1,11 @@
+"use client";
+
 import { useState } from 'react';
 import { MonthlyChart } from './MonthlyChart';
 import { ExpenseChart } from './ExpenseChart';
 import { CategoryFilter } from './CategoryFilter';
 import { useTransactions } from '@/hooks/useTransactions';
-import { Loader2, TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, DollarSign, Calendar, Settings2 } from 'lucide-react';
 import { BudgetProgress } from './BudgetProgress';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { EXPENSE_CATEGORIES } from '@/types/finance';
 import { ReportsView } from './ReportsView';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BudgetSheet } from './BudgetSheet';
 
 interface AnalysisViewProps {
   selectedDate: Date;
@@ -109,11 +112,14 @@ export function AnalysisView({ selectedDate }: AnalysisViewProps) {
               </div>
 
               {/* Budget Progress */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-primary" />
-                  Orçamento do Mês
-                </h3>
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    Orçamento do Mês
+                  </h3>
+                  <BudgetSheet />
+                </div>
                 <BudgetProgress selectedDate={selectedDate} />
               </div>
             </>
