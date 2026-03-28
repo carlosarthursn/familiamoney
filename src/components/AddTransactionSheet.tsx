@@ -8,14 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles, X } from 'lucide-react';
-import { format, parse, isValid } from 'date-fns';
+import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles } from 'lucide-react';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import Tesseract from 'tesseract.js';
 import { SuccessOverlay } from './SuccessOverlay';
 
 export function AddTransactionSheet() {
@@ -42,150 +42,49 @@ export function AddTransactionSheet() {
     setDescription('');
   };
 
-  const parseReceiptText = (text: string) => {
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    let detectedAmount: number | null = null;
-    let detectedDate: Date | null = null;
-    let detectedCategory = '';
-
-    // Regex 1: Procura valores com decimais (ex: 57,00 ou 57.00 ou 57 00)
-    const decimalMoneyRegex = /(\d+[\s\.,]*\d{2})/g;
-    // Regex 2: Procura números inteiros puros (ex: 57)
-    const integerMoneyRegex = /(\d+)/g;
-
-    const allCandidates: number[] = [];
-
-    // Tentar encontrar o valor na linha do TOTAL primeiro
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].toUpperCase();
-      if (line.includes('TROCO')) continue;
-      
-      const isTotalLine = line.includes('TOTAL') || line.includes('PAGAR') || line.includes('RECEBIDO') || line.includes('VALOR') || line.includes('FECHAMENTO');
-      
-      if (isTotalLine) {
-        // Tenta primeiro o padrão com decimais na linha do total
-        const decimalMatch = line.match(/(\d+[\s\.,]*\d{2})/);
-        if (decimalMatch) {
-          const digits = decimalMatch[0].replace(/\D/g, '');
-          detectedAmount = parseInt(digits) / 100;
-          break;
-        }
-        // Se não achou decimais, mas a linha diz "TOTAL 57", pega o número puro
-        const integerMatch = line.match(/(\d+)/);
-        if (integerMatch) {
-          const val = parseInt(integerMatch[0]);
-          if (val > 0) {
-            detectedAmount = val;
-            break;
-          }
-        }
-      }
-    }
-
-    // Se não achou na linha do total, varre o texto todo
-    if (!detectedAmount) {
-      const matches = text.match(decimalMoneyRegex);
-      if (matches) {
-        matches.forEach(match => {
-          const digits = match.replace(/\D/g, '');
-          if (digits.length >= 3) allCandidates.push(parseInt(digits) / 100);
-        });
-      }
-      
-      // Se ainda não achou nada, tenta pegar o maior número inteiro (acima de 5 pra evitar lixo)
-      if (allCandidates.length === 0) {
-        const intMatches = text.match(integerMoneyRegex);
-        if (intMatches) {
-          intMatches.forEach(m => {
-            const val = parseInt(m);
-            if (val > 5 && val < 5000) allCandidates.push(val);
-          });
-        }
-      }
-
-      if (allCandidates.length > 0) {
-        detectedAmount = Math.max(...allCandidates);
-      }
-    }
-
-    // Extração de Data
-    const dateRegex = /(\d{2})\/(\d{2})\/(\d{2,4})/;
-    const dateMatch = text.match(dateRegex);
-    if (dateMatch) {
-      const year = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];
-      const parsedDate = parse(`${dateMatch[1]}/${dateMatch[2]}/${year}`, 'dd/MM/yyyy', new Date());
-      if (isValid(parsedDate)) detectedDate = parsedDate;
-    }
-
-    // Categorização
-    const keywordsMap: Record<string, string[]> = {
-      food: ['habib', 'mcdonald', 'burger', 'restaurante', 'ifood', 'mercado', 'lanche', 'pizza', 'comida', 'padaria', 'esfiha', 'kibe', 'beirute', 'doceria', 'pao', 'supermercado', 'açougue', 'hortifruti'],
-      transport: ['uber', '99app', 'posto', 'combustivel', 'gasolina', 'estacionamento', 'pedagio', 'shell', 'ipiranga', 'br', 'gas', 'etanol'],
-      leisure: ['cinema', 'show', 'teatro', 'bar', 'cerveja', 'clube', 'ingresso', 'parque'],
-      health: ['farmacia', 'drogaria', 'hospital', 'clinica', 'medico', 'exame', 'raia', 'pacheco', 'farma', 'dentista'],
-      shopping: ['loja', 'vestuario', 'roupa', 'calcado', 'eletronico', 'amazon', 'mercadolivre', 'shopee', 'magazine', 'renner', 'cea', 'riachuelo'],
-      bills: ['luz', 'agua', 'internet', 'celular', 'vivo', 'tim', 'claro', 'energia', 'sabesp', 'iptu', 'ipva', 'aluguel']
-    };
-
-    const lowercaseText = text.toLowerCase();
-    for (const [catId, words] of Object.entries(keywordsMap)) {
-      if (words.some(word => lowercaseText.includes(word))) {
-        detectedCategory = catId;
-        break;
-      }
-    }
-
-    return { amount: detectedAmount, date: detectedDate, category: detectedCategory };
-  };
-
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsScanning(true);
-    const toastId = toast.loading('Analisando cupom...');
+    const toastId = toast.loading('Claude está analisando sua nota...');
 
     try {
-      const { data: { text } } = await Tesseract.recognize(file, 'por', {
-        logger: m => console.log("[OCR]", m.status, Math.round(m.progress * 100) + "%")
+      // Converter imagem para base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(file);
       });
 
-      const parsedData = parseReceiptText(text);
-      let foundCount = 0;
+      const imageBase64 = await base64Promise;
 
-      if (parsedData.amount !== null && parsedData.amount > 0) {
-        // Se for um número inteiro redondo, formata com ,00
-        const formatted = parsedData.amount % 1 === 0 
-          ? parsedData.amount.toString() + ',00'
-          : parsedData.amount.toFixed(2).replace('.', ',');
-        
-        setAmount(formatted);
-        foundCount++;
-      }
-      
-      if (parsedData.category && categories.some(c => c.id === parsedData.category)) {
-        setCategory(parsedData.category);
-        foundCount++;
-      }
-      
-      if (parsedData.date) {
-        setDate(parsedData.date);
-        foundCount++;
-      }
-      
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 5);
-      if (lines[0] && lines[0].length < 40) setDescription(lines[0]);
+      // Chamar Edge Function do Supabase
+      const { data, error } = await supabase.functions.invoke('scan-receipt', {
+        body: { imageBase64 }
+      });
 
-      if (foundCount > 0) {
-        toast.success(parsedData.amount ? `Valor de R$ ${amount} identificado!` : 'Dados identificados!', { id: toastId });
-      } else {
-        toast.error('Não consegui ler os dados da nota.', { id: toastId });
+      if (error) throw error;
+
+      if (data) {
+        if (data.valor) setAmount(data.valor.toFixed(2).replace('.', ','));
+        if (data.categoria) setCategory(data.categoria);
+        if (data.descricao) setDescription(data.descricao);
+        if (data.data) {
+          const parsedDate = parseISO(data.data);
+          if (isValid(parsedDate)) setDate(parsedDate);
+        }
+        toast.success('Nota analisada com sucesso!', { id: toastId });
       }
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro na leitura da nota.', { id: toastId });
+    } catch (error: any) {
+      console.error("[Scan Error]", error);
+      toast.error('Erro ao analisar nota. Verifique se a chave da API está configurada.', { id: toastId });
     } finally {
       setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -283,7 +182,7 @@ export function AddTransactionSheet() {
                   <Camera className="h-5 w-5" />
                 )}
                 <span className="font-bold text-xs uppercase tracking-wider">
-                  {isScanning ? 'Lendo nota...' : 'Escanear Nota'}
+                  {isScanning ? 'Claude está lendo...' : 'Escanear com IA'}
                 </span>
               </Button>
               <input 
