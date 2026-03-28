@@ -4,11 +4,12 @@ import { format, isSameDay, startOfMonth, getDate } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useRecurring } from '@/hooks/useRecurring';
-import { Loader2, CalendarClock } from 'lucide-react';
+import { Loader2, CalendarClock, TrendingUp, TrendingDown } from 'lucide-react';
 import { TransactionList } from './TransactionList';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
 import { getCategoryInfo, getCategoryIcon } from '@/types/finance';
+import { cn } from '@/lib/utils';
 
 interface CalendarViewProps {
   selectedDate: Date;
@@ -66,9 +67,11 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
     item.due_day === getDate(selectedDate) && item.is_active
   );
 
-  const totalRecurringForDay = useMemo(() => {
-    return recurringForSelectedDay.reduce((sum, item) => sum + Number(item.amount), 0);
-  }, [recurringForSelectedDay]);
+  const recurringIncome = recurringForSelectedDay.filter(item => item.type === 'income');
+  const recurringExpense = recurringForSelectedDay.filter(item => item.type === 'expense');
+
+  const totalRecurringExpense = recurringExpense.reduce((sum, item) => sum + Number(item.amount), 0);
+  const totalRecurringIncome = recurringIncome.reduce((sum, item) => sum + Number(item.amount), 0);
   
   const handleDelete = (id: string) => {
     deleteTransaction.mutate(id, {
@@ -108,28 +111,52 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
       </div>
       
       {recurringForSelectedDay.length > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 animate-slide-up">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="bg-muted/30 border border-border rounded-2xl p-4 animate-slide-up space-y-4">
+          <div className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4 text-primary" />
-            <h3 className="font-bold text-xs text-primary uppercase tracking-wider">Contas para hoje</h3>
+            <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Planejado p/ hoje</h3>
           </div>
-          <div className="space-y-2">
-            {recurringForSelectedDay.map(item => {
-              const cat = getCategoryInfo(item.category, 'expense');
-              const Icon = getCategoryIcon(cat.icon);
-              return (
-                <div key={item.id} className="flex items-center justify-between bg-card p-2.5 rounded-xl border border-primary/10">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+
+          <div className="space-y-3">
+            {/* Ganhos */}
+            {recurringIncome.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-success uppercase flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" /> Recebimentos
+                </p>
+                {recurringIncome.map(item => (
+                  <div key={item.id} className="flex items-center justify-between bg-card p-2.5 rounded-xl border border-success/10">
                     <span className="text-xs font-semibold">{item.name}</span>
+                    <span className="text-xs font-black text-success">+{formatCurrency(item.amount)}</span>
                   </div>
-                  <span className="text-xs font-black">{formatCurrency(item.amount)}</span>
-                </div>
-              );
-            })}
-            <div className="flex items-center justify-between pt-2 border-t border-primary/10 mt-2 px-1">
-              <span className="text-[10px] font-bold text-primary uppercase">Total Previsto</span>
-              <span className="text-sm font-black text-primary">{formatCurrency(totalRecurringForDay)}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Gastos */}
+            {recurringExpense.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-destructive uppercase flex items-center gap-1">
+                  <TrendingDown className="h-3 w-3" /> Contas a Pagar
+                </p>
+                {recurringExpense.map(item => (
+                  <div key={item.id} className="flex items-center justify-between bg-card p-2.5 rounded-xl border border-destructive/10">
+                    <span className="text-xs font-semibold">{item.name}</span>
+                    <span className="text-xs font-black">{formatCurrency(item.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="pt-3 border-t border-border flex justify-between">
+            <div className="text-center flex-1 border-r border-border">
+              <p className="text-[9px] text-muted-foreground uppercase">Total Ganhos</p>
+              <p className="text-sm font-black text-success">{formatCurrency(totalRecurringIncome)}</p>
+            </div>
+            <div className="text-center flex-1">
+              <p className="text-[9px] text-muted-foreground uppercase">Total Gastos</p>
+              <p className="text-sm font-black text-destructive">{formatCurrency(totalRecurringExpense)}</p>
             </div>
           </div>
         </div>
@@ -137,7 +164,7 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
 
       <div className="bg-card rounded-2xl p-4 shadow-card">
         <h3 className="font-semibold mb-3 text-sm text-muted-foreground">
-          Movimentações — {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+          Movimentações Realizadas — {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
         </h3>
         
         {isLoading ? (

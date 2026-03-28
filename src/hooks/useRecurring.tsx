@@ -14,6 +14,7 @@ export interface RecurringExpense {
   total_installments: number | null;
   current_installment: number | null;
   is_active: boolean;
+  type: 'income' | 'expense'; // Novo campo
   created_at: string;
 }
 
@@ -35,7 +36,10 @@ export function useRecurring() {
         .order('due_day', { ascending: true });
 
       if (error) throw error;
-      return data as RecurringExpense[];
+      return (data || []).map(item => ({
+        ...item,
+        type: item.type || 'expense' // Fallback para gastos antigos
+      })) as RecurringExpense[];
     },
     enabled: !!user,
   });
@@ -51,7 +55,7 @@ export function useRecurring() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurringExpenses'] });
-      toast.success('Gasto recorrente adicionado!');
+      toast.success('Configurado com sucesso!');
     },
   });
 
