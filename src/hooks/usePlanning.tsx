@@ -49,20 +49,20 @@ export function usePlanning() {
       
       const { data: goal, error: fetchError } = await supabase
         .from('savings_goals')
-        .select('*')
+        .select('currentamount')
         .eq('id', id)
         .single();
       
       if (fetchError || !goal) throw new Error('Meta não encontrada');
       
-      // Suporte para ambas as nomenclaturas do banco de dados (camelCase ou minúscula)
-      const currentVal = (goal as any).currentAmount ?? (goal as any).currentamount ?? 0;
+      // Converte explicitamente para número para evitar soma de strings
+      const currentVal = Number(goal.currentamount || 0);
+      const newVal = currentVal + amountChange;
       
-      const updateData: any = {};
-      if ('currentAmount' in goal) updateData.currentAmount = currentVal + amountChange;
-      if ('currentamount' in goal) updateData.currentamount = currentVal + amountChange;
-      
-      const { error } = await supabase.from('savings_goals').update(updateData).eq('id', id);
+      const { error } = await supabase
+        .from('savings_goals')
+        .update({ currentamount: newVal })
+        .eq('id', id);
       
       if (error) throw error;
     },
