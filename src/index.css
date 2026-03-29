@@ -4,67 +4,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design System — Inspired by Inter/Itaú: warm orange, deep charcoal, clean neutrals */
-
 @layer base {
   :root {
-    /* Core surfaces — warm off-white */
     --background: 30 15% 96%;
     --foreground: 220 30% 12%;
-
-    /* Cards — subtle warm tint */
     --card: 0 0% 100%;
     --card-foreground: 220 30% 12%;
-
-    /* Popovers */
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 12%;
-
-    /* Primary: Vibrant orange (Inter-inspired) */
     --primary: 24 95% 53%;
     --primary-foreground: 0 0% 100%;
-
-    /* Secondary: Light orange tint */
     --secondary: 24 60% 96%;
     --secondary-foreground: 24 80% 35%;
-
-    /* Muted: Warm grays */
     --muted: 30 10% 92%;
     --muted-foreground: 220 10% 42%;
-
-    /* Accent */
     --accent: 24 50% 93%;
     --accent-foreground: 24 80% 35%;
-
-    /* Destructive: Coral red */
     --destructive: 0 75% 52%;
     --destructive-foreground: 0 0% 100%;
-
-    /* Success: Rich green */
     --success: 152 60% 38%;
     --success-foreground: 0 0% 100%;
-
-    /* Warning */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-
-    /* Borders — softer */
     --border: 30 10% 88%;
     --input: 30 10% 88%;
     --ring: 24 95% 53%;
-
-    --radius: 1rem;
-
-    /* Gradients Definition */
-    --gradient-primary: linear-gradient(135deg, #ff7a00, #ff5c00);
-    --gradient-income: linear-gradient(135deg, #10b981, #059669);
-    --gradient-expense: linear-gradient(135deg, #ef4444, #dc2626);
-
-    /* Shadows */
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-    --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
-    --shadow-lg: 0 10px 24px -4px rgb(0 0 0 / 0.1), 0 4px 8px -4px rgb(0 0 0 / 0.08);
-    --shadow-glow: 0 0 20px rgba(255, 122, 0, 0.2);
+    --radius: 1.25rem;
   }
 
   .dark {
@@ -72,148 +37,32 @@
     --foreground: 210 20% 96%;
     --card: 220 22% 12%;
     --card-foreground: 210 20% 96%;
-    --popover: 220 22% 12%;
-    --popover-foreground: 210 20% 96%;
     --primary: 24 90% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 24 70% 65%;
-    --muted: 220 18% 18%;
-    --muted-foreground: 220 10% 58%;
-    --accent: 220 18% 20%;
-    --accent-foreground: 24 70% 65%;
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 152 55% 50%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 90% 55%;
-    --warning-foreground: 0 0% 100%;
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
     --ring: 24 90% 55%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
-    /* Esconder scrollbar globalmente */
     scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-  }
-
-  *::-webkit-scrollbar {
-    display: none !important;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    overflow-x: hidden;
   }
 
-  button, [role="button"], .card-interactive {
-    @apply transition-all duration-200 active:scale-[0.98];
-  }
-
-  /* Fix definitivo para o fundo indesejado do autofill */
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover, 
-  input:-webkit-autofill:focus, 
-  input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px #ff7a00 inset !important;
-    -webkit-text-fill-color: white !important;
-    transition: background-color 5000s ease-in-out 0s;
+  /* REGRA DE OURO: Ocultar o FAB quando um Drawer estiver aberto */
+  body[data-vaul-drawer-wrapper=""] .fab-button,
+  body[style*="overflow: hidden"] .fab-button,
+  [data-vaul-drawer] ~ .fab-button {
+    display: none !important;
   }
 }
 
 @layer utilities {
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
-  
-  .gradient-income {
-    background: var(--gradient-income);
-  }
-  
-  .gradient-expense {
-    background: var(--gradient-expense);
-  }
-
-  .shadow-card {
-    box-shadow: var(--shadow-md);
-  }
-
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 24px);
-  }
-
-  .safe-top {
-    padding-top: env(safe-area-inset-top, 24px);
-  }
-
-  /* Estilos do Calendário */
-  .rdp-day {
-    @apply relative transition-all duration-200 rounded-xl flex items-center justify-center !important;
-  }
-
-  /* Dia Selecionado - Apenas o número em Abóbora (Laranja) */
-  .rdp-day_selected, 
-  .rdp-day_selected:hover,
-  .rdp-day_selected:focus {
-    background-color: hsl(var(--primary) / 0.15) !important;
-    color: #ff7a00 !important; /* Força a cor abóbora */
-    font-weight: 800 !important;
-    border: 2px solid #ff7a00 !important;
-  }
-
-  /* Se o dia for "hoje" E estiver selecionado, o laranja deve prevalecer sobre o branco */
-  .rdp-day_selected.rdp-day_today {
-    color: #ff7a00 !important;
-    background-color: hsl(var(--primary) / 0.15) !important;
-  }
-
-  /* Estilo para o dia de "Hoje" (quando não selecionado) */
-  .rdp-day_today:not(.rdp-day_selected) {
-    @apply text-primary underline underline-offset-4 font-bold !important;
-  }
-
-  /* Marcadores de Underline colados na base */
-  .day-has-income {
-    background: linear-gradient(to right, #10b981 100%, transparent 100%) bottom 4px center / 40% 3px no-repeat !important;
-  }
-  
-  .day-has-expense {
-    background: linear-gradient(to right, #ef4444 100%, transparent 100%) bottom 4px center / 40% 3px no-repeat !important;
-  }
-  
-  .day-has-both {
-    background: linear-gradient(to right, #10b981 50%, #ef4444 50%) bottom 4px center / 40% 3px no-repeat !important;
-  }
-
-  /* Indicadores de Recorrência (Bolinhas no topo) */
-  .day-has-rec-expense::after {
-    content: '';
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 6px;
-    height: 6px;
-    background-color: #ff7a00;
-    border-radius: 50%;
-    border: 1px solid white;
-    z-index: 1;
-  }
-
-  .day-has-rec-income::before {
-    content: '';
-    position: absolute;
-    top: 4px;
-    right: 12px;
-    width: 6px;
-    height: 6px;
-    background-color: #10b981;
-    border-radius: 50%;
-    border: 1px solid white;
-    z-index: 1;
-  }
+  .gradient-primary { background: linear-gradient(135deg, #ff7a00, #ff5c00); }
+  .gradient-income { background: linear-gradient(135deg, #10b981, #059669); }
+  .gradient-expense { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .shadow-card { box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 24px); }
+  .safe-top { padding-top: env(safe-area-inset-top, 24px); }
 }

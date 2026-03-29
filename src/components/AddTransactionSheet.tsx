@@ -164,11 +164,11 @@ export function AddTransactionSheet() {
     <>
       {showSuccess && <SuccessOverlay message="Salvo!" onFinished={() => { setShowSuccess(false); setOpen(false); }} />}
       
-      {/* Botão Flutuante (Some ao abrir o Drawer) */}
+      {/* Botão Flutuante com classe fab-button para controle via CSS */}
       <Button 
         size="lg" 
         className={cn(
-          "fixed h-14 w-14 rounded-full shadow-2xl gradient-primary z-[60] touch-none transition-all duration-300 active:scale-110",
+          "fab-button fixed h-14 w-14 rounded-full shadow-2xl gradient-primary z-[60] touch-none transition-all duration-300 active:scale-110",
           (position.x === -100 || open) ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
         )}
         style={{ left: `${position.x}px`, top: `${position.y}px` }}
@@ -197,20 +197,17 @@ export function AddTransactionSheet() {
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto px-8 pb-32 space-y-8 pt-8">
-            {/* Tipo */}
             <div className="grid grid-cols-2 gap-3 p-1.5 bg-muted/30 rounded-2xl">
               <button onClick={() => { setType('expense'); setCategory(''); }} className={cn("py-3 rounded-xl font-bold text-sm transition-all", type === 'expense' ? "bg-destructive text-white shadow-md" : "text-muted-foreground")}>Despesa</button>
               <button onClick={() => { setType('income'); setCategory(''); }} className={cn("py-3 rounded-xl font-bold text-sm transition-all", type === 'income' ? "bg-success text-white shadow-md" : "text-muted-foreground")}>Receita</button>
             </div>
 
-            {/* Escanear */}
             <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="w-full h-20 border-dashed border-primary/20 bg-primary/5 rounded-2xl flex flex-col gap-1 active:scale-95 transition-all">
               {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
               <span className="text-[11px] font-black uppercase tracking-[0.1em]">Escanear Nota com IA</span>
             </Button>
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleScanReceipt} />
 
-            {/* Valor */}
             <div className="space-y-2">
               <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Valor do Lançamento</Label>
               <div className="relative">
@@ -219,7 +216,6 @@ export function AddTransactionSheet() {
               </div>
             </div>
 
-            {/* Categoria */}
             <div className="space-y-3">
               <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Escolha a Categoria</Label>
               <div className="grid grid-cols-3 gap-3">
@@ -236,7 +232,6 @@ export function AddTransactionSheet() {
               </div>
             </div>
 
-            {/* Data e Descrição */}
             <div className="grid grid-cols-1 gap-6">
               <div className="space-y-2">
                 <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Data</Label>
