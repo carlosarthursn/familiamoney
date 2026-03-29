@@ -67,27 +67,46 @@ export function Header({
           </button>
           
           {isLinked && (
-            <div className="absolute -bottom-2 -right-3 h-11 w-11 flex items-center justify-center drop-shadow-lg z-20">
-              {/* Moldura de Coração Branca (Fundo Puro) */}
-              <svg viewBox="0 0 24 24" className="w-full h-full absolute text-white fill-white">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-              
-              {/* Container da Foto com Recorte de Coração (Sem fundo laranja) */}
-              <div 
-                className="w-full h-full flex items-center justify-center p-[4px] relative bg-transparent"
-                style={{ 
-                  clipPath: 'path("M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z")'
-                }}
-              >
-                {partnerAvatar ? (
-                  <img src={partnerAvatar} alt="Parceiro" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-muted flex items-center justify-center">
-                    <Heart className="h-4 w-4 text-muted-foreground fill-muted-foreground" />
-                  </div>
+            <div className="absolute -bottom-2 -right-3 h-12 w-12 drop-shadow-xl z-20">
+              <svg viewBox="0 0 100 100" className="w-full h-full">
+                <defs>
+                  <clipPath id="heartClip">
+                    <path d="M50 88.7L43.9 83.1C22.2 63.4 8 50.5 8 34.8C8 22 18.1 12 30.9 12C38.1 12 45 15.4 50 20.7C55 15.4 61.9 12 69.1 12C81.9 12 92 22 92 34.8C92 50.5 77.8 63.4 56.1 83.1L50 88.7Z" />
+                  </clipPath>
+                </defs>
+                
+                {/* Moldura Branca externa */}
+                <path 
+                  d="M50 92L42.5 85.2C19.8 64.7 5 51.2 5 34.8C5 21.4 15.5 11 29 11C36.6 11 43.9 14.5 49.2 20.1C54.5 14.5 61.8 11 69.4 11C82.9 11 93.4 21.4 93.4 34.8C93.4 51.2 78.6 64.7 55.9 85.2L50 92Z" 
+                  fill="white" 
+                />
+                
+                {/* Imagem recortada */}
+                <g clipPath="url(#heartClip)">
+                  {partnerAvatar ? (
+                    <image 
+                      href={partnerAvatar} 
+                      x="0" y="0" 
+                      width="100" height="100" 
+                      preserveAspectRatio="xMidYMid slice" 
+                    />
+                  ) : (
+                    <rect width="100" height="100" fill="#e2e8f0" />
+                  )}
+                </g>
+                
+                {!partnerAvatar && (
+                  <text 
+                    x="50" y="55" 
+                    textAnchor="middle" 
+                    fontSize="20" 
+                    fill="#94a3b8" 
+                    className="font-bold"
+                  >
+                    ♥
+                  </text>
                 )}
-              </div>
+              </svg>
             </div>
           )}
         </div>

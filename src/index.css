@@ -71,18 +71,18 @@
     bottom: 6px;
     left: 50%;
     transform: translateX(-50%);
-    height: 4px;
+    height: 4.5px;
     z-index: 10;
   }
 
-  .day-has-income::after { width: 4px; border-radius: 50%; @apply bg-success; }
-  .day-has-expense::after { width: 4px; border-radius: 50%; @apply bg-destructive; }
+  .day-has-income::after { width: 4.5px; border-radius: 50%; @apply bg-success; }
+  .day-has-expense::after { width: 4.5px; border-radius: 50%; @apply bg-destructive; }
   
   /* Ponto de duas cores para quando tem ambos */
   .day-has-both::after {
-    width: 10px;
-    border-radius: 2px;
-    background: linear-gradient(to right, #10b981 45%, transparent 45%, transparent 55%, #ef4444 55%) !important;
+    width: 12px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #10b981 48%, #ef4444 52%) !important;
   }
 
   /* Sublinhados para pagamentos recorrentes/planejados */
@@ -94,20 +94,20 @@
     bottom: 2px;
     left: 20%;
     right: 20%;
-    height: 2px;
+    height: 2.5px;
     z-index: 5;
   }
 
-  .day-has-rec-income::before { @apply bg-success/30; }
-  .day-has-rec-expense::before { @apply bg-destructive/30; }
+  .day-has-rec-income::before { @apply bg-success/40; }
+  .day-has-rec-expense::before { @apply bg-destructive/40; }
   
   /* Sublinhado de duas cores para recorrentes */
   .day-has-rec-both::before {
-    background: linear-gradient(to right, rgba(16, 185, 129, 0.4) 45%, transparent 45%, transparent 55%, rgba(239, 68, 68, 0.4) 55%) !important;
+    background: linear-gradient(to right, rgba(16, 185, 129, 0.6) 48%, rgba(239, 68, 68, 0.6) 52%) !important;
   }
 
   .rdp-day_selected::after, .rdp-day_selected::before {
-    filter: brightness(1.5) contrast(1.2);
+    filter: brightness(1.2) contrast(1.2);
   }
 }
 
