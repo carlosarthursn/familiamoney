@@ -56,6 +56,44 @@
   [data-vaul-drawer] ~ .fab-button {
     display: none !important;
   }
+
+  /* Estilos do Calendário */
+  .rdp-day {
+    position: relative;
+  }
+
+  /* Pontos para transações realizadas */
+  .day-has-income::after,
+  .day-has-expense::after,
+  .day-has-both::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+  }
+
+  .day-has-income::after { @apply bg-success; }
+  .day-has-expense::after { @apply bg-destructive; }
+  .day-has-both::after { @apply bg-warning; }
+
+  /* Sublinhados para pagamentos recorrentes/planejados */
+  .day-has-rec-income::before,
+  .day-has-rec-expense::before {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 20%;
+    right: 20%;
+    height: 1.5px;
+    border-radius: 1px;
+  }
+
+  .day-has-rec-income::before { @apply bg-success/40; }
+  .day-has-rec-expense::before { @apply bg-destructive/40; }
 }
 
 @layer utilities {
