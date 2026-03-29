@@ -1,11 +1,12 @@
+"use client";
+
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2, ListChecks, Link } from 'lucide-react';
+import { Plus, ListChecks, Link as LinkIcon, X } from 'lucide-react';
 import { usePlanning } from '@/hooks/usePlanning';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
@@ -14,205 +15,77 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { cn } from '@/lib/utils';
 import { SuccessOverlay } from './SuccessOverlay';
 
-const wishItemSchema = z.object({
-  name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
-  price: z.string().refine(val => {
-    const num = parseFloat(val.replace(',', '.'));
-    return !isNaN(num) && num > 0;
-  }, {
-    message: 'Preço deve ser um número positivo',
-  }),
-  priority: z.enum(['high', 'medium', 'low'], {
-    required_error: 'Selecione a prioridade',
-  }),
+const wishSchema = z.object({
+  name: z.string().min(2, 'Nome muito curto'),
+  price: z.string().refine(val => !isNaN(parseFloat(val.replace(',', '.'))), { message: 'Valor inválido' }),
+  priority: z.enum(['high', 'medium', 'low']),
   link: z.string().url('Link inválido').optional().or(z.literal('')),
 });
-
-type WishItemFormValues = z.infer<typeof wishItemSchema>;
-
-const priorityOptions = [
-  { id: 'high', label: 'Alta', color: 'text-destructive' },
-  { id: 'medium', label: 'Média', color: 'text-warning' },
-  { id: 'low', label: 'Baixa', color: 'text-primary' },
-];
 
 export function AddWishItemSheet() {
   const [open, setOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const { addItem } = usePlanning();
+  const form = useForm<z.infer<typeof wishSchema>>({ resolver: zodResolver(wishSchema), defaultValues: { name: '', price: '', priority: 'medium', link: '' } });
 
-  const form = useForm<WishItemFormValues>({
-    resolver: zodResolver(wishItemSchema),
-    defaultValues: {
-      name: '',
-      price: '',
-      priority: 'medium',
-      link: '',
-    },
-  });
-
-  const onSubmit = async (values: WishItemFormValues) => {
-    const price = parseFloat(values.price.replace(',', '.'));
-    
+  const onSubmit = async (v: z.infer<typeof wishSchema>) => {
     try {
-      await addItem.mutateAsync({
-        name: values.name,
-        price: price,
-        priority: values.priority,
-        link: values.link || null,
-      });
-      
+      await addItem.mutateAsync({ name: v.name, price: parseFloat(v.price.replace(',', '.')), priority: v.priority, link: v.link || null });
       setShowSuccess(true);
-      form.reset();
-    } catch (error: any) {
-      console.error('Erro ao salvar item:', error);
-      toast.error(error.message || 'Erro ao salvar item. Verifique sua conexão.');
-    }
+    } catch (e) { toast.error('Erro ao salvar.'); }
   };
 
   return (
     <>
-      {showSuccess && (
-        <SuccessOverlay 
-          message="Item adicionado!" 
-          onFinished={() => {
-            setShowSuccess(false);
-            setOpen(false);
-          }} 
-        />
-      )}
-      
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="sm" className="text-primary h-8">
-            <Plus className="h-4 w-4 mr-1" /> Adicionar
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl flex flex-col p-0 overflow-hidden">
-          <SheetHeader className="px-6 pt-6 pb-2">
-            <SheetTitle className="text-xl flex items-center gap-2">
-              <ListChecks className="h-5 w-5 text-primary" />
-              Novo Item de Desejo
-            </SheetTitle>
-          </SheetHeader>
-          
+      {showSuccess && <SuccessOverlay message="Adicionado!" onFinished={() => { setShowSuccess(false); setOpen(false); }} />}
+      <Drawer open={open} onOpenChange={setOpen}>
+        <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-primary text-xs font-bold hover:opacity-80 transition-opacity"><Plus className="h-4 w-4" /> Adicionar</button>
+        <DrawerContent className="h-[92vh] rounded-t-[2.5rem] bg-background border-none shadow-2xl">
+          <DrawerHeader className="px-8 pt-4 pb-0 relative">
+            <div className="mx-auto w-12 h-1 rounded-full bg-muted/40 mb-6" />
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="text-2xl font-black tracking-tighter flex items-center gap-2">Lista de Desejos <ListChecks className="h-5 w-5 text-primary" /></DrawerTitle>
+              <DrawerClose asChild><button className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center"><X className="h-4 w-4" /></button></DrawerClose>
+            </div>
+          </DrawerHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-y-auto px-6 pb-24">
-              <div className="space-y-4 py-2">
-                
-                {/* Name */}
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Nome do Item</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Novo celular" className="h-12 rounded-xl" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                {/* Price */}
-                <FormField
-                  control={form.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Preço Estimado (R$)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                            R$
-                          </span>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="1.500,00"
-                            className="pl-12 h-12 text-xl font-bold rounded-xl"
-                            {...field}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/[^0-9,]/g, '');
-                              field.onChange(value);
-                            }}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                {/* Priority */}
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Prioridade</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="h-12 rounded-xl">
-                            <SelectValue placeholder="Selecione a prioridade" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {priorityOptions.map(option => (
-                            <SelectItem key={option.id} value={option.id}>
-                              <span className={cn("font-medium", option.color)}>{option.label}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                {/* Link (Optional) */}
-                <FormField
-                  control={form.control}
-                  name="link"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Link do Produto (Opcional)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Link className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input 
-                            placeholder="https://loja.com/produto" 
-                            className="pl-12 h-12 rounded-xl" 
-                            {...field} 
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-              </div>
-              
-              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10 safe-bottom">
-                <Button
-                  type="submit"
-                  disabled={addItem.isPending}
-                  className="w-full h-12 text-base font-semibold rounded-xl shadow-lg gradient-primary"
-                >
-                  {addItem.isPending ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Salvando Item...
-                    </div>
-                  ) : 'Salvar Item'}
-                </Button>
-              </div>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-y-auto px-8 pt-8 pb-32 space-y-8">
+              <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">O que você quer comprar?</FormLabel>
+                  <FormControl><Input placeholder="Ex: iPhone, Tênis..." className="h-14 rounded-2xl bg-muted/20 border-none font-bold" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="price" render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Preço Estimado (R$)</FormLabel>
+                  <FormControl><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">R$</span><Input placeholder="0,00" className="pl-10 h-14 rounded-2xl bg-muted/20 border-none font-black text-2xl" {...field} /></div></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="priority" render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Prioridade</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger className="h-14 rounded-2xl bg-muted/20 border-none px-5 font-bold"><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
+                    <SelectContent className="rounded-2xl border-none shadow-2xl"><SelectItem value="high">Alta</SelectItem><SelectItem value="medium">Média</SelectItem><SelectItem value="low">Baixa</SelectItem></SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="link" render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Link do Produto (Opcional)</FormLabel>
+                  <FormControl><div className="relative"><LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="https://..." className="pl-11 h-14 rounded-2xl bg-muted/20 border-none" {...field} /></div></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-background via-background to-transparent pt-12 safe-bottom"><Button type="submit" className="w-full h-16 rounded-2xl font-black text-lg gradient-primary shadow-xl">Salvar Item</Button></div>
             </form>
           </Form>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

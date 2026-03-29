@@ -36,9 +36,7 @@ export function AddTransactionSheet() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   
-  // Lógica para o botão arrastável
   const [position, setPosition] = useState({ x: -100, y: -100 });
-  const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const hasMoved = useRef(false);
   
@@ -47,7 +45,6 @@ export function AddTransactionSheet() {
   const { session } = useAuth();
   
   useEffect(() => {
-    // Posição inicial segura
     const initialX = window.innerWidth - 80;
     const initialY = window.innerHeight - 140;
     setPosition({ x: initialX, y: initialY });
@@ -59,32 +56,22 @@ export function AddTransactionSheet() {
       y: e.touches[0].clientY - position.y
     };
     hasMoved.current = false;
-    setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const newX = e.touches[0].clientX - dragStart.current.x;
     const newY = e.touches[0].clientY - dragStart.current.y;
-    
-    // Limites da tela para o botão não sumir
     const boundedX = Math.max(10, Math.min(window.innerWidth - 65, newX));
     const boundedY = Math.max(10, Math.min(window.innerHeight - 80, newY));
     
     if (Math.abs(newX - position.x) > 5 || Math.abs(newY - position.y) > 5) {
       hasMoved.current = true;
     }
-    
     setPosition({ x: boundedX, y: boundedY });
   };
 
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
   const handleButtonClick = () => {
-    if (!hasMoved.current) {
-      setOpen(true);
-    }
+    if (!hasMoved.current) setOpen(true);
   };
 
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
@@ -131,10 +118,8 @@ export function AddTransactionSheet() {
   const handleScanReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setIsScanning(true);
     const toastId = toast.loading('Analisando nota...');
-
     try {
       const imageBase64 = await compressImage(file);
       const response = await fetch("https://vipigovrygzyjaibssra.supabase.co/functions/v1/scan-receipt", {
@@ -146,24 +131,23 @@ export function AddTransactionSheet() {
         },
         body: JSON.stringify({ imageBase64 })
       });
-
-      if (!response.ok) throw new Error('Erro ao processar imagem');
+      if (!response.ok) throw new Error('Erro ao processar');
       const data = await response.json();
       if (data) {
         if (data.valor) setAmount(Number(data.valor).toFixed(2).replace('.', ','));
         if (data.categoria) setCategory(data.categoria);
         if (data.descricao) setDescription(data.descricao);
-        toast.success('Leitura concluída!', { id: toastId });
+        toast.success('Pronto!', { id: toastId });
       }
-    } catch (error: any) {
-      toast.error('Falha ao ler nota.', { id: toastId });
+    } catch (e) {
+      toast.error('Erro na leitura.', { id: toastId });
     } finally {
       setIsScanning(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!amount || !category) return toast.error('Preencha os campos obrigatórios');
+    if (!amount || !category) return toast.error('Preencha valor e categoria');
     const numAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
     try {
       await addTransaction.mutateAsync({
@@ -173,120 +157,78 @@ export function AddTransactionSheet() {
       });
       setShowSuccess(true);
       resetForm();
-    } catch (error) { toast.error('Erro ao salvar.'); }
+    } catch (e) { toast.error('Erro ao salvar.'); }
   };
   
   return (
     <>
       {showSuccess && <SuccessOverlay message="Salvo!" onFinished={() => { setShowSuccess(false); setOpen(false); }} />}
       
-      {/* Botão Flutuante Draggable */}
+      {/* Botão Flutuante (Some ao abrir o Drawer) */}
       <Button 
         size="lg" 
         className={cn(
-          "fixed h-14 w-14 rounded-full shadow-lg gradient-primary z-[60] touch-none transition-transform active:scale-110",
-          position.x === -100 && "invisible"
+          "fixed h-14 w-14 rounded-full shadow-2xl gradient-primary z-[60] touch-none transition-all duration-300 active:scale-110",
+          (position.x === -100 || open) ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
         )}
-        style={{ 
-          left: `${position.x}px`, 
-          top: `${position.y}px`,
-        }}
+        style={{ left: `${position.x}px`, top: `${position.y}px` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         onClick={handleButtonClick}
       >
         <Plus className="h-6 w-6" />
       </Button>
 
       <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="h-[90vh] rounded-t-3xl bg-background border-none outline-none">
-          <DrawerHeader className="px-6 pt-4 pb-0 relative">
-            <div className="mx-auto w-12 h-1.5 rounded-full bg-muted mb-4" />
-            <DrawerTitle className="text-xl flex items-center gap-2">
-              Nova Movimentação <Wand2 className="h-5 w-5 text-primary" />
-            </DrawerTitle>
+        <DrawerContent className="h-[92vh] rounded-t-[2.5rem] bg-background border-none shadow-2xl">
+          <DrawerHeader className="px-8 pt-4 pb-0 relative">
+            <div className="mx-auto w-12 h-1 rounded-full bg-muted/40 mb-6" />
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="text-2xl font-black tracking-tighter flex items-center gap-2">
+                Nova Movimentação <Wand2 className="h-5 w-5 text-primary" />
+              </DrawerTitle>
+              <DrawerClose asChild>
+                <button className="h-8 w-8 rounded-full bg-muted/30 flex items-center justify-center">
+                  <X className="h-4 w-4" />
+                </button>
+              </DrawerClose>
+            </div>
             <DrawerDescription className="sr-only">Formulário de nova transação</DrawerDescription>
-            <DrawerClose asChild>
-              <button className="absolute right-6 top-6 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors">
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </DrawerClose>
           </DrawerHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 pb-32 space-y-6 pt-6">
-            {/* Seletor de Tipo */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 rounded-2xl">
-              <button 
-                type="button" 
-                onClick={() => { setType('expense'); setCategory(''); }} 
-                className={cn(
-                  "py-2.5 rounded-xl font-bold text-sm transition-all", 
-                  type === 'expense' ? "bg-destructive text-white shadow-sm" : "text-muted-foreground"
-                )}
-              >
-                Despesa
-              </button>
-              <button 
-                type="button" 
-                onClick={() => { setType('income'); setCategory(''); }} 
-                className={cn(
-                  "py-2.5 rounded-xl font-bold text-sm transition-all", 
-                  type === 'income' ? "bg-success text-white shadow-sm" : "text-muted-foreground"
-                )}
-              >
-                Receita
-              </button>
+          <div className="flex-1 overflow-y-auto px-8 pb-32 space-y-8 pt-8">
+            {/* Tipo */}
+            <div className="grid grid-cols-2 gap-3 p-1.5 bg-muted/30 rounded-2xl">
+              <button onClick={() => { setType('expense'); setCategory(''); }} className={cn("py-3 rounded-xl font-bold text-sm transition-all", type === 'expense' ? "bg-destructive text-white shadow-md" : "text-muted-foreground")}>Despesa</button>
+              <button onClick={() => { setType('income'); setCategory(''); }} className={cn("py-3 rounded-xl font-bold text-sm transition-all", type === 'income' ? "bg-success text-white shadow-md" : "text-muted-foreground")}>Receita</button>
             </div>
 
-            {/* Escanear com IA */}
-            <Button 
-              variant="outline" 
-              onClick={() => fileInputRef.current?.click()} 
-              disabled={isScanning}
-              className="w-full h-16 border-dashed border-primary/30 bg-primary/5 rounded-2xl flex flex-col gap-1 active:scale-95 transition-transform"
-            >
+            {/* Escanear */}
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="w-full h-20 border-dashed border-primary/20 bg-primary/5 rounded-2xl flex flex-col gap-1 active:scale-95 transition-all">
               {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
-              <span className="text-[10px] font-black uppercase tracking-widest">Escanear Nota com IA</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.1em]">Escanear Nota com IA</span>
             </Button>
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleScanReceipt} />
 
             {/* Valor */}
-            <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Valor</Label>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Valor do Lançamento</Label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">R$</span>
-                <Input 
-                  type="text" 
-                  inputMode="decimal" 
-                  placeholder="0,00" 
-                  value={amount} 
-                  onChange={(e) => setAmount(e.target.value)} 
-                  className="h-14 text-2xl font-black rounded-2xl bg-muted/20 border-none pl-12 focus-visible:ring-1 focus-visible:ring-primary/20" 
-                />
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xl">R$</span>
+                <Input type="text" inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-16 text-3xl font-black rounded-2xl bg-muted/20 border-none pl-14 focus-visible:ring-1 focus-visible:ring-primary/10" />
               </div>
             </div>
 
-            {/* Categorias */}
-            <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Categoria</Label>
-              <div className="grid grid-cols-3 gap-2">
+            {/* Categoria */}
+            <div className="space-y-3">
+              <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Escolha a Categoria</Label>
+              <div className="grid grid-cols-3 gap-3">
                 {categories.map((cat) => {
                   const Icon = getCategoryIcon(cat.icon);
                   const isSelected = category === cat.id;
                   return (
-                    <button 
-                      key={cat.id} 
-                      type="button" 
-                      onClick={() => setCategory(cat.id)} 
-                      className={cn(
-                        "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border transition-all h-20", 
-                        isSelected 
-                          ? "border-primary bg-primary/10 text-primary shadow-sm scale-105" 
-                          : "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                      )}
-                    >
-                      <Icon className="h-5 w-5" />
+                    <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={cn("flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all h-24", isSelected ? "border-primary bg-primary/5 text-primary shadow-sm" : "border-transparent bg-muted/20 text-muted-foreground/70")}>
+                      <Icon className="h-6 w-6" />
                       <span className="text-[10px] font-bold truncate w-full text-center">{cat.label}</span>
                     </button>
                   );
@@ -294,53 +236,32 @@ export function AddTransactionSheet() {
               </div>
             </div>
 
-            {/* Data */}
-            <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Data</Label>
-              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start h-12 text-sm rounded-2xl bg-muted/20 border-none px-4 font-bold"
-                  >
-                    <CalendarIcon className="mr-3 h-4 w-4 text-primary" />
-                    {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-xl" align="start">
-                  <Calendar 
-                    mode="single" 
-                    selected={date} 
-                    onSelect={(d) => { if (d) setDate(d); setDatePickerOpen(false); }} 
-                    initialFocus 
-                    locale={ptBR} 
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Descrição */}
-            <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Descrição</Label>
-              <Textarea 
-                placeholder="Ex: Mercado mensal, Netflix..." 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)}
-                className="rounded-2xl bg-muted/20 border-none min-h-[100px] p-4 text-sm focus-visible:ring-1 focus-visible:ring-primary/20"
-              />
+            {/* Data e Descrição */}
+            <div className="grid grid-cols-1 gap-6">
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Data</Label>
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start h-14 text-sm rounded-2xl bg-muted/20 border-none px-5 font-bold">
+                      <CalendarIcon className="mr-3 h-4 w-4 text-primary" />
+                      {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
+                    <Calendar mode="single" selected={date} onSelect={(d) => { if (d) setDate(d); setDatePickerOpen(false); }} initialFocus locale={ptBR} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Descrição Adicional</Label>
+                <Textarea placeholder="Para que serve este gasto?" value={description} onChange={(e) => setDescription(e.target.value)} className="rounded-2xl bg-muted/20 border-none min-h-[100px] p-5 text-sm focus-visible:ring-1 focus-visible:ring-primary/10 resize-none" />
+              </div>
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10 safe-bottom z-10">
-            <Button 
-              onClick={handleSubmit} 
-              disabled={addTransaction.isPending || isScanning} 
-              className={cn(
-                "w-full h-14 text-lg font-black rounded-2xl shadow-lg active:scale-95 transition-transform", 
-                type === 'income' ? "gradient-income" : "gradient-expense"
-              )}
-            >
-              {addTransaction.isPending ? 'Salvando...' : 'Confirmar'}
+          <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-background via-background to-transparent pt-12 safe-bottom z-10">
+            <Button onClick={handleSubmit} disabled={addTransaction.isPending || isScanning} className={cn("w-full h-16 text-lg font-black rounded-2xl shadow-xl active:scale-95 transition-all", type === 'income' ? "gradient-income" : "gradient-expense")}>
+              {addTransaction.isPending ? 'Salvando...' : 'Confirmar Lançamento'}
             </Button>
           </div>
         </DrawerContent>
