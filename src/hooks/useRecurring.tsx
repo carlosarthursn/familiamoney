@@ -85,7 +85,7 @@ export function useRecurring() {
 
   const markAsPaid = useMutation({
     mutationFn: async (item: RecurringExpense) => {
-      if (!user) throwbe Error('Não autenticado');
+      if (!user) throw new Error('Não autenticado');
       
       const { error } = await supabase.from('transactions').insert({
         user_id: user.id,
