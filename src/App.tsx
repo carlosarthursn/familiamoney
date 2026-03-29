@@ -17,7 +17,6 @@ import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-// Componente para gerenciar o estado do calendário na rota
 const CalendarRoute = () => {
   const [date, setDate] = useState(new Date());
   return <CalendarView selectedDate={date} onDateChange={setDate} />;
@@ -27,17 +26,20 @@ const AppRoutes = () => {
   const { user, loading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
 
-  // Garante que a Splash Screen apareça por pelo menos 2 segundos para a animação completar
+  // Forçar a exibição da Splash Screen por pelo menos 2200ms
   useEffect(() => {
-    if (!loading) {
-      const timer = setTimeout(() => {
+    const timer = setTimeout(() => {
+      // Só remove a splash se a autenticação já tiver terminado de carregar
+      if (!loading) {
         setShowSplash(false);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
+      }
+    }, 2200);
+    
+    return () => clearTimeout(timer);
   }, [loading]);
 
-  if (loading || showSplash) {
+  // Se ainda estiver carregando a auth OU o tempo mínimo de splash não passou
+  if (showSplash) {
     return <SplashScreen />;
   }
 

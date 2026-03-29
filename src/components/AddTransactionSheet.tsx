@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,10 +29,60 @@ export function AddTransactionSheet() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   
+  // Lógica para o botão arrastável
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [hasMoved, setHasMoved] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addTransaction } = useTransactions();
   const { session } = useAuth();
   
+  // Inicializar posição no canto inferior direito
+  useEffect(() => {
+    setPosition({
+      x: window.innerWidth - 80,
+      y: window.innerHeight - 150
+    });
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setDragStart({
+      x: e.touches[0].clientX - position.x,
+      y: e.touches[0].clientY - position.y
+    });
+    setHasMoved(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault(); // Evita scroll enquanto arrasta
+    const newX = e.touches[0].clientX - dragStart.x;
+    const newY = e.touches[0].clientY - dragStart.y;
+    
+    // Limites da tela
+    const boundedX = Math.max(20, Math.min(window.innerWidth - 60, newX));
+    const boundedY = Math.max(20, Math.min(window.innerHeight - 100, newY));
+    
+    setPosition({ x: boundedX, y: boundedY });
+    setHasMoved(true);
+    setIsDragging(true);
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleButtonClick = (e: React.MouseEvent) => {
+    // Se o botão foi arrastado, não abre o sheet
+    if (hasMoved) {
+      e.preventDefault();
+      e.stopPropagation();
+    } else {
+      setOpen(true);
+    }
+  };
+
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   
   const resetForm = () => {
@@ -163,7 +213,23 @@ export function AddTransactionSheet() {
       
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button size="lg" className="fixed bottom-28 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary z-50">
+          <Button 
+            size="lg" 
+            className={cn(
+              "fixed h-14 w-14 rounded-full shadow-lg gradient-primary z-50 touch-none transition-transform",
+              isDragging && "scale-110 opacity-90 shadow-2xl"
+            )}
+            style={{ 
+              left: position.x, 
+              top: position.y,
+              position: 'fixed',
+              transform: 'none' // Sobrescreve classes do tailwind se necessário
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onClick={handleButtonClick}
+          >
             <Plus className="h-6 w-6" />
           </Button>
         </SheetTrigger>
