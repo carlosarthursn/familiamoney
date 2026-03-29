@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export interface RecurringExpense {
   id: string;
@@ -60,6 +60,18 @@ export function useRecurring() {
     },
   });
 
+  const updateRecurring = useMutation({
+    mutationFn: async (expense: Partial<RecurringExpense> & { id: string }) => {
+      const { id, ...updates } = expense;
+      const { error } = await supabase.from('recurring_expenses').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurringExpenses'] });
+      toast.success('Atualizado com sucesso!');
+    },
+  });
+
   const deleteRecurring = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('recurring_expenses').delete().eq('id', id);
@@ -73,7 +85,7 @@ export function useRecurring() {
 
   const markAsPaid = useMutation({
     mutationFn: async (item: RecurringExpense) => {
-      if (!user) throw new Error('Não autenticado');
+      if (!user) throwbe Error('Não autenticado');
       
       const { error } = await supabase.from('transactions').insert({
         user_id: user.id,
@@ -86,14 +98,12 @@ export function useRecurring() {
 
       if (error) throw error;
 
-      // Se for parcelado, atualiza a parcela atual
       if (item.is_installment && item.current_installment !== null && item.total_installments !== null) {
         if (item.current_installment < item.total_installments) {
           await supabase.from('recurring_expenses')
             .update({ current_installment: item.current_installment + 1 })
             .eq('id', item.id);
         } else {
-          // Se chegou na última parcela, desativa o item
           await supabase.from('recurring_expenses')
             .update({ is_active: false })
             .eq('id', item.id);
@@ -114,6 +124,7 @@ export function useRecurring() {
     recurring: recurringQuery.data || [],
     isLoading: recurringQuery.isLoading,
     addRecurring,
+    updateRecurring,
     deleteRecurring,
     markAsPaid,
   };
