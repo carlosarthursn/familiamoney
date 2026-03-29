@@ -27,8 +27,13 @@ export function ProfileSettings() {
     const isDark = document.documentElement.classList.contains('dark');
     setTheme(isDark ? 'dark' : 'light');
     
-    // Verifica se o navegador suporta WebAuthn (Biometria)
-    setIsBiometrySupported(!!window.PublicKeyCredential);
+    // Verificação robusta de suporte a biometria/passkeys
+    const checkBiometry = async () => {
+      const supported = !!window.PublicKeyCredential && 
+        await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      setIsBiometrySupported(supported);
+    };
+    checkBiometry();
   }, [profile]);
 
   const toggleTheme = () => {
@@ -149,16 +154,22 @@ export function ProfileSettings() {
         </div>
       </div>
 
-      {isBiometrySupported && (
-        <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
-          <h3 className="font-semibold flex items-center gap-2"><Fingerprint className="h-5 w-5 text-primary" /> Segurança</h3>
-          <p className="text-xs text-muted-foreground">Acesse o app usando o FaceID ou digital do seu celular sem precisar digitar senha.</p>
-          <Button variant="outline" onClick={handleRegisterPasskey} disabled={loading} className="w-full h-11 rounded-xl border-primary/20 text-primary hover:bg-primary/5">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Fingerprint className="h-4 w-4 mr-2" />}
-            Ativar Login por Biometria
-          </Button>
-        </div>
-      )}
+      <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
+        <h3 className="font-semibold flex items-center gap-2"><Fingerprint className="h-5 w-5 text-primary" /> Segurança</h3>
+        <p className="text-xs text-muted-foreground">Acesse o app usando o FaceID ou digital do seu celular sem precisar digitar senha.</p>
+        <Button 
+          variant="outline" 
+          onClick={handleRegisterPasskey} 
+          disabled={loading} 
+          className={cn(
+            "w-full h-11 rounded-xl border-primary/20 text-primary hover:bg-primary/5",
+            !isBiometrySupported && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Fingerprint className="h-4 w-4 mr-2" />}
+          {isBiometrySupported ? "Ativar Login por Biometria" : "Biometria não disponível neste dispositivo"}
+        </Button>
+      </div>
 
       <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
         <h3 className="font-semibold flex items-center gap-2"><Heart className="h-5 w-5 text-primary" /> Família</h3>

@@ -7,6 +7,7 @@ interface Profile {
   avatar_url?: string | null;
   linked_user_id?: string | null;
   partnerName?: string | null;
+  partnerAvatar?: string | null;
   monthly_budget?: number;
 }
 
@@ -15,6 +16,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  showBalance: boolean;
+  setShowBalance: (show: boolean) => void;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -33,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBalance, setShowBalance] = useState(true);
   const initialized = useRef(false);
 
   const fetchProfile = useCallback(async (currentUser: User) => {
@@ -48,15 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const profileData = dbProfile as any;
       let pName: string | null = null;
+      let pAvatar: string | null = null;
 
       if (profileData.linked_user_id) {
         const { data: partner } = await supabase
           .from('profiles')
-          .select('name, email')
+          .select('name, email, avatar_url')
           .eq('id', profileData.linked_user_id)
           .maybeSingle();
         if (partner) {
           pName = (partner as any).name || (partner as any).email?.split('@')[0];
+          pAvatar = (partner as any).avatar_url;
         }
       }
 
@@ -65,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: profileData.avatar_url,
         linked_user_id: profileData.linked_user_id,
         partnerName: pName,
+        partnerAvatar: pAvatar,
         monthly_budget: Number(profileData.monthly_budget) || 0
       };
     } catch (e) {
@@ -193,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{ 
       user, session, profile, loading, 
+      showBalance, setShowBalance,
       signUp, signIn, signOut, updateProfile,
       linkPartner, unlinkPartner, refreshProfile,
       registerPasskey, signInWithPasskey

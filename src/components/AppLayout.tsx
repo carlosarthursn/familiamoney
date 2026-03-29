@@ -2,15 +2,11 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Header } from "./Header";
 import { BottomNav } from "./BottomNav";
 import { AddTransactionSheet } from "./AddTransactionSheet";
-import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { SuccessOverlay } from "./SuccessOverlay";
 
 export function AppLayout() {
-  const { profile } = useAuth();
-  const [showBalance, setShowBalance] = useState(true);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
+  const { profile, showBalance, setShowBalance } = useAuth();
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,8 +30,6 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {showSuccess && <SuccessOverlay message={successMsg} onFinished={() => setShowSuccess(false)} />}
-      
       {shouldShowHeader && (
         <Header 
           displayName={profile?.name || "Usuário"} 

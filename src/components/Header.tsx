@@ -22,6 +22,7 @@ export function Header({
 }: HeaderProps) {
   const { profile } = useAuth();
   const avatarUrl = profile?.avatar_url;
+  const partnerAvatar = profile?.partnerAvatar;
   const isLinked = !!profile?.linked_user_id;
 
   return (
@@ -64,9 +65,19 @@ export function Header({
               <User className="h-8 w-8 text-white" />
             )}
           </button>
+          
           {isLinked && (
-            <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-white flex items-center justify-center shadow-sm border border-primary/20">
-              <Heart className="h-3.5 w-3.5 text-primary fill-primary" />
+            <div className="absolute -bottom-1 -right-1 h-8 w-8 flex items-center justify-center">
+              {/* Moldura de Coração para a foto do parceiro */}
+              <div className="relative w-full h-full bg-white p-0.5" style={{ clipPath: 'path("M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z")', transform: 'scale(1.2)' }}>
+                <div className="w-full h-full bg-primary flex items-center justify-center overflow-hidden">
+                  {partnerAvatar ? (
+                    <img src={partnerAvatar} alt="Parceiro" className="w-full h-full object-cover" />
+                  ) : (
+                    <Heart className="h-4 w-4 text-white fill-white" />
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

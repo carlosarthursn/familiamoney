@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useAuth } from '@/hooks/useAuth';
 import { BalanceCard } from '@/components/BalanceCard';
 import { TransactionList } from '@/components/TransactionList';
 import { MonthSelector } from '@/components/MonthSelector';
@@ -11,6 +12,7 @@ import { toast } from 'sonner';
 import { SuccessOverlay } from '@/components/SuccessOverlay';
 
 export default function Dashboard() {
+  const { showBalance } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -49,7 +51,7 @@ export default function Dashboard() {
         balance={balance} 
         income={totalIncome} 
         expenses={totalExpensesAll} 
-        showBalance={true}
+        showBalance={showBalance}
       />
       
       <DailyBudgetCard />
