@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { RecurringExpense, useRecurring } from '@/hooks/useRecurring';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, Calendar, CheckCircle2, XCircle, Loader2, X, Check, AlertCircle } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Loader2, X, Check, AlertCircle } from 'lucide-react';
 import { getCategoryInfo, getCategoryIcon } from '@/types/finance';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,11 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
       amount: amount 
     });
     setIsEditing(false);
+  };
+
+  const handleMarkAsPaid = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    markAsPaid.mutate(item);
   };
 
   return (
@@ -138,7 +143,7 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
 
               {!isPaid && item.is_active ? (
                 <button
-                  onClick={handlePaid}
+                  onClick={handleMarkAsPaid}
                   disabled={markAsPaid.isPending}
                   className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors active:scale-90"
                 >
