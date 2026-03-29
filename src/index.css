@@ -82,7 +82,7 @@
   .day-has-both::after {
     width: 10px;
     border-radius: 2px;
-    background: linear-gradient(to right, hsl(var(--success)) 45%, transparent 45%, transparent 55%, hsl(var(--destructive)) 55%);
+    background: linear-gradient(to right, #10b981 45%, transparent 45%, transparent 55%, #ef4444 55%) !important;
   }
 
   /* Sublinhados para pagamentos recorrentes/planejados */
@@ -103,10 +103,9 @@
   
   /* Sublinhado de duas cores para recorrentes */
   .day-has-rec-both::before {
-    background: linear-gradient(to right, hsl(var(--success)/0.4) 45%, transparent 45%, transparent 55%, hsl(var(--destructive)/0.4) 55%);
+    background: linear-gradient(to right, rgba(16, 185, 129, 0.4) 45%, transparent 45%, transparent 55%, rgba(239, 68, 68, 0.4) 55%) !important;
   }
 
-  /* Garantir que os pontos não sumam quando o dia está selecionado */
   .rdp-day_selected::after, .rdp-day_selected::before {
     filter: brightness(1.5) contrast(1.2);
   }

@@ -68,14 +68,14 @@ export function Header({
           
           {isLinked && (
             <div className="absolute -bottom-2 -right-3 h-11 w-11 flex items-center justify-center drop-shadow-lg z-20">
-              {/* Moldura de Coração Branca (Fundo) */}
+              {/* Moldura de Coração Branca (Fundo Puro) */}
               <svg viewBox="0 0 24 24" className="w-full h-full absolute text-white fill-white">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
               
-              {/* Container da Foto com Recorte de Coração */}
+              {/* Container da Foto com Recorte de Coração (Sem fundo laranja) */}
               <div 
-                className="w-full h-full flex items-center justify-center p-[4px] relative"
+                className="w-full h-full flex items-center justify-center p-[4px] relative bg-transparent"
                 style={{ 
                   clipPath: 'path("M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z")'
                 }}
@@ -83,8 +83,8 @@ export function Header({
                 {partnerAvatar ? (
                   <img src={partnerAvatar} alt="Parceiro" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-primary flex items-center justify-center">
-                    <Heart className="h-4 w-4 text-white fill-white" />
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    <Heart className="h-4 w-4 text-muted-foreground fill-muted-foreground" />
                   </div>
                 )}
               </div>
