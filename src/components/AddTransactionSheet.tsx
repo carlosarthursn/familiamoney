@@ -1,15 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
+import { 
+  Drawer, 
+  DrawerContent, 
+  DrawerHeader, 
+  DrawerTitle, 
+  DrawerDescription,
+  DrawerClose
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles, Wand2 } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { Plus, CalendarIcon, TrendingUp, TrendingDown, Loader2, Camera, Sparkles, Wand2, X } from 'lucide-react';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TransactionType, EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon } from '@/types/finance';
@@ -29,53 +36,53 @@ export function AddTransactionSheet() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   
-  // Lógica para o botão arrastável com posição inicial segura
-  const [position, setPosition] = useState({ x: -100, y: -100 }); // Começa fora até o useEffect calcular
+  // Lógica para o botão arrastável
+  const [position, setPosition] = useState({ x: -100, y: -100 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [hasMoved, setHasMoved] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const hasMoved = useRef(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addTransaction } = useTransactions();
   const { session } = useAuth();
   
   useEffect(() => {
-    // Define posição inicial segura no mobile (canto inferior direito, acima da nav)
-    const initialX = window.innerWidth - 75;
+    // Posição inicial segura
+    const initialX = window.innerWidth - 80;
     const initialY = window.innerHeight - 140;
     setPosition({ x: initialX, y: initialY });
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setDragStart({
+    dragStart.current = {
       x: e.touches[0].clientX - position.x,
       y: e.touches[0].clientY - position.y
-    });
-    setHasMoved(false);
+    };
+    hasMoved.current = false;
+    setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    const newX = e.touches[0].clientX - dragStart.x;
-    const newY = e.touches[0].clientY - dragStart.y;
+    const newX = e.touches[0].clientX - dragStart.current.x;
+    const newY = e.touches[0].clientY - dragStart.current.y;
     
-    // Limites para não sumir da tela
-    const boundedX = Math.max(15, Math.min(window.innerWidth - 70, newX));
-    const boundedY = Math.max(15, Math.min(window.innerHeight - 80, newY));
+    // Limites da tela para o botão não sumir
+    const boundedX = Math.max(10, Math.min(window.innerWidth - 65, newX));
+    const boundedY = Math.max(10, Math.min(window.innerHeight - 80, newY));
+    
+    if (Math.abs(newX - position.x) > 5 || Math.abs(newY - position.y) > 5) {
+      hasMoved.current = true;
+    }
     
     setPosition({ x: boundedX, y: boundedY });
-    setHasMoved(true);
-    setIsDragging(true);
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
   };
 
-  const handleButtonClick = (e: React.MouseEvent) => {
-    if (hasMoved) {
-      e.preventDefault();
-      e.stopPropagation();
-    } else {
+  const handleButtonClick = () => {
+    if (!hasMoved.current) {
       setOpen(true);
     }
   };
@@ -99,7 +106,7 @@ export function AddTransactionSheet() {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; 
+          const MAX_WIDTH = 800;
           const MAX_HEIGHT = 800;
           let width = img.width;
           let height = img.height;
@@ -173,62 +180,171 @@ export function AddTransactionSheet() {
     <>
       {showSuccess && <SuccessOverlay message="Salvo!" onFinished={() => { setShowSuccess(false); setOpen(false); }} />}
       
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button 
-            size="lg" 
-            className={cn(
-              "fixed h-14 w-14 rounded-full shadow-lg gradient-primary z-[60] touch-none",
-              position.x === -100 && "invisible"
-            )}
-            style={{ 
-              left: `${position.x}px`, 
-              top: `${position.y}px`,
-              position: 'fixed'
-            }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onClick={handleButtonClick}
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl p-0 overflow-hidden bg-background">
-          <SheetHeader className="px-6 pt-6 pb-2">
-            <SheetTitle className="text-xl flex items-center gap-2">Nova Movimentação <Wand2 className="h-5 w-5 text-primary" /></SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-6 pb-24 space-y-6 pt-4">
+      {/* Botão Flutuante Draggable */}
+      <Button 
+        size="lg" 
+        className={cn(
+          "fixed h-14 w-14 rounded-full shadow-lg gradient-primary z-[60] touch-none transition-transform active:scale-110",
+          position.x === -100 && "invisible"
+        )}
+        style={{ 
+          left: `${position.x}px`, 
+          top: `${position.y}px`,
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleButtonClick}
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
+
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent className="h-[90vh] rounded-t-3xl bg-background border-none outline-none">
+          <DrawerHeader className="px-6 pt-4 pb-0 relative">
+            <div className="mx-auto w-12 h-1.5 rounded-full bg-muted mb-4" />
+            <DrawerTitle className="text-xl flex items-center gap-2">
+              Nova Movimentação <Wand2 className="h-5 w-5 text-primary" />
+            </DrawerTitle>
+            <DrawerDescription className="sr-only">Formulário de nova transação</DrawerDescription>
+            <DrawerClose asChild>
+              <button className="absolute right-6 top-6 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </DrawerClose>
+          </DrawerHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 pb-32 space-y-6 pt-6">
+            {/* Seletor de Tipo */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 rounded-2xl">
-              <button type="button" onClick={() => setType('expense')} className={cn("py-2.5 rounded-xl font-bold text-sm", type === 'expense' ? "bg-destructive text-white" : "text-muted-foreground")}>Despesa</button>
-              <button type="button" onClick={() => setType('income')} className={cn("py-2.5 rounded-xl font-bold text-sm", type === 'income' ? "bg-success text-white" : "text-muted-foreground")}>Receita</button>
+              <button 
+                type="button" 
+                onClick={() => { setType('expense'); setCategory(''); }} 
+                className={cn(
+                  "py-2.5 rounded-xl font-bold text-sm transition-all", 
+                  type === 'expense' ? "bg-destructive text-white shadow-sm" : "text-muted-foreground"
+                )}
+              >
+                Despesa
+              </button>
+              <button 
+                type="button" 
+                onClick={() => { setType('income'); setCategory(''); }} 
+                className={cn(
+                  "py-2.5 rounded-xl font-bold text-sm transition-all", 
+                  type === 'income' ? "bg-success text-white shadow-sm" : "text-muted-foreground"
+                )}
+              >
+                Receita
+              </button>
             </div>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full h-16 border-dashed border-primary/30 bg-primary/5 rounded-2xl flex flex-col gap-1">
+
+            {/* Escanear com IA */}
+            <Button 
+              variant="outline" 
+              onClick={() => fileInputRef.current?.click()} 
+              disabled={isScanning}
+              className="w-full h-16 border-dashed border-primary/30 bg-primary/5 rounded-2xl flex flex-col gap-1 active:scale-95 transition-transform"
+            >
               {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
-              <span className="text-[10px] font-black uppercase">Escanear Nota com IA</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Escanear Nota com IA</span>
             </Button>
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleScanReceipt} />
+
+            {/* Valor */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-black uppercase ml-1">Valor</Label>
-              <Input type="text" inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-14 text-2xl font-black rounded-2xl bg-muted/20 border-none" />
+              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Valor</Label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">R$</span>
+                <Input 
+                  type="text" 
+                  inputMode="decimal" 
+                  placeholder="0,00" 
+                  value={amount} 
+                  onChange={(e) => setAmount(e.target.value)} 
+                  className="h-14 text-2xl font-black rounded-2xl bg-muted/20 border-none pl-12 focus-visible:ring-1 focus-visible:ring-primary/20" 
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {categories.map((cat) => {
-                const Icon = getCategoryIcon(cat.icon);
-                return (
-                  <button key={cat.id} type="button" onClick={() => setCategory(cat.id)} className={cn("flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border transition-all h-20", category === cat.id ? "border-primary bg-primary/10 text-primary" : "border-transparent bg-muted/30")}>
-                    <Icon className="h-5 w-5" />
-                    <span className="text-[10px] font-bold">{cat.label}</span>
-                  </button>
-                );
-              })}
+
+            {/* Categorias */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Categoria</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {categories.map((cat) => {
+                  const Icon = getCategoryIcon(cat.icon);
+                  const isSelected = category === cat.id;
+                  return (
+                    <button 
+                      key={cat.id} 
+                      type="button" 
+                      onClick={() => setCategory(cat.id)} 
+                      className={cn(
+                        "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border transition-all h-20", 
+                        isSelected 
+                          ? "border-primary bg-primary/10 text-primary shadow-sm scale-105" 
+                          : "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-[10px] font-bold truncate w-full text-center">{cat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Data */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Data</Label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start h-12 text-sm rounded-2xl bg-muted/20 border-none px-4 font-bold"
+                  >
+                    <CalendarIcon className="mr-3 h-4 w-4 text-primary" />
+                    {format(date, "dd 'de' MMMM, yyyy", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-xl" align="start">
+                  <Calendar 
+                    mode="single" 
+                    selected={date} 
+                    onSelect={(d) => { if (d) setDate(d); setDatePickerOpen(false); }} 
+                    initialFocus 
+                    locale={ptBR} 
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Descrição */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase ml-1 tracking-widest text-muted-foreground">Descrição</Label>
+              <Textarea 
+                placeholder="Ex: Mercado mensal, Netflix..." 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)}
+                className="rounded-2xl bg-muted/20 border-none min-h-[100px] p-4 text-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+              />
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-background pt-10 safe-bottom">
-            <Button onClick={handleSubmit} disabled={addTransaction.isPending || isScanning} className={cn("w-full h-14 text-lg font-black rounded-2xl", type === 'income' ? "gradient-income" : "gradient-expense")}>Confirmar</Button>
+
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10 safe-bottom z-10">
+            <Button 
+              onClick={handleSubmit} 
+              disabled={addTransaction.isPending || isScanning} 
+              className={cn(
+                "w-full h-14 text-lg font-black rounded-2xl shadow-lg active:scale-95 transition-transform", 
+                type === 'income' ? "gradient-income" : "gradient-expense"
+              )}
+            >
+              {addTransaction.isPending ? 'Salvando...' : 'Confirmar'}
+            </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }
