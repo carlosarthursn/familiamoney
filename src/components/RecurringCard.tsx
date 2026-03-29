@@ -50,13 +50,13 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
     }
   };
 
-  const isPending = markAsPaid.isPending || unmarkAsPaid.isPending;
+  const isPendingAction = markAsPaid.isPending || unmarkAsPaid.isPending;
 
   return (
     <Card className={cn(
       "shadow-sm border-none bg-card group overflow-hidden transition-all",
       !item.is_active && "opacity-50 grayscale",
-      isPaid ? "bg-success/5 border border-success/20" : (!isIncome && "border-l-4 border-l-destructive")
+      isPaid ? "bg-success/5 border border-success/20" : (!isIncome ? "border-l-4 border-l-destructive bg-destructive/5" : "bg-muted/10")
     )}>
       <CardContent className="p-4">
         {isEditing ? (
@@ -106,7 +106,7 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className={cn(
                 "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
-                isIncome ? "bg-success/10" : (isPaid ? "bg-success/20" : "bg-destructive/10")
+                isIncome ? "bg-success/10" : (isPaid ? "bg-success/20" : "bg-destructive/20")
               )}>
                 <Icon className={cn(
                   "h-5 w-5", 
@@ -121,7 +121,7 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
                       <Check className="h-2 w-2" /> Pago
                     </span>
                   ) : !isIncome && (
-                    <span className="text-[8px] font-black uppercase text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    <span className="text-[8px] font-black uppercase text-destructive bg-destructive/20 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                       <AlertCircle className="h-2 w-2" /> Pendente
                     </span>
                   )}
@@ -150,13 +150,13 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
               {item.is_active && (
                 <button
                   onClick={handleToggleStatus}
-                  disabled={isPending}
+                  disabled={isPendingAction}
                   className={cn(
                     "p-2 rounded-full transition-colors active:scale-90",
                     isPaid ? "text-success hover:bg-success/10" : "text-primary hover:bg-primary/10"
                   )}
                 >
-                  {isPending ? (
+                  {isPendingAction ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
                     <CheckCircle2 className={cn("h-6 w-6", isPaid && "fill-success/20")} />
