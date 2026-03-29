@@ -13,7 +13,7 @@ import { ProfileSettings } from "./components/ProfileSettings";
 import { AppLayout } from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import { SplashScreen } from "./components/SplashScreen";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const queryClient = new QueryClient();
 
@@ -25,21 +25,25 @@ const CalendarRoute = () => {
 const AppRoutes = () => {
   const { user, loading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+  const prevUser = useRef(user);
 
-  // Forçar a exibição da Splash Screen por pelo menos 2200ms
+  // Efeito para o carregamento inicial e transição de login
   useEffect(() => {
-    const timer = setTimeout(() => {
-      // Só remove a splash se a autenticação já tiver terminado de carregar
-      if (!loading) {
-        setShowSplash(false);
-      }
-    }, 2200);
-    
-    return () => clearTimeout(timer);
-  }, [loading]);
+    // Se o usuário mudou de "null" para "autenticado", mostramos a splash
+    if (!prevUser.current && user) {
+      setShowSplash(true);
+    }
+    prevUser.current = user;
 
-  // Se ainda estiver carregando a auth OU o tempo mínimo de splash não passou
-  if (showSplash) {
+    if (!loading) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 2300); // Tempo para a animação do logo completar
+      return () => clearTimeout(timer);
+    }
+  }, [loading, user]);
+
+  if (showSplash || (loading && !user)) {
     return <SplashScreen />;
   }
 
