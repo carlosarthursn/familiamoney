@@ -63,6 +63,17 @@ export function usePlanning() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['savingsGoals'] }),
   });
 
+  const updateGoal = useMutation({
+    mutationFn: async ({ id, name, targetamount }: { id: string, name?: string, targetamount?: number }) => {
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (targetamount !== undefined) updates.targetamount = targetamount;
+      const { error } = await supabase.from('savings_goals').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['savingsGoals'] }),
+  });
+
   const deleteGoal = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('savings_goals').delete().eq('id', id);
@@ -103,6 +114,17 @@ export function usePlanning() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishList'] }),
   });
 
+  const updateItem = useMutation({
+    mutationFn: async ({ id, name, price }: { id: string, name?: string, price?: number }) => {
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (price !== undefined) updates.price = price;
+      const { error } = await supabase.from('wishlist_items').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishList'] }),
+  });
+
   const deleteItem = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('wishlist_items').delete().eq('id', id);
@@ -117,9 +139,11 @@ export function usePlanning() {
     addGoal,
     deleteGoal,
     updateGoalAmount,
+    updateGoal,
     wishList: wishListQuery.data || [],
     isLoadingWishList: wishListQuery.isLoading,
     addItem,
     deleteItem,
+    updateItem,
   };
 }

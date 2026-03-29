@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { RecurringExpense, useRecurring } from '@/hooks/useRecurring';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, Calendar, CheckCircle2, Loader2, X, Check, AlertCircle } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Loader2, Check, AlertCircle } from 'lucide-react';
 import { getCategoryInfo, getCategoryIcon } from '@/types/finance';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -54,7 +54,7 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
 
   return (
     <Card className={cn(
-      "shadow-sm border-none bg-card group overflow-hidden transition-all active:scale-[0.98]",
+      "shadow-sm border-none bg-card group overflow-hidden transition-all",
       !item.is_active && "opacity-50 grayscale",
       isPaid ? "bg-success/5 border border-success/10" : (!isIncome ? "border-l-4 border-l-destructive bg-destructive/5" : "bg-muted/10")
     )}>
@@ -67,7 +67,8 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
                 <Input 
                   value={editName} 
                   onChange={e => setEditName(e.target.value)} 
-                  className="h-10 rounded-xl font-bold"
+                  className="h-10 rounded-xl font-bold bg-background/80 border border-border/50"
+                  onClick={e => e.stopPropagation()}
                 />
               </div>
               <div className="space-y-1">
@@ -79,7 +80,8 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
                     inputMode="decimal"
                     value={editAmount} 
                     onChange={e => setEditAmount(e.target.value.replace(/[^0-9,.]/g, ''))} 
-                    className="h-10 pl-9 rounded-xl font-black text-base"
+                    className="h-10 pl-9 rounded-xl font-black text-base bg-background/80 border border-border/50"
+                    onClick={e => e.stopPropagation()}
                   />
                 </div>
               </div>
@@ -87,20 +89,20 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
             <div className="flex justify-end gap-2 pt-1">
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsEditing(false); }} 
-                className="px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-muted rounded-lg"
+                className="px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-muted rounded-lg transition-colors"
               >
                 Cancelar
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); handleSave(); }} 
-                className="px-4 py-1.5 bg-primary text-white text-xs font-black rounded-lg shadow-md"
+                className="px-4 py-1.5 bg-primary text-white text-xs font-black rounded-lg shadow-md hover:bg-primary/90 transition-colors"
               >
                 Salvar
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 sm:gap-3" onClick={() => setIsEditing(true)}>
+          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => setIsEditing(true)}>
             {/* Ícone menor no mobile */}
             <div className={cn(
               "h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0",
