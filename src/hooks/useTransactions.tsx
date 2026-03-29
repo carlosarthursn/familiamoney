@@ -25,6 +25,9 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
     userIds.push(profile.linked_user_id);
   }
 
+  // Chave de cache única para este mês e usuário
+  const cacheKey = `confere_txs_${userIds.sort().join(',')}_${monthStart}`;
+
   const transactionsQuery = useQuery({
     queryKey: ['transactions', userIds.sort().join(','), monthStart, monthEnd],
     queryFn: async () => {
@@ -43,11 +46,26 @@ export function useTransactions({ selectedDate, filterCategories }: UseTransacti
         throw error;
       }
 
-      return (data || []).map(t => ({
+      const formattedData = (data || []).map(t => ({
         ...t,
         amount: Number(t.amount),
         author_name: t.user_id === user?.id ? 'Você' : (profile?.partnerName || 'Parceiro')
       }));
+
+      // TRUQUE 3: Salva transações no cache
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(formattedData));
+      } catch (e) {}
+
+      return formattedData;
+    },
+    // TRUQUE 4: Carrega instantaneamente os dados antigos antes do servidor responder
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+      return undefined;
     },
     enabled: !!user,
     refetchOnWindowFocus: true,

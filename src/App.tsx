@@ -13,7 +13,7 @@ import { ProfileSettings } from "./components/ProfileSettings";
 import { AppLayout } from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import { SplashScreen } from "./components/SplashScreen";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const queryClient = new QueryClient();
 
@@ -24,17 +24,10 @@ const CalendarRoute = () => {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
-  const [minSplashTimePassed, setMinSplashTimePassed] = useState(false);
 
-  // Reduzido de 1500ms para apenas 500ms! O app vai abrir quase que instantaneamente.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinSplashTimePassed(true);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (loading || !minSplashTimePassed) {
+  // Removido o timeout de espera da SplashScreen.
+  // Agora se já tivermos o usuário no cache, abrimos a interface IMEDIATAMENTE.
+  if (loading) {
     return <SplashScreen />;
   }
 

@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      return {
+      const finalProfile = {
         name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
         avatar_url: profileData.avatar_url,
         linked_user_id: profileData.linked_user_id,
@@ -73,6 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         partnerAvatar: pAvatar,
         monthly_budget: Number(profileData.monthly_budget) || 0
       };
+
+      // TRUQUE 1: Salva o perfil no cache local do dispositivo
+      try {
+        localStorage.setItem(`confere_profile_${currentUser.id}`, JSON.stringify(finalProfile));
+      } catch (e) {}
+
+      return finalProfile;
     } catch (e) {
       console.error("Erro ao buscar perfil:", e);
       return null;
@@ -106,10 +113,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (newUser) {
           setUser(newUser);
           setSession(newSession);
+
+          // TRUQUE 2: Tenta carregar do cache instantaneamente e libera a tela
+          try {
+            const cachedProfileStr = localStorage.getItem(`confere_profile_${newUser.id}`);
+            if (cachedProfileStr) {
+              setProfile(JSON.parse(cachedProfileStr));
+              if (mounted) setLoading(false); // Libera o app instantaneamente!
+            }
+          } catch (e) {}
+          
+          // Busca os dados atualizados em background
           const p = await fetchProfile(newUser);
           if (mounted) {
-            setProfile(p);
-            setLoading(false);
+            if (p) setProfile(p);
+            setLoading(false); // Libera caso seja a primeira vez e não tenha cache
           }
         } else {
           setUser(null);
