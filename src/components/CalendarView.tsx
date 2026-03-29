@@ -34,6 +34,7 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
     const hasBoth: Date[] = [];
     const hasRecIncome: Date[] = [];
     const hasRecExpense: Date[] = [];
+    const hasRecBoth: Date[] = [];
     
     const dayMap: Record<string, { income: boolean, expense: boolean }> = {};
     transactions.forEach(t => {
@@ -49,19 +50,24 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
       else if (types.expense) hasExpense.push(date);
     });
 
-    const currentMonth = startOfMonth(selectedDate);
+    const recDayMap: Record<number, { income: boolean, expense: boolean }> = {};
     recurring.forEach(item => {
       if (item.is_active) {
-        const dueDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), item.due_day);
-        if (item.type === 'income') {
-          hasRecIncome.push(dueDate);
-        } else {
-          hasRecExpense.push(dueDate);
-        }
+        if (!recDayMap[item.due_day]) recDayMap[item.due_day] = { income: false, expense: false };
+        if (item.type === 'income') recDayMap[item.due_day].income = true;
+        else recDayMap[item.due_day].expense = true;
       }
     });
 
-    return { hasIncome, hasExpense, hasBoth, hasRecIncome, hasRecExpense };
+    const currentMonth = startOfMonth(selectedDate);
+    Object.entries(recDayMap).forEach(([day, types]) => {
+      const dueDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), parseInt(day));
+      if (types.income && types.expense) hasRecBoth.push(dueDate);
+      else if (types.income) hasRecIncome.push(dueDate);
+      else if (types.expense) hasRecExpense.push(dueDate);
+    });
+
+    return { hasIncome, hasExpense, hasBoth, hasRecIncome, hasRecExpense, hasRecBoth };
   }, [transactions, recurring, selectedDate]);
 
   const transactionsForSelectedDay = transactions.filter(t => 
@@ -112,6 +118,7 @@ export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) 
             hasBoth: "day-has-both",
             hasRecIncome: "day-has-rec-income",
             hasRecExpense: "day-has-rec-expense",
+            hasRecBoth: "day-has-rec-both",
           }}
         />
       </div>

@@ -68,32 +68,48 @@
   .day-has-both::after {
     content: '';
     position: absolute;
-    bottom: 4px;
+    bottom: 6px;
     left: 50%;
     transform: translateX(-50%);
-    width: 4px;
     height: 4px;
-    border-radius: 50%;
+    z-index: 10;
   }
 
-  .day-has-income::after { @apply bg-success; }
-  .day-has-expense::after { @apply bg-destructive; }
-  .day-has-both::after { @apply bg-warning; }
+  .day-has-income::after { width: 4px; border-radius: 50%; @apply bg-success; }
+  .day-has-expense::after { width: 4px; border-radius: 50%; @apply bg-destructive; }
+  
+  /* Ponto de duas cores para quando tem ambos */
+  .day-has-both::after {
+    width: 10px;
+    border-radius: 2px;
+    background: linear-gradient(to right, hsl(var(--success)) 45%, transparent 45%, transparent 55%, hsl(var(--destructive)) 55%);
+  }
 
   /* Sublinhados para pagamentos recorrentes/planejados */
   .day-has-rec-income::before,
-  .day-has-rec-expense::before {
+  .day-has-rec-expense::before,
+  .day-has-rec-both::before {
     content: '';
     position: absolute;
     bottom: 2px;
     left: 20%;
     right: 20%;
-    height: 1.5px;
-    border-radius: 1px;
+    height: 2px;
+    z-index: 5;
   }
 
-  .day-has-rec-income::before { @apply bg-success/40; }
-  .day-has-rec-expense::before { @apply bg-destructive/40; }
+  .day-has-rec-income::before { @apply bg-success/30; }
+  .day-has-rec-expense::before { @apply bg-destructive/30; }
+  
+  /* Sublinhado de duas cores para recorrentes */
+  .day-has-rec-both::before {
+    background: linear-gradient(to right, hsl(var(--success)/0.4) 45%, transparent 45%, transparent 55%, hsl(var(--destructive)/0.4) 55%);
+  }
+
+  /* Garantir que os pontos não sumam quando o dia está selecionado */
+  .rdp-day_selected::after, .rdp-day_selected::before {
+    filter: brightness(1.5) contrast(1.2);
+  }
 }
 
 @layer utilities {
