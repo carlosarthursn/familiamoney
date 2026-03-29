@@ -13,7 +13,7 @@ import { ProfileSettings } from "./components/ProfileSettings";
 import { AppLayout } from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import { SplashScreen } from "./components/SplashScreen";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient();
 
@@ -25,8 +25,19 @@ const CalendarRoute = () => {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
 
-  if (loading) {
+  // Garante que a Splash Screen apareça por pelo menos 2 segundos para a animação completar
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
+  if (loading || showSplash) {
     return <SplashScreen />;
   }
 
