@@ -36,7 +36,7 @@ export function AddRecurringSheet() {
 
   const handleSubmit = async () => {
     if (!name || !amount || !category) return;
-    const numAmount = parseFloat(amount.replace(',', '.'));
+    const numAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
     const numDueDay = parseInt(dueDay);
 
     try {

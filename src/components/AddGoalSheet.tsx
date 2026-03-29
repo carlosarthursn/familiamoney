@@ -20,7 +20,7 @@ import { SuccessOverlay } from './SuccessOverlay';
 
 const goalSchema = z.object({
   name: z.string().min(3, 'Mínimo 3 caracteres'),
-  targetamount: z.string().refine(val => !isNaN(parseFloat(val.replace(',', '.'))) && parseFloat(val.replace(',', '.')) > 0, { message: 'Valor deve ser positivo' }),
+  targetamount: z.string().refine(val => !isNaN(parseFloat(val.replace(/\./g, '').replace(',', '.'))) && parseFloat(val.replace(/\./g, '').replace(',', '.')) > 0, { message: 'Valor deve ser positivo' }),
   targetdate: z.date({ required_error: 'Selecione a data' }),
 });
 
@@ -36,7 +36,7 @@ export function AddGoalSheet() {
 
   const onSubmit = async (values: z.infer<typeof goalSchema>) => {
     try {
-      await addGoal.mutateAsync({ name: values.name, targetamount: parseFloat(values.targetamount.replace(',', '.')), currentamount: 0, targetdate: format(values.targetdate, 'yyyy-MM-dd') });
+      await addGoal.mutateAsync({ name: values.name, targetamount: parseFloat(values.targetamount.replace(/\./g, '').replace(',', '.')), currentamount: 0, targetdate: format(values.targetdate, 'yyyy-MM-dd') });
       setShowSuccess(true);
     } catch (e) { toast.error('Erro ao salvar.'); }
   };

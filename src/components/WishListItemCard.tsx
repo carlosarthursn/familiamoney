@@ -34,14 +34,14 @@ export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const numAmount = parseFloat(editAmount.replace(',', '.'));
+    const numAmount = parseFloat(editAmount.replace(/\./g, '').replace(',', '.'));
     if (isNaN(numAmount)) return;
     updateItem.mutate({ id: item.id, name: editName, price: numAmount });
     setIsEditing(false);
   };
 
   return (
-    <Card className="shadow-card group transition-all hover:shadow-card-hover overflow-hidden">
+    <Card className="shadow-card group transition-all hover:shadow-card-hover overflow-hidden border-border/50">
       {isEditing ? (
         <CardContent className="p-4">
           <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
@@ -91,14 +91,16 @@ export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
           className="p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform w-full h-full"
           onClick={() => setIsEditing(true)}
         >
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+          <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
+            <div className="h-10 w-10 rounded-full bg-muted/60 border border-border/50 flex items-center justify-center shrink-0">
+              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="min-w-0">
-              <p className="font-medium truncate">{item.name}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", priority.color)}>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-[13px] text-foreground leading-tight line-clamp-2">
+                {item.name}
+              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full", priority.color)}>
                   {priority.label}
                 </span>
                 {item.link && (
@@ -106,7 +108,7 @@ export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
                     href={item.link} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-primary hover:opacity-80 transition-opacity p-1"
+                    className="text-primary hover:opacity-80 transition-opacity p-0.5"
                     aria-label="Link do produto"
                     onClick={e => e.stopPropagation()}
                   >
@@ -117,14 +119,14 @@ export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
             </div>
           </div>
           
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             <p className="font-bold text-sm text-foreground whitespace-nowrap">
               {formatCurrency(item.price)}
             </p>
             
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-              className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive transition-all touch-target"
+              className="p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive rounded-md transition-all touch-target"
               aria-label="Excluir item"
             >
               <Trash2 className="h-4 w-4" />

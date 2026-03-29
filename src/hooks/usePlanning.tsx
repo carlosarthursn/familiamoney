@@ -46,17 +46,23 @@ export function usePlanning() {
   const updateGoalAmount = useMutation({
     mutationFn: async ({ id, amountChange }: { id: string, amountChange: number }) => {
       if (!user) throw new Error('Usuário não autenticado');
+      
       const { data: goal, error: fetchError } = await supabase
         .from('savings_goals')
-        .select('currentamount')
+        .select('*')
         .eq('id', id)
         .single();
       
       if (fetchError || !goal) throw new Error('Meta não encontrada');
       
-      const { error } = await supabase.from('savings_goals').update({ 
-        currentamount: (goal as any).currentamount + amountChange 
-      }).eq('id', id);
+      // Suporte para ambas as nomenclaturas do banco de dados (camelCase ou minúscula)
+      const currentVal = (goal as any).currentAmount ?? (goal as any).currentamount ?? 0;
+      
+      const updateData: any = {};
+      if ('currentAmount' in goal) updateData.currentAmount = currentVal + amountChange;
+      if ('currentamount' in goal) updateData.currentamount = currentVal + amountChange;
+      
+      const { error } = await supabase.from('savings_goals').update(updateData).eq('id', id);
       
       if (error) throw error;
     },

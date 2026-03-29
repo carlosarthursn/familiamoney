@@ -48,7 +48,7 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const numAmount = parseFloat(editAmount.replace(',', '.'));
+    const numAmount = parseFloat(editAmount.replace(/\./g, '').replace(',', '.'));
     if (isNaN(numAmount)) return;
     updateTransaction.mutate({
       id: transaction.id,

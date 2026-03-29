@@ -17,7 +17,7 @@ import { SuccessOverlay } from './SuccessOverlay';
 
 const wishSchema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
-  price: z.string().refine(val => !isNaN(parseFloat(val.replace(',', '.'))), { message: 'Valor inválido' }),
+  price: z.string().refine(val => !isNaN(parseFloat(val.replace(/\./g, '').replace(',', '.'))), { message: 'Valor inválido' }),
   priority: z.enum(['high', 'medium', 'low']),
   link: z.string().url('Link inválido').optional().or(z.literal('')),
 });
@@ -30,7 +30,7 @@ export function AddWishItemSheet() {
 
   const onSubmit = async (v: z.infer<typeof wishSchema>) => {
     try {
-      await addItem.mutateAsync({ name: v.name, price: parseFloat(v.price.replace(',', '.')), priority: v.priority, link: v.link || null });
+      await addItem.mutateAsync({ name: v.name, price: parseFloat(v.price.replace(/\./g, '').replace(',', '.')), priority: v.priority, link: v.link || null });
       setShowSuccess(true);
     } catch (e) { toast.error('Erro ao salvar.'); }
   };

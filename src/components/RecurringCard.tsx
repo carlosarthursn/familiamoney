@@ -30,7 +30,7 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
   const Icon = getCategoryIcon(cat.icon);
   
   const handleSave = () => {
-    const amount = parseFloat(editAmount.replace(',', '.'));
+    const amount = parseFloat(editAmount.replace(/\./g, '').replace(',', '.'));
     if (isNaN(amount)) return;
     
     updateRecurring.mutate({ 
