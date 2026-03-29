@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Moon, Sun, Fingerprint, LogOut } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { UserPlus, Loader2, User as UserIcon, Heart, Camera, Moon, Sun, Fingerprint, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
 import { cn } from '@/lib/utils';
+import Cropper from 'react-easy-crop';
+import getCroppedImg, { PixelCrop } from '@/lib/cropImage';
 
 export function ProfileSettings() {
   const { user, profile, updateProfile, linkPartner, unlinkPartner, registerPasskey, signOut } = useAuth();
@@ -21,7 +24,13 @@ export function ProfileSettings() {
   const [partnerEmail, setPartnerEmail] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isBiometrySupported, setIsBiometrySupported] = useState(false);
+  
+  // Crop states
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
 
   useEffect(() => {
     if (profile?.name) setName(profile.name);
@@ -56,22 +65,42 @@ export function ProfileSettings() {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const readFile = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.addEventListener('load', () => resolve(reader.result as string), false);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const imageDataUrl = await readFile(file);
+      setImageSrc(imageDataUrl);
+      e.target.value = ''; // Reset input para permitir selecionar a mesma foto de novo
+    }
+  };
+
+  const onCropComplete = useCallback((_croppedArea: any, croppedPixels: PixelCrop) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  const handleUploadCroppedImage = async () => {
+    if (!imageSrc || !croppedAreaPixels || !user) return;
+    
+    setUploading(true);
     try {
-      if (!event.target.files || event.target.files.length === 0) return;
-      if (!user) return;
-      
-      setUploading(true);
-      const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      // Usamos o ID do usuário como nome fixo para evitar duplicatas infinitas no storage
-      const filePath = `${user.id}.${fileExt}`;
+      const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (!croppedImageBlob) throw new Error('Erro ao processar o corte da imagem');
+
+      const filePath = `${user.id}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { 
+        .upload(filePath, croppedImageBlob, { 
           upsert: true,
-          contentType: file.type 
+          contentType: 'image/jpeg' 
         });
 
       if (uploadError) {
@@ -82,8 +111,6 @@ export function ProfileSettings() {
       }
 
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      
-      // Adicionamos um timestamp para forçar o navegador a recarregar a imagem
       const finalUrl = `${publicUrl}?t=${Date.now()}`;
       
       const { error: updateError } = await updateProfile({ avatar_url: finalUrl });
@@ -91,6 +118,7 @@ export function ProfileSettings() {
 
       setSuccessMessage('Foto salva!');
       setShowSuccess(true);
+      setImageSrc(null); // Fecha o modal de corte
     } catch (error: any) {
       console.error('Erro no upload:', error);
       toast.error(error.message || 'Erro ao carregar imagem.');
@@ -99,7 +127,6 @@ export function ProfileSettings() {
     }
   };
 
-  // ... (manter o restante das funções handleLink, handleUnlink igual)
   const handleRegisterPasskey = async () => {
     setLoading(true);
     try {
@@ -184,7 +211,7 @@ export function ProfileSettings() {
             >
               <Camera className="h-4 w-4" />
             </button>
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
           </div>
           <div className="w-full space-y-2">
             <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nome</Label>
@@ -239,6 +266,64 @@ export function ProfileSettings() {
           Sair da Conta
         </Button>
       </div>
+
+      {/* Modal de Crop de Imagem */}
+      <Dialog open={!!imageSrc} onOpenChange={(open) => !open && setImageSrc(null)}>
+        <DialogContent className="sm:max-w-md w-[90%] rounded-2xl bg-background border-none shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0 z-10 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/50 to-transparent">
+            <DialogTitle className="text-white text-lg font-bold">Ajustar Foto</DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative w-full h-[60vh] bg-black">
+            {imageSrc && (
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            )}
+          </div>
+          
+          <div className="p-4 bg-background z-10 space-y-4">
+            <div className="px-2">
+              <Label className="text-xs text-muted-foreground mb-2 block">Ajuste o zoom</Label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={() => setImageSrc(null)}
+                className="w-full h-12 rounded-xl font-bold"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleUploadCroppedImage} 
+                disabled={uploading} 
+                className="w-full h-12 rounded-xl gradient-primary font-bold"
+              >
+                {uploading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                {uploading ? 'Salvando...' : 'Confirmar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

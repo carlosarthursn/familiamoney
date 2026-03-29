@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
-  const initialized = useRef(false);
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     try {
@@ -83,51 +82,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
-      if (initialized.current) return;
-      initialized.current = true;
-
+    const initializeAuth = async () => {
       try {
-        const { data: { session: s } } = await supabase.auth.getSession();
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        if (error) throw error;
         
-        if (!mounted) return;
-
-        if (s?.user) {
-          setUser(s.user);
-          setSession(s);
-          const p = await fetchProfile(s.user);
-          if (mounted) {
-            setProfile(p);
-            setLoading(false);
-          }
-        } else {
-          if (mounted) setLoading(false);
+        if (!currentSession && mounted) {
+          setLoading(false);
         }
       } catch (err) {
-        console.error("Erro na inicialização da auth:", err);
+        console.error("Auth init error:", err);
         if (mounted) setLoading(false);
       }
     };
 
-    initAuth();
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
       
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setSession(null);
-        setProfile(null);
-        setLoading(false);
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         const newUser = newSession?.user ?? null;
         if (newUser) {
           setUser(newUser);
           setSession(newSession);
           const p = await fetchProfile(newUser);
-          if (mounted) setProfile(p);
+          if (mounted) {
+            setProfile(p);
+            setLoading(false);
+          }
+        } else {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          if (mounted) setLoading(false);
         }
-        setLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        if (mounted) setLoading(false);
       }
     });
 
@@ -156,10 +150,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     setLoading(true);
     await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setLoading(false);
   };
 
   const updateProfile = async (updates: any) => {
