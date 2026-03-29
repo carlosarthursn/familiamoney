@@ -6,9 +6,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Moon, Sun, Fingerprint, LogOut } from 'lucide-react';
+import { UserPlus, Loader2, User as UserIcon, Save, Heart, Camera, Moon, Sun, Fingerprint, LogOut } from 'lucide-center';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
+import { cn } from '@/lib/utils';
 
 export function ProfileSettings() {
   const { user, profile, updateProfile, linkPartner, unlinkPartner, registerPasskey, signOut } = useAuth();
