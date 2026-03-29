@@ -120,6 +120,46 @@ export function useRecurring() {
     }
   });
 
+  const unmarkAsPaid = useMutation({
+    mutationFn: async (item: RecurringExpense) => {
+      if (!user) throw new Error('Não autenticado');
+      
+      const start = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      const end = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+      const desc = `${item.name} (${item.type === 'income' ? 'Recebido' : 'Pago'})`;
+
+      const { data: trans } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('description', desc)
+        .gte('date', start)
+        .lte('date', end)
+        .limit(1);
+
+      if (trans && trans.length > 0) {
+        const { error } = await supabase.from('transactions').delete().eq('id', trans[0].id);
+        if (error) throw error;
+
+        // Reverte parcela se necessário
+        if (item.is_installment && item.current_installment !== null) {
+          const updates: any = {};
+          if (!item.is_active) updates.is_active = true;
+          if (item.current_installment > 1) updates.current_installment = item.current_installment - 1;
+          
+          if (Object.keys(updates).length > 0) {
+            await supabase.from('recurring_expenses').update(updates).eq('id', item.id);
+          }
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['recurringExpenses'] });
+      toast.success('Lançamento removido.');
+    }
+  });
+
   return {
     recurring: recurringQuery.data || [],
     isLoading: recurringQuery.isLoading,
@@ -127,5 +167,6 @@ export function useRecurring() {
     updateRecurring,
     deleteRecurring,
     markAsPaid,
+    unmarkAsPaid,
   };
 }

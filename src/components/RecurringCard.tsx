@@ -20,7 +20,7 @@ function formatCurrency(value: number): string {
 }
 
 export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
-  const { markAsPaid, updateRecurring } = useRecurring();
+  const { markAsPaid, unmarkAsPaid, updateRecurring } = useRecurring();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [editAmount, setEditAmount] = useState(String(item.amount));
@@ -41,10 +41,16 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
     setIsEditing(false);
   };
 
-  const handleMarkAsPaid = (e: React.MouseEvent) => {
+  const handleToggleStatus = (e: React.MouseEvent) => {
     e.stopPropagation();
-    markAsPaid.mutate(item);
+    if (isPaid) {
+      unmarkAsPaid.mutate(item);
+    } else {
+      markAsPaid.mutate(item);
+    }
   };
+
+  const isPending = markAsPaid.isPending || unmarkAsPaid.isPending;
 
   return (
     <Card className={cn(
@@ -141,18 +147,21 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
                 </p>
               </div>
 
-              {!isPaid && item.is_active ? (
+              {item.is_active && (
                 <button
-                  onClick={handleMarkAsPaid}
-                  disabled={markAsPaid.isPending}
-                  className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors active:scale-90"
+                  onClick={handleToggleStatus}
+                  disabled={isPending}
+                  className={cn(
+                    "p-2 rounded-full transition-colors active:scale-90",
+                    isPaid ? "text-success hover:bg-success/10" : "text-primary hover:bg-primary/10"
+                  )}
                 >
-                  {markAsPaid.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-6 w-6" />}
+                  {isPending ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className={cn("h-6 w-6", isPaid && "fill-success/20")} />
+                  )}
                 </button>
-              ) : !isIncome && isPaid && (
-                <div className="p-2 text-success">
-                  <CheckCircle2 className="h-6 w-6 fill-success/10" />
-                </div>
               )}
 
               <button 
