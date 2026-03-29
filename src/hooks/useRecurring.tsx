@@ -26,6 +26,8 @@ export function useRecurring() {
   const userIds = [user?.id].filter(Boolean) as string[];
   if (profile?.linked_user_id) userIds.push(profile.linked_user_id);
 
+  const cacheKey = `confere_rec_${userIds.sort().join(',')}`;
+
   const recurringQuery = useQuery({
     queryKey: ['recurringExpenses', userIds.sort().join(',')],
     queryFn: async (): Promise<RecurringExpense[]> => {
@@ -37,12 +39,27 @@ export function useRecurring() {
         .order('due_day', { ascending: true });
 
       if (error) throw error;
-      return (data || []).map(item => ({
+      
+      const formatted = (data || []).map(item => ({
         ...item,
         type: item.type || 'expense'
       })) as RecurringExpense[];
+
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(formatted));
+      } catch (e) {}
+
+      return formatted;
+    },
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+      return undefined;
     },
     enabled: !!user,
+    staleTime: 0,
   });
 
   const addRecurring = useMutation({

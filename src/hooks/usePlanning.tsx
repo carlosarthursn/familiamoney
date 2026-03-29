@@ -10,6 +10,9 @@ export function usePlanning() {
   const userIds = [user?.id].filter(Boolean) as string[];
   if (profile?.linked_user_id) userIds.push(profile.linked_user_id);
 
+  const goalsCacheKey = `confere_goals_${userIds.sort().join(',')}`;
+  const wishCacheKey = `confere_wish_${userIds.sort().join(',')}`;
+
   // --- Savings Goals ---
   const goalsQuery = useQuery({
     queryKey: ['savingsGoals', userIds.sort().join(',')],
@@ -23,9 +26,20 @@ export function usePlanning() {
         .order('targetdate', { ascending: true });
 
       if (error) throw error;
-      return (data || []) as SavingsGoal[];
+      const formatted = (data || []) as SavingsGoal[];
+
+      try { localStorage.setItem(goalsCacheKey, JSON.stringify(formatted)); } catch (e) {}
+      return formatted;
+    },
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem(goalsCacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+      return undefined;
     },
     enabled: !!user,
+    staleTime: 0,
   });
 
   const addGoal = useMutation({
@@ -100,9 +114,20 @@ export function usePlanning() {
         .order('priority', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as WishlistItem[];
+      const formatted = (data || []) as WishlistItem[];
+
+      try { localStorage.setItem(wishCacheKey, JSON.stringify(formatted)); } catch (e) {}
+      return formatted;
+    },
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem(wishCacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+      return undefined;
     },
     enabled: !!user,
+    staleTime: 0,
   });
 
   const addItem = useMutation({

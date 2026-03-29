@@ -35,6 +35,8 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
   const userIds = [user?.id].filter(Boolean) as string[];
   if (profile?.linked_user_id) userIds.push(profile.linked_user_id);
 
+  const cacheKey = `confere_budgets_${userIds.sort().join(',')}`;
+
   const { data: budgets, isLoading } = useQuery({
     queryKey: ['budgets', userIds.sort().join(',')],
     queryFn: async () => {
@@ -56,12 +58,22 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
         }
       });
       
-      return Object.entries(consolidated).map(([cat, data]) => ({
+      const formatted = Object.entries(consolidated).map(([cat, data]) => ({
         id: cat,
         category: cat,
         monthly_limit: data.limit,
         custom_label: data.label
       }));
+
+      try { localStorage.setItem(cacheKey, JSON.stringify(formatted)); } catch(e) {}
+      return formatted;
+    },
+    initialData: () => {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+      return undefined;
     },
     enabled: !!user,
   });
