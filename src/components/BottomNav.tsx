@@ -8,9 +8,9 @@ interface BottomNavProps {
 
 const tabs = [
   { id: 'home', label: 'Início', icon: Home },
+  { id: 'planning', label: 'Planejar', icon: Target },
   { id: 'calendar', label: 'Calendário', icon: CalendarDays },
   { id: 'analysis', label: 'Análise', icon: PieChart },
-  { id: 'planning', label: 'Planejar', icon: Target },
 ];
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
