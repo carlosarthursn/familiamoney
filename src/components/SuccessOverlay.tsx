@@ -16,9 +16,10 @@ export function SuccessOverlay({ message = "Concluído!", onFinished, className 
   onFinishedRef.current = onFinished;
 
   React.useEffect(() => {
+    // REDUZIDO DE 2000ms para 1000ms (1 segundo) para deixar o app muito mais rápido!
     const timer = setTimeout(() => {
       if (onFinishedRef.current) onFinishedRef.current();
-    }, 2000);
+    }, 1000);
     return () => clearTimeout(timer);
   }, []); // Executa apenas uma vez ao montar
 

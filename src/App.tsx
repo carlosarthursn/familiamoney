@@ -26,11 +26,11 @@ const AppRoutes = () => {
   const { user, loading } = useAuth();
   const [minSplashTimePassed, setMinSplashTimePassed] = useState(false);
 
-  // Garante que o splash screen apareça por pelo menos 1.5s para evitar um flash rápido
+  // Reduzido de 1500ms para apenas 500ms! O app vai abrir quase que instantaneamente.
   useEffect(() => {
     const timer = setTimeout(() => {
       setMinSplashTimePassed(true);
-    }, 1500);
+    }, 500);
     return () => clearTimeout(timer);
   }, []);
 
