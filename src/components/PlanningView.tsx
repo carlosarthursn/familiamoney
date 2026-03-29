@@ -44,15 +44,18 @@ export function PlanningView() {
 
   const handleDeleteRec = (id: string) => {
     deleteRecurring.mutate(id, {
-      onSuccess: () => { setSuccessMessage('Gasto removido!'); setShowSuccess(true); },
+      onSuccess: () => { setSuccessMessage('Planejamento removido!'); setShowSuccess(true); },
     });
   };
 
-  const recurringIncomes = recurring.filter(r => r.type === 'income');
-  const recurringExpenses = recurring.filter(r => r.type === 'expense');
+  const activeRecurring = recurring.filter(r => r.is_active);
+  const inactiveRecurring = recurring.filter(r => !r.is_active);
+
+  const recurringIncomes = activeRecurring.filter(r => r.type === 'income');
+  const recurringExpenses = activeRecurring.filter(r => r.type === 'expense');
 
   return (
-    <div className="space-y-8 animate-fade-in pb-10">
+    <div className="space-y-8 animate-fade-in pb-20">
       {showSuccess && <SuccessOverlay message={successMessage} onFinished={() => setShowSuccess(false)} />}
 
       <h2 className="text-2xl font-black tracking-tight">Planejamento</h2>
@@ -60,9 +63,12 @@ export function PlanningView() {
       {/* Planejamento Fixo Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold flex items-center gap-2 text-base">
-            <Repeat className="h-5 w-5 text-primary" /> Planejamento Fixo
-          </h3>
+          <div className="flex flex-col">
+            <h3 className="font-bold flex items-center gap-2 text-base">
+              <Repeat className="h-5 w-5 text-primary" /> Lançamentos Fixos
+            </h3>
+            <p className="text-[10px] text-muted-foreground">Gere transações automáticas clicando no check</p>
+          </div>
           <AddRecurringSheet />
         </div>
         
@@ -82,7 +88,7 @@ export function PlanningView() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
                   <TrendingUp className="h-3.5 w-3.5 text-success" />
-                  <span className="text-[10px] font-bold text-success uppercase tracking-widest">Ganhos Fixos</span>
+                  <span className="text-[10px] font-bold text-success uppercase tracking-widest">Recebimentos Fixos</span>
                 </div>
                 <div className="space-y-2">
                   {recurringIncomes.map(item => (
@@ -97,10 +103,21 @@ export function PlanningView() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
                   <TrendingDown className="h-3.5 w-3.5 text-destructive" />
-                  <span className="text-[10px] font-bold text-destructive uppercase tracking-widest">Gastos Fixos</span>
+                  <span className="text-[10px] font-bold text-destructive uppercase tracking-widest">Contas Fixas</span>
                 </div>
                 <div className="space-y-2">
                   {recurringExpenses.map(item => (
+                    <RecurringCard key={item.id} item={item} onDelete={handleDeleteRec} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {inactiveRecurring.length > 0 && (
+              <div className="pt-4 border-t border-border">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-2">Finalizados</p>
+                <div className="space-y-2">
+                  {inactiveRecurring.map(item => (
                     <RecurringCard key={item.id} item={item} onDelete={handleDeleteRec} />
                   ))}
                 </div>
