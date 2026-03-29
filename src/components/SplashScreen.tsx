@@ -29,11 +29,8 @@ const Logo = ({ className }: { className?: string }) => (
 export function SplashScreen() {
   return (
     <div className="fixed inset-0 z-[9999] bg-[#ff7a00] flex flex-col items-center justify-center overflow-hidden">
-      <div className="animate-splash">
+      <div className="animate-pulse">
         <Logo className="h-24 w-24 text-white" />
-      </div>
-      <div className="mt-4 animate-pulse">
-        <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em]">Carregando...</p>
       </div>
     </div>
   );
