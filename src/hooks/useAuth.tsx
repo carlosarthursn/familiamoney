@@ -38,10 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
 
+  // LIMPEZA NUCLEAR DE QUALQUER SESSÃO SALVA
   const forceClearCache = () => {
     try {
       localStorage.clear();
       sessionStorage.clear();
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
     } catch (e) {}
   };
 
@@ -55,31 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (fetchError) throw fetchError;
       
+      // SE O PERFIL NÃO EXISTIR: REJEITA A CONTA. 
+      // (Sem "auto-recuperação" ou falsos logins)
       if (!dbProfile) {
-        console.warn("Perfil não encontrado. Auto-recuperando...");
-        const fallbackName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
-        
-        const { error: insertError } = await supabase.from('profiles').insert({
-          id: currentUser.id,
-          user_id: currentUser.id,
-          email: currentUser.email,
-          name: fallbackName,
-          monthly_budget: 0
-        });
-
-        if (insertError) {
-          console.error("Erro ao recuperar perfil:", insertError);
-          return null;
-        }
-        
-        return {
-          name: fallbackName,
-          avatar_url: null,
-          linked_user_id: null,
-          partnerName: null,
-          partnerAvatar: null,
-          monthly_budget: 0
-        };
+        return null;
       }
 
       const profileData = dbProfile as any;
@@ -113,23 +96,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return finalProfile;
     } catch (e) {
-      console.error("Erro crítico ao buscar perfil:", e);
+      console.error("Erro ao buscar perfil:", e);
       return null;
     }
   }, []);
 
+  // FUNÇÃO FORÇADA DE LOGOUT
+  const performSignOut = async () => {
+    try { await supabase.auth.signOut(); } catch (e) {}
+    forceClearCache();
+    window.location.href = '/auth'; // Redirecionamento brutal direto para a página de login
+  };
+
   const signOut = async () => {
     setLoading(true);
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error("Erro ao deslogar:", error);
-    } finally {
-      forceClearCache();
-      // O truque: Fazemos um HARD RELOAD para a página de auth.
-      // Isso destrói toda a árvore do React e qualquer query travada em memória.
-      window.location.replace('/auth');
-    }
+    await performSignOut();
   };
 
   useEffect(() => {
@@ -137,33 +118,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isInitialized = false;
 
     const loadUserData = async (newUser: User, newSession: Session | null) => {
-      setUser(newUser);
-      setSession(newSession);
-
-      try {
-        const cachedStr = localStorage.getItem(`confere_profile_${newUser.id}`);
-        if (cachedStr) {
-          setProfile(JSON.parse(cachedStr));
-          if (mounted) {
-            setLoading(false);
-            isInitialized = true;
-          }
-        }
-      } catch (e) {}
-      
+      // 1. Pega o perfil no banco de dados.
       const p = await fetchProfile(newUser);
       
       if (!mounted) return;
 
+      // 2. Se a conta for fantasma / não tiver perfil, expulsa pro Login Imediatamente!
       if (!p) {
-        forceClearCache();
-        supabase.auth.signOut();
-        window.location.replace('/auth');
+        console.error("Conta inválida detectada. Expulsando para o Login...");
+        await performSignOut();
         return;
-      } else {
-        setProfile(p);
       }
-      
+
+      // 3. Se tudo estiver OK, libera o acesso
+      setUser(newUser);
+      setSession(newSession);
+      setProfile(p);
       setLoading(false);
       isInitialized = true;
     };
@@ -176,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentSession?.user && mounted) {
           await loadUserData(currentSession.user, currentSession);
         } else if (mounted) {
+          forceClearCache(); // Limpeza de segurança extra
           setLoading(false);
           isInitialized = true;
         }
