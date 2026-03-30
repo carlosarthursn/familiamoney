@@ -1,7 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 interface Profile {
   name?: string;
@@ -56,71 +55,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchProfile = useCallback(async (currentUser: User) => {
-    const { data: dbProfile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', currentUser.id)
-      .maybeSingle();
-    
-    if (fetchError) throw fetchError;
-    
-    // RECUPERAÇÃO SEGURA DE CONTA FANTASMA
-    if (!dbProfile) {
-      console.warn("Conta sem perfil detectada. Restaurando...");
-      const fallbackName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
+    try {
+      const { data: dbProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .maybeSingle();
       
-      const { error: insertError } = await supabase.from('profiles').insert({
-        id: currentUser.id,
-        user_id: currentUser.id,
-        email: currentUser.email,
-        name: fallbackName,
-        monthly_budget: 0
-      });
-
-      if (insertError) {
-        throw new Error("Erro ao restaurar perfil: " + insertError.message);
+      if (fetchError) throw fetchError;
+      
+      // BLINDAGEM: Se não tem perfil, cria um na memória e tenta salvar em background.
+      if (!dbProfile) {
+        console.warn("Perfil não encontrado. Liberando acesso em modo de segurança...");
+        const fallbackName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
+        
+        // Tenta inserir (sem travar o usuário se falhar)
+        supabase.from('profiles').insert({
+          id: currentUser.id,
+          user_id: currentUser.id,
+          email: currentUser.email,
+          name: fallbackName,
+          monthly_budget: 0
+        }).then(({ error }) => {
+          if (error) console.error("Aviso: Falha ao persistir perfil novo.", error.message);
+        });
+        
+        return {
+          name: fallbackName,
+          avatar_url: null,
+          linked_user_id: null,
+          partnerName: null,
+          partnerAvatar: null,
+          monthly_budget: 0
+        };
       }
-      
+
+      const profileData = dbProfile as any;
+      let pName: string | null = null;
+      let pAvatar: string | null = null;
+
+      if (profileData.linked_user_id) {
+        const { data: partner } = await supabase
+          .from('profiles')
+          .select('name, email, avatar_url')
+          .eq('id', profileData.linked_user_id)
+          .maybeSingle();
+        if (partner) {
+          pName = (partner as any).name || (partner as any).email?.split('@')[0];
+          pAvatar = (partner as any).avatar_url;
+        }
+      }
+
+      const finalProfile = {
+        name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
+        avatar_url: profileData.avatar_url,
+        linked_user_id: profileData.linked_user_id,
+        partnerName: pName,
+        partnerAvatar: pAvatar,
+        monthly_budget: Number(profileData.monthly_budget) || 0
+      };
+
+      try {
+        localStorage.setItem(`confere_profile_${currentUser.id}`, JSON.stringify(finalProfile));
+      } catch (e) {}
+
+      return finalProfile;
+    } catch (e) {
+      console.error("Erro ao buscar perfil:", e);
+      // Se houver qualquer erro maluco, deixa entrar com perfil básico.
       return {
-        name: fallbackName,
-        avatar_url: null,
-        linked_user_id: null,
-        partnerName: null,
-        partnerAvatar: null,
+        name: currentUser.email?.split('@')[0] || 'Usuário',
         monthly_budget: 0
       };
     }
-
-    const profileData = dbProfile as any;
-    let pName: string | null = null;
-    let pAvatar: string | null = null;
-
-    if (profileData.linked_user_id) {
-      const { data: partner } = await supabase
-        .from('profiles')
-        .select('name, email, avatar_url')
-        .eq('id', profileData.linked_user_id)
-        .maybeSingle();
-      if (partner) {
-        pName = (partner as any).name || (partner as any).email?.split('@')[0];
-        pAvatar = (partner as any).avatar_url;
-      }
-    }
-
-    const finalProfile = {
-      name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
-      avatar_url: profileData.avatar_url,
-      linked_user_id: profileData.linked_user_id,
-      partnerName: pName,
-      partnerAvatar: pAvatar,
-      monthly_budget: Number(profileData.monthly_budget) || 0
-    };
-
-    try {
-      localStorage.setItem(`confere_profile_${currentUser.id}`, JSON.stringify(finalProfile));
-    } catch (e) {}
-
-    return finalProfile;
   }, []);
 
   const signOut = async () => {
@@ -133,20 +140,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isInitialized = false;
 
     const loadUserData = async (newUser: User, newSession: Session | null) => {
-      try {
-        const p = await fetchProfile(newUser);
-        if (!mounted) return;
-        
-        setUser(newUser);
-        setSession(newSession);
-        setProfile(p);
-        setLoading(false);
-        isInitialized = true;
-      } catch (e: any) {
-        console.error("Falha crítica ao carregar usuário:", e);
-        toast.error("Erro ao carregar sua conta. Refazendo login...");
-        await performSignOut();
-      }
+      const p = await fetchProfile(newUser);
+      
+      if (!mounted) return;
+
+      setUser(newUser);
+      setSession(newSession);
+      setProfile(p);
+      setLoading(false);
+      isInitialized = true;
     };
 
     const initializeAuth = async () => {
@@ -157,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentSession?.user && mounted) {
           await loadUserData(currentSession.user, currentSession);
         } else if (mounted) {
+          forceClearCache();
           setLoading(false);
           isInitialized = true;
         }
@@ -191,11 +194,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // Aumentamos esse failsafe de 4s para 15s para dar tempo do BD acordar!
     const failsafeTimeout = setTimeout(() => {
       if (mounted && !isInitialized) {
         setLoading(false);
       }
-    }, 5000);
+    }, 15000);
 
     return () => {
       mounted = false;

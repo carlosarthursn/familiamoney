@@ -41,42 +41,31 @@ export default function Auth() {
     if (!validation.success) return toast.error(validation.error.errors[0].message);
     
     setLoading(true);
-    
-    const timeoutId = setTimeout(() => {
-      setLoading(false);
-      toast.error('O login demorou muito. Tente novamente.');
-    }, 10000);
 
     try {
       if (isLogin) {
         const { error } = await (signIn(email, password) as any);
         if (error) {
-          clearTimeout(timeoutId);
           toast.error(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos' : error.message);
           setLoading(false);
         } else {
-          clearTimeout(timeoutId);
+          // Deixa o botão girando até o redirecionamento automático acontecer
           toast.success('Autenticando...');
-          // O roteador (App.tsx) vai desmontar esta tela automaticamente quando o usuário for carregado
         }
       } else {
         const { data, error } = await (signUp(email, password, name) as any);
         if (error) {
-          clearTimeout(timeoutId);
           toast.error(error.message);
           setLoading(false);
         } else if (data?.user && !data?.session) {
-          clearTimeout(timeoutId);
           toast.success('Conta criada! Verifique seu e-mail para confirmar o acesso.');
           setLoading(false);
           setIsLogin(true);
         } else {
-          clearTimeout(timeoutId);
           toast.success('Bem-vindo!');
         }
       }
     } catch (err: any) {
-      clearTimeout(timeoutId);
       toast.error('Ocorreu um erro inesperado.');
       setLoading(false);
     }
@@ -84,15 +73,13 @@ export default function Auth() {
 
   const handleBiometryLogin = async () => {
     setLoading(true);
-    const timeoutId = setTimeout(() => setLoading(false), 8000);
     
     try {
       const { error } = await signInWithPasskey();
       if (error) throw error;
       toast.success('Bem-vindo!');
     } catch (err: any) {
-      clearTimeout(timeoutId);
-      toast.error('Nenhuma biometria cadastrada para este dispositivo ou cancelado.');
+      toast.error('Nenhuma biometria cadastrada ou cancelado.');
       setLoading(false);
     }
   };
