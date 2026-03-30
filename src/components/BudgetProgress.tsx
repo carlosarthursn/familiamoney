@@ -37,7 +37,7 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
 
   const cacheKey = `confere_budgets_${userIds.sort().join(',')}`;
 
-  const { data: budgets, isLoading } = useQuery({
+  const { data: budgets, isLoading, isError } = useQuery({
     queryKey: ['budgets', userIds.sort().join(',')],
     queryFn: async () => {
       if (userIds.length === 0) return [];
@@ -76,10 +76,11 @@ export function BudgetProgress({ selectedDate }: BudgetProgressProps) {
       return undefined;
     },
     enabled: !!user,
+    retry: 1, // Não tenta infinitamente se houver erro
   });
 
   if (isLoading) return <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
-  if (!budgets || budgets.length === 0) return null;
+  if (isError || !budgets || budgets.length === 0) return null;
 
   return (
     <div className="space-y-3">
