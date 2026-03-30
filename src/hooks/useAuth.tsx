@@ -38,6 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
 
+  // Função agressiva para limpar todo e qualquer resquício de login
+  const forceClearCache = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      console.error("Erro ao limpar cache", e);
+    }
+  };
+
   const fetchProfile = useCallback(async (currentUser: User) => {
     try {
       const { data: dbProfile, error: fetchError } = await supabase
@@ -47,6 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       
       if (fetchError) throw fetchError;
+      
+      // Se não encontrou o perfil, é uma conta fantasma (deletada no DB)
       if (!dbProfile) return null;
 
       const profileData = dbProfile as any;
@@ -85,30 +97,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signOut = async () => {
+    setLoading(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Erro ignorado no signOut (forçando saída local):", error);
+    } finally {
+      forceClearCache(); // Destrói o crachá local na marra
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     let isInitialized = false;
 
     const loadUserData = async (newUser: User, newSession: Session | null) => {
-      setUser(newUser);
-      setSession(newSession);
-
-      // Tenta carregar do cache instantaneamente
-      try {
-        const cachedProfileStr = localStorage.getItem(`confere_profile_${newUser.id}`);
-        if (cachedProfileStr) {
-          setProfile(JSON.parse(cachedProfileStr));
-          if (mounted) {
-            setLoading(false);
-            isInitialized = true;
-          }
-        }
-      } catch (e) {}
-      
       // Busca os dados atualizados em background
       const p = await fetchProfile(newUser);
+      
+      if (!p) {
+        console.warn("Conta fantasma detectada! Forçando logout...");
+        if (mounted) {
+          forceClearCache();
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          isInitialized = true;
+        }
+        return;
+      }
+
       if (mounted) {
-        if (p) setProfile(p);
+        setUser(newUser);
+        setSession(newSession);
+        setProfile(p);
         setLoading(false);
         isInitialized = true;
       }
@@ -128,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("Auth init error:", err);
         if (mounted) {
+          forceClearCache(); // Limpa sujeiras se der erro
           setLoading(false);
           isInitialized = true;
         }
@@ -145,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await loadUserData(newUser, newSession);
         }
       } else if (event === 'SIGNED_OUT') {
+        forceClearCache();
         setUser(null);
         setSession(null);
         setProfile(null);
@@ -155,7 +185,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Failsafe: Trava de segurança. Se por algum motivo não resolver em 3 segundos, libera o app.
     const failsafeTimeout = setTimeout(() => {
       if (mounted && !isInitialized) {
         console.warn("Auth initialization timeout - forcing load");
@@ -184,11 +213,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithPasskey = async () => {
     return (supabase.auth as any).signInWithPasskey();
-  };
-
-  const signOut = async () => {
-    setLoading(true);
-    await supabase.auth.signOut();
   };
 
   const updateProfile = async (updates: any) => {
