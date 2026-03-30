@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { usePlanning } from '@/hooks/usePlanning';
 import { toast } from 'sonner';
 import { SuccessOverlay } from './SuccessOverlay';
+import { CurrencyInput } from './CurrencyInput';
 
 interface SavingsGoalCardProps {
   goal: SavingsGoal;
@@ -32,7 +33,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
   
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(goal.name);
-  const [editAmount, setEditAmount] = useState(String(goal.targetamount));
+  const [editAmount, setEditAmount] = useState(Math.round(goal.targetamount * 100).toString());
 
   const progress = Math.min(100, (goal.currentamount / goal.targetamount) * 100);
   const remaining = goal.targetamount - goal.currentamount;
@@ -40,8 +41,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
 
   const handleAddFunds = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Remove todos os pontos, troca vírgula por ponto. Ex: "1.500,50" -> "1500.50"
-    const val = parseFloat(amountToAdd.replace(/\./g, '').replace(',', '.'));
+    const val = parseFloat(amountToAdd) / 100;
     if (isNaN(val) || val <= 0) {
       toast.error('Digite um valor válido');
       return;
@@ -59,7 +59,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const numAmount = parseFloat(editAmount.replace(/\./g, '').replace(',', '.'));
+    const numAmount = parseFloat(editAmount) / 100;
     if (isNaN(numAmount) || numAmount <= 0) return;
     updateGoal.mutate({ id: goal.id, name: editName, targetamount: numAmount });
     setIsEditing(false);
@@ -90,17 +90,7 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase">Valor Alvo</span>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground text-sm">R$</span>
-                    <Input 
-                      type="text"
-                      inputMode="decimal"
-                      value={editAmount} 
-                      onChange={e => setEditAmount(e.target.value.replace(/[^0-9,.]/g, ''))} 
-                      className="h-10 pl-9 rounded-xl font-black text-base bg-background/80 border border-border/50"
-                      onClick={e => e.stopPropagation()}
-                    />
-                  </div>
+                  <CurrencyInput value={editAmount} onChange={setEditAmount} className="h-10 text-base font-black bg-background/80 border border-border/50" />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-1">
@@ -156,15 +146,9 @@ export function SavingsGoalCard({ goal, onDelete }: SavingsGoalCardProps) {
               <div className="pt-2 border-t border-border/50">
                 {isAdding ? (
                   <div className="flex gap-2 animate-slide-down" onClick={e => e.stopPropagation()}>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Valor"
-                      value={amountToAdd}
-                      onChange={(e) => setAmountToAdd(e.target.value.replace(/[^0-9,.]/g, ''))}
-                      className="h-8 text-xs"
-                      autoFocus
-                    />
+                    <div className="flex-1">
+                      <CurrencyInput value={amountToAdd} onChange={setAmountToAdd} className="h-8 text-xs bg-muted/30" />
+                    </div>
                     <Button size="sm" className="h-8 text-xs" onClick={handleAddFunds}>OK</Button>
                     <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={(e) => { e.stopPropagation(); setIsAdding(false); }}>X</Button>
                   </div>

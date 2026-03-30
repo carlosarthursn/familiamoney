@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2, Save, Trash2, RotateCcw, X } from 'lucide-react';
 import { SuccessOverlay } from './SuccessOverlay';
+import { CurrencyInput } from './CurrencyInput';
 
 interface BudgetRow {
   id: string;
@@ -61,9 +62,10 @@ export function BudgetSheet() {
     if (open) {
       const initial = EXPENSE_CATEGORIES.map(cat => {
         const saved = budgets?.find(b => b.category === cat.id);
+        const limitStr = saved ? Math.round(saved.monthly_limit * 100).toString() : '';
         return {
           id: cat.id,
-          limit: saved ? String(saved.monthly_limit) : '',
+          limit: limitStr === '0' ? '' : limitStr,
           label: saved?.custom_label || cat.label,
           isDeleted: false
         };
@@ -76,11 +78,11 @@ export function BudgetSheet() {
     mutationFn: async () => {
       if (!user?.id) throw new Error('Não autenticado');
       const entries = localCategories
-        .filter(cat => !cat.isDeleted && cat.limit && Number(cat.limit) > 0)
+        .filter(cat => !cat.isDeleted && cat.limit && parseFloat(cat.limit) > 0)
         .map(cat => ({
           user_id: user.id,
           category: cat.id,
-          monthly_limit: Number(cat.limit),
+          monthly_limit: parseFloat(cat.limit) / 100,
           custom_label: cat.label,
         }));
 
@@ -145,23 +147,18 @@ export function BudgetSheet() {
                             className="h-9 border-none bg-transparent font-black text-lg focus-visible:ring-0 p-0 w-48"
                           />
                         </div>
-                        <button onClick={() => updateCategory(cat.id, { isDeleted: true, limit: '0' })} className="p-2 text-muted-foreground/40 hover:text-destructive transition-colors">
+                        <button onClick={() => updateCategory(cat.id, { isDeleted: true, limit: '' })} className="p-2 text-muted-foreground/40 hover:text-destructive transition-colors">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                       
                       <div className="flex flex-col gap-1">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Limite Mensal</Label>
-                        <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-black">R$</span>
-                          <Input
-                            type="number"
-                            placeholder="0,00"
-                            value={cat.limit}
-                            onChange={e => updateCategory(cat.id, { limit: e.target.value })}
-                            className="h-14 pl-12 rounded-2xl border-none bg-background shadow-inner font-black text-xl"
-                          />
-                        </div>
+                        <CurrencyInput
+                          value={cat.limit}
+                          onChange={val => updateCategory(cat.id, { limit: val })}
+                          className="h-14 bg-background shadow-inner font-black text-xl border-none"
+                        />
                       </div>
                     </div>
                   );

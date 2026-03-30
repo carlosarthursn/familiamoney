@@ -20,6 +20,7 @@ import { Plus, TrendingUp, TrendingDown, Repeat, Loader2, X } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { SuccessOverlay } from './SuccessOverlay';
 import { toast } from 'sonner';
+import { CurrencyInput } from './CurrencyInput';
 
 export function AddRecurringSheet() {
   const [open, setOpen] = useState(false);
@@ -45,13 +46,12 @@ export function AddRecurringSheet() {
   };
 
   const handleSubmit = async () => {
-    // Validações explícitas com avisos (toasts)
     if (!name.trim()) return toast.error("Por favor, digite o nome do lançamento.");
     if (!amount.trim()) return toast.error("Por favor, digite o valor.");
     if (!category) return toast.error("Por favor, selecione uma categoria.");
     if (!dueDay.trim()) return toast.error("Por favor, informe o dia de vencimento.");
 
-    const numAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
+    const numAmount = parseFloat(amount) / 100;
     const numDueDay = parseInt(dueDay);
 
     if (isNaN(numAmount) || numAmount <= 0) {
@@ -85,7 +85,7 @@ export function AddRecurringSheet() {
       setShowSuccess(true);
       resetForm();
     } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar o planejamento. Tente novamente.");
+      toast.error(error.message || "Erro ao salvar o planejamento.");
     }
   };
 
@@ -134,10 +134,7 @@ export function AddRecurringSheet() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Valor (R$)</Label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">R$</span>
-                  <Input type="text" inputMode="decimal" placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} className="pl-10 h-14 rounded-2xl bg-muted/20 border-none font-black text-lg" />
-                </div>
+                <CurrencyInput value={amount} onChange={setAmount} className="text-xl h-14" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Vencimento (Dia)</Label>

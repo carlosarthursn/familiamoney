@@ -5,6 +5,7 @@ import { Trash2, Calendar, CheckCircle2, Loader2, Check, AlertCircle } from 'luc
 import { getCategoryInfo, getCategoryIcon } from '@/types/finance';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from './CurrencyInput';
 
 interface RecurringCardProps {
   item: RecurringExpense;
@@ -23,15 +24,15 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
   const { markAsPaid, unmarkAsPaid, updateRecurring } = useRecurring();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
-  const [editAmount, setEditAmount] = useState(String(item.amount));
+  const [editAmount, setEditAmount] = useState(Math.round(item.amount * 100).toString());
   
   const isIncome = item.type === 'income';
   const cat = getCategoryInfo(item.category, isIncome ? 'income' : 'expense');
   const Icon = getCategoryIcon(cat.icon);
   
   const handleSave = () => {
-    const amount = parseFloat(editAmount.replace(/\./g, '').replace(',', '.'));
-    if (isNaN(amount)) return;
+    const amount = parseFloat(editAmount) / 100;
+    if (isNaN(amount) || amount <= 0) return;
     
     updateRecurring.mutate({ 
       id: item.id, 
@@ -73,17 +74,7 @@ export function RecurringCard({ item, onDelete, isPaid }: RecurringCardProps) {
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase">Valor</span>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground text-sm">R$</span>
-                  <Input 
-                    type="text"
-                    inputMode="decimal"
-                    value={editAmount} 
-                    onChange={e => setEditAmount(e.target.value.replace(/[^0-9,.]/g, ''))} 
-                    className="h-10 pl-9 rounded-xl font-black text-base bg-background/80 border border-border/50"
-                    onClick={e => e.stopPropagation()}
-                  />
-                </div>
+                <CurrencyInput value={editAmount} onChange={setEditAmount} className="h-10 text-base font-black bg-background/80 border border-border/50" />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-1">

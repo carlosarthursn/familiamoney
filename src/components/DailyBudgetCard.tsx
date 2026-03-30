@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, Settings2, Loader2, Check, X } from 'lucide-react';
+import { Calendar, Settings2, Loader2, X } from 'lucide-react';
 import { differenceInDays, endOfMonth, startOfDay } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose, DrawerTrigger } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerTrigger } from '@/components/ui/drawer';
 import { SuccessOverlay } from './SuccessOverlay';
 import { Label } from '@/components/ui/label';
+import { CurrencyInput } from './CurrencyInput';
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -22,8 +22,15 @@ export function DailyBudgetCard() {
   const { personalExpenses } = useTransactions();
   const [isEditing, setIsEditing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [newBudget, setNewBudget] = useState(String(profile?.monthly_budget || 0));
   const [loading, setLoading] = useState(false);
+  const [newBudget, setNewBudget] = useState('');
+
+  useEffect(() => {
+    if (isEditing) {
+      const initialRaw = Math.round((profile?.monthly_budget || 0) * 100).toString();
+      setNewBudget(initialRaw === '0' ? '' : initialRaw);
+    }
+  }, [isEditing, profile?.monthly_budget]);
 
   const budget = profile?.monthly_budget || 0;
   const dailyAmount = useMemo(() => {
@@ -34,7 +41,7 @@ export function DailyBudgetCard() {
   }, [budget, personalExpenses]);
 
   const handleUpdateBudget = async () => {
-    const val = parseFloat(newBudget.replace(',', '.'));
+    const val = parseFloat(newBudget) / 100;
     if (isNaN(val) || val < 0) return toast.error('Digite um valor válido');
     setLoading(true);
     const { error } = await updateProfile({ monthly_budget: val });
@@ -69,7 +76,7 @@ export function DailyBudgetCard() {
               <div className="px-8 pt-8 space-y-6">
                 <div className="space-y-2">
                   <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Valor Máximo do Mês</Label>
-                  <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">R$</span><Input type="number" value={newBudget} onChange={(e) => setNewBudget(e.target.value)} className="pl-10 h-14 rounded-2xl bg-muted/20 border-none font-black text-2xl" /></div>
+                  <CurrencyInput value={newBudget} onChange={setNewBudget} className="h-14 font-black text-2xl" />
                 </div>
                 <Button onClick={handleUpdateBudget} disabled={loading} className="w-full h-16 rounded-2xl gradient-primary font-black text-lg shadow-xl">{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Salvar Orçamento'}</Button>
               </div>

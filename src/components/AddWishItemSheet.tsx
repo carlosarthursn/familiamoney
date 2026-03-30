@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -12,12 +12,12 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { cn } from '@/lib/utils';
 import { SuccessOverlay } from './SuccessOverlay';
+import { CurrencyInput } from './CurrencyInput';
 
 const wishSchema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
-  price: z.string().refine(val => !isNaN(parseFloat(val.replace(/\./g, '').replace(',', '.'))), { message: 'Valor inválido' }),
+  price: z.string().min(1, 'Valor obrigatório'),
   priority: z.enum(['high', 'medium', 'low']),
   link: z.string().url('Link inválido').optional().or(z.literal('')),
 });
@@ -30,7 +30,15 @@ export function AddWishItemSheet() {
 
   const onSubmit = async (v: z.infer<typeof wishSchema>) => {
     try {
-      await addItem.mutateAsync({ name: v.name, price: parseFloat(v.price.replace(/\./g, '').replace(',', '.')), priority: v.priority, link: v.link || null });
+      const numPrice = parseFloat(v.price) / 100;
+      if (numPrice <= 0) return toast.error('Valor deve ser maior que zero');
+
+      await addItem.mutateAsync({ 
+        name: v.name, 
+        price: numPrice, 
+        priority: v.priority, 
+        link: v.link || null 
+      });
       setShowSuccess(true);
     } catch (e) { toast.error('Erro ao salvar.'); }
   };
@@ -60,7 +68,9 @@ export function AddWishItemSheet() {
               <FormField control={form.control} name="price" render={({ field }) => (
                 <FormItem className="space-y-2">
                   <FormLabel className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Preço Estimado (R$)</FormLabel>
-                  <FormControl><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">R$</span><Input placeholder="0,00" className="pl-10 h-14 rounded-2xl bg-muted/20 border-none font-black text-2xl" {...field} /></div></FormControl>
+                  <FormControl>
+                    <CurrencyInput value={field.value} onChange={field.onChange} className="h-14 text-2xl" />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

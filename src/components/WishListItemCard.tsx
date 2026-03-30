@@ -5,6 +5,7 @@ import { Link, ShoppingBag, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { usePlanning } from '@/hooks/usePlanning';
+import { CurrencyInput } from './CurrencyInput';
 
 interface WishListItemCardProps {
   item: WishlistItem;
@@ -30,12 +31,12 @@ export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
   
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
-  const [editAmount, setEditAmount] = useState(String(item.price));
+  const [editAmount, setEditAmount] = useState(Math.round(item.price * 100).toString());
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const numAmount = parseFloat(editAmount.replace(/\./g, '').replace(',', '.'));
-    if (isNaN(numAmount)) return;
+    const numAmount = parseFloat(editAmount) / 100;
+    if (isNaN(numAmount) || numAmount <= 0) return;
     updateItem.mutate({ id: item.id, name: editName, price: numAmount });
     setIsEditing(false);
   };
@@ -57,17 +58,7 @@ export function WishListItemCard({ item, onDelete }: WishListItemCardProps) {
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase">Preço</span>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground text-sm">R$</span>
-                  <Input 
-                    type="text"
-                    inputMode="decimal"
-                    value={editAmount} 
-                    onChange={e => setEditAmount(e.target.value.replace(/[^0-9,.]/g, ''))} 
-                    className="h-10 pl-9 rounded-xl font-black text-base bg-background/80 border border-border/50"
-                    onClick={e => e.stopPropagation()}
-                  />
-                </div>
+                <CurrencyInput value={editAmount} onChange={setEditAmount} className="h-10 text-base font-black bg-background/80 border border-border/50" />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-1">

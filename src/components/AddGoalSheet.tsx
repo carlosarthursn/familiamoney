@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
@@ -15,12 +15,12 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { cn } from '@/lib/utils';
 import { SuccessOverlay } from './SuccessOverlay';
+import { CurrencyInput } from './CurrencyInput';
 
 const goalSchema = z.object({
   name: z.string().min(3, 'Mínimo 3 caracteres'),
-  targetamount: z.string().refine(val => !isNaN(parseFloat(val.replace(/\./g, '').replace(',', '.'))) && parseFloat(val.replace(/\./g, '').replace(',', '.')) > 0, { message: 'Valor deve ser positivo' }),
+  targetamount: z.string().min(1, 'Valor obrigatório'),
   targetdate: z.date({ required_error: 'Selecione a data' }),
 });
 
@@ -36,7 +36,15 @@ export function AddGoalSheet() {
 
   const onSubmit = async (values: z.infer<typeof goalSchema>) => {
     try {
-      await addGoal.mutateAsync({ name: values.name, targetamount: parseFloat(values.targetamount.replace(/\./g, '').replace(',', '.')), currentamount: 0, targetdate: format(values.targetdate, 'yyyy-MM-dd') });
+      const numAmount = parseFloat(values.targetamount) / 100;
+      if (numAmount <= 0) return toast.error('Valor deve ser positivo');
+
+      await addGoal.mutateAsync({ 
+        name: values.name, 
+        targetamount: numAmount, 
+        currentamount: 0, 
+        targetdate: format(values.targetdate, 'yyyy-MM-dd') 
+      });
       setShowSuccess(true);
     } catch (e) { toast.error('Erro ao salvar.'); }
   };
@@ -66,7 +74,9 @@ export function AddGoalSheet() {
               <FormField control={form.control} name="targetamount" render={({ field }) => (
                 <FormItem className="space-y-2">
                   <FormLabel className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Quanto quer poupar? (R$)</FormLabel>
-                  <FormControl><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">R$</span><Input placeholder="0,00" className="pl-10 h-14 rounded-2xl bg-muted/20 border-none font-black text-2xl" {...field} /></div></FormControl>
+                  <FormControl>
+                    <CurrencyInput value={field.value} onChange={field.onChange} className="h-14 text-2xl" />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
