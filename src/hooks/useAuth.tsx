@@ -38,14 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
 
-  // Função agressiva para limpar todo e qualquer resquício de login
   const forceClearCache = () => {
     try {
       localStorage.clear();
       sessionStorage.clear();
-    } catch (e) {
-      console.error("Erro ao limpar cache", e);
-    }
+    } catch (e) {}
   };
 
   const fetchProfile = useCallback(async (currentUser: User) => {
@@ -58,8 +55,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (fetchError) throw fetchError;
       
-      // Se não encontrou o perfil, é uma conta fantasma (deletada no DB)
-      if (!dbProfile) return null;
+      // AUTO-RECOVERY DE CONTA FANTASMA
+      if (!dbProfile) {
+        console.warn("Perfil não encontrado. Auto-recuperando...");
+        const fallbackName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
+        
+        const { error: insertError } = await supabase.from('profiles').insert({
+          id: currentUser.id,
+          user_id: currentUser.id,
+          email: currentUser.email,
+          name: fallbackName,
+          monthly_budget: 0
+        });
+
+        if (insertError) {
+          console.error("Erro ao recuperar perfil:", insertError);
+          return null; // Falha irrecuperável
+        }
+        
+        return {
+          name: fallbackName,
+          avatar_url: null,
+          linked_user_id: null,
+          partnerName: null,
+          partnerAvatar: null,
+          monthly_budget: 0
+        };
+      }
 
       const profileData = dbProfile as any;
       let pName: string | null = null;
@@ -92,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return finalProfile;
     } catch (e) {
-      console.error("Erro ao buscar perfil:", e);
+      console.error("Erro crítico ao buscar perfil:", e);
       return null;
     }
   }, []);
@@ -101,10 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await supabase.auth.signOut();
-    } catch (error) {
-      console.error("Erro ignorado no signOut (forçando saída local):", error);
-    } finally {
-      forceClearCache(); // Destrói o crachá local na marra
+    } catch (error) {} 
+    finally {
+      forceClearCache();
       setUser(null);
       setSession(null);
       setProfile(null);
@@ -117,29 +138,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isInitialized = false;
 
     const loadUserData = async (newUser: User, newSession: Session | null) => {
-      // Busca os dados atualizados em background
+      // 1. Já salva o usuário para destravar rotas
+      setUser(newUser);
+      setSession(newSession);
+
+      // 2. Tenta cache para ser instantâneo
+      try {
+        const cachedStr = localStorage.getItem(`confere_profile_${newUser.id}`);
+        if (cachedStr) {
+          setProfile(JSON.parse(cachedStr));
+          if (mounted) {
+            setLoading(false);
+            isInitialized = true;
+          }
+        }
+      } catch (e) {}
+      
+      // 3. Busca profile real (ou recupera fantasma)
       const p = await fetchProfile(newUser);
       
-      if (!p) {
-        console.warn("Conta fantasma detectada! Forçando logout...");
-        if (mounted) {
-          forceClearCache();
-          setUser(null);
-          setSession(null);
-          setProfile(null);
-          setLoading(false);
-          isInitialized = true;
-        }
-        return;
-      }
+      if (!mounted) return;
 
-      if (mounted) {
-        setUser(newUser);
-        setSession(newSession);
+      if (!p) {
+        // Se mesmo com recovery falhou, é um erro severo. Deslogar.
+        console.error("Falha na recuperação. Deslogando.");
+        forceClearCache();
+        supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+      } else {
         setProfile(p);
-        setLoading(false);
-        isInitialized = true;
       }
+      
+      setLoading(false);
+      isInitialized = true;
     };
 
     const initializeAuth = async () => {
@@ -154,9 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isInitialized = true;
         }
       } catch (err) {
-        console.error("Auth init error:", err);
         if (mounted) {
-          forceClearCache(); // Limpa sujeiras se der erro
+          forceClearCache();
           setLoading(false);
           isInitialized = true;
         }
@@ -187,10 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const failsafeTimeout = setTimeout(() => {
       if (mounted && !isInitialized) {
-        console.warn("Auth initialization timeout - forcing load");
         setLoading(false);
       }
-    }, 3000);
+    }, 4000);
 
     return () => {
       mounted = false;

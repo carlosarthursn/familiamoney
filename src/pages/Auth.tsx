@@ -41,29 +41,35 @@ export default function Auth() {
     if (!validation.success) return toast.error(validation.error.errors[0].message);
     
     setLoading(true);
+    
+    // Trava de Segurança: Destrava o botão em 8s caso o banco de dados trave
+    const timeoutId = setTimeout(() => setLoading(false), 8000);
+
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error } = await (signIn(email, password) as any);
         if (error) {
+          clearTimeout(timeoutId);
           toast.error(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos' : error.message);
           setLoading(false);
         }
       } else {
         const { data, error } = await (signUp(email, password, name) as any);
         if (error) {
+          clearTimeout(timeoutId);
           toast.error(error.message);
           setLoading(false);
         } else if (data?.user && !data?.session) {
-          // Caso o Supabase exija confirmação de e-mail
+          clearTimeout(timeoutId);
           toast.success('Conta criada! Verifique seu e-mail para confirmar o acesso.');
           setLoading(false);
           setIsLogin(true);
         } else {
           toast.success('Bem-vindo!');
-          // O onAuthStateChange no useAuth cuidará do redirecionamento
         }
       }
     } catch (err: any) {
+      clearTimeout(timeoutId);
       toast.error('Ocorreu um erro inesperado.');
       setLoading(false);
     }
@@ -71,13 +77,15 @@ export default function Auth() {
 
   const handleBiometryLogin = async () => {
     setLoading(true);
+    const timeoutId = setTimeout(() => setLoading(false), 8000);
+    
     try {
       const { error } = await signInWithPasskey();
       if (error) throw error;
       toast.success('Bem-vindo!');
     } catch (err: any) {
+      clearTimeout(timeoutId);
       toast.error('Nenhuma biometria cadastrada para este dispositivo ou cancelado.');
-    } finally {
       setLoading(false);
     }
   };
