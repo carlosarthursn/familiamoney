@@ -55,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (fetchError) throw fetchError;
       
-      // AUTO-RECOVERY DE CONTA FANTASMA
       if (!dbProfile) {
         console.warn("Perfil não encontrado. Auto-recuperando...");
         const fallbackName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
@@ -70,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (insertError) {
           console.error("Erro ao recuperar perfil:", insertError);
-          return null; // Falha irrecuperável
+          return null;
         }
         
         return {
@@ -123,13 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await supabase.auth.signOut();
-    } catch (error) {} 
-    finally {
+    } catch (error) {
+      console.error("Erro ao deslogar:", error);
+    } finally {
       forceClearCache();
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setLoading(false);
+      // O truque: Fazemos um HARD RELOAD para a página de auth.
+      // Isso destrói toda a árvore do React e qualquer query travada em memória.
+      window.location.replace('/auth');
     }
   };
 
@@ -138,11 +137,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isInitialized = false;
 
     const loadUserData = async (newUser: User, newSession: Session | null) => {
-      // 1. Já salva o usuário para destravar rotas
       setUser(newUser);
       setSession(newSession);
 
-      // 2. Tenta cache para ser instantâneo
       try {
         const cachedStr = localStorage.getItem(`confere_profile_${newUser.id}`);
         if (cachedStr) {
@@ -154,19 +151,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (e) {}
       
-      // 3. Busca profile real (ou recupera fantasma)
       const p = await fetchProfile(newUser);
       
       if (!mounted) return;
 
       if (!p) {
-        // Se mesmo com recovery falhou, é um erro severo. Deslogar.
-        console.error("Falha na recuperação. Deslogando.");
         forceClearCache();
         supabase.auth.signOut();
-        setUser(null);
-        setSession(null);
-        setProfile(null);
+        window.location.replace('/auth');
+        return;
       } else {
         setProfile(p);
       }
