@@ -74,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         monthly_budget: Number(profileData.monthly_budget) || 0
       };
 
-      // TRUQUE 1: Salva o perfil no cache local do dispositivo
       try {
         localStorage.setItem(`confere_profile_${currentUser.id}`, JSON.stringify(finalProfile));
       } catch (e) {}
@@ -88,18 +87,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let isInitialized = false;
+
+    const loadUserData = async (newUser: User, newSession: Session | null) => {
+      setUser(newUser);
+      setSession(newSession);
+
+      // Tenta carregar do cache instantaneamente
+      try {
+        const cachedProfileStr = localStorage.getItem(`confere_profile_${newUser.id}`);
+        if (cachedProfileStr) {
+          setProfile(JSON.parse(cachedProfileStr));
+          if (mounted) {
+            setLoading(false);
+            isInitialized = true;
+          }
+        }
+      } catch (e) {}
+      
+      // Busca os dados atualizados em background
+      const p = await fetchProfile(newUser);
+      if (mounted) {
+        if (p) setProfile(p);
+        setLoading(false);
+        isInitialized = true;
+      }
+    };
 
     const initializeAuth = async () => {
       try {
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
         
-        if (!currentSession && mounted) {
+        if (currentSession?.user && mounted) {
+          await loadUserData(currentSession.user, currentSession);
+        } else if (mounted) {
           setLoading(false);
+          isInitialized = true;
         }
       } catch (err) {
         console.error("Auth init error:", err);
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          isInitialized = true;
+        }
       }
     };
 
@@ -108,44 +139,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
       
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         const newUser = newSession?.user ?? null;
         if (newUser) {
-          setUser(newUser);
-          setSession(newSession);
-
-          // TRUQUE 2: Tenta carregar do cache instantaneamente e libera a tela
-          try {
-            const cachedProfileStr = localStorage.getItem(`confere_profile_${newUser.id}`);
-            if (cachedProfileStr) {
-              setProfile(JSON.parse(cachedProfileStr));
-              if (mounted) setLoading(false); // Libera o app instantaneamente!
-            }
-          } catch (e) {}
-          
-          // Busca os dados atualizados em background
-          const p = await fetchProfile(newUser);
-          if (mounted) {
-            if (p) setProfile(p);
-            setLoading(false); // Libera caso seja a primeira vez e não tenha cache
-          }
-        } else {
-          setUser(null);
-          setSession(null);
-          setProfile(null);
-          if (mounted) setLoading(false);
+          await loadUserData(newUser, newSession);
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setSession(null);
         setProfile(null);
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          isInitialized = true;
+        }
       }
     });
+
+    // Failsafe: Trava de segurança. Se por algum motivo não resolver em 3 segundos, libera o app.
+    const failsafeTimeout = setTimeout(() => {
+      if (mounted && !isInitialized) {
+        console.warn("Auth initialization timeout - forcing load");
+        setLoading(false);
+      }
+    }, 3000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      clearTimeout(failsafeTimeout);
     };
   }, [fetchProfile]);
 
