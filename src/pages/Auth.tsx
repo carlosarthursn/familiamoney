@@ -42,8 +42,10 @@ export default function Auth() {
     
     setLoading(true);
     
-    // Trava de Segurança: Destrava o botão em 8s caso o banco de dados trave
-    const timeoutId = setTimeout(() => setLoading(false), 8000);
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      toast.error('O login demorou muito. Tente novamente.');
+    }, 10000);
 
     try {
       if (isLogin) {
@@ -52,6 +54,10 @@ export default function Auth() {
           clearTimeout(timeoutId);
           toast.error(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos' : error.message);
           setLoading(false);
+        } else {
+          clearTimeout(timeoutId);
+          toast.success('Autenticando...');
+          // O roteador (App.tsx) vai desmontar esta tela automaticamente quando o usuário for carregado
         }
       } else {
         const { data, error } = await (signUp(email, password, name) as any);
@@ -65,6 +71,7 @@ export default function Auth() {
           setLoading(false);
           setIsLogin(true);
         } else {
+          clearTimeout(timeoutId);
           toast.success('Bem-vindo!');
         }
       }

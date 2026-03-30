@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Profile {
   name?: string;
@@ -38,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
 
-  // LIMPEZA NUCLEAR DE QUALQUER SESSÃO SALVA
   const forceClearCache = () => {
     try {
       localStorage.clear();
@@ -49,64 +49,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {}
   };
 
-  const fetchProfile = useCallback(async (currentUser: User) => {
-    try {
-      const { data: dbProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentUser.id)
-        .maybeSingle();
-      
-      if (fetchError) throw fetchError;
-      
-      // SE O PERFIL NÃO EXISTIR: REJEITA A CONTA. 
-      // (Sem "auto-recuperação" ou falsos logins)
-      if (!dbProfile) {
-        return null;
-      }
-
-      const profileData = dbProfile as any;
-      let pName: string | null = null;
-      let pAvatar: string | null = null;
-
-      if (profileData.linked_user_id) {
-        const { data: partner } = await supabase
-          .from('profiles')
-          .select('name, email, avatar_url')
-          .eq('id', profileData.linked_user_id)
-          .maybeSingle();
-        if (partner) {
-          pName = (partner as any).name || (partner as any).email?.split('@')[0];
-          pAvatar = (partner as any).avatar_url;
-        }
-      }
-
-      const finalProfile = {
-        name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
-        avatar_url: profileData.avatar_url,
-        linked_user_id: profileData.linked_user_id,
-        partnerName: pName,
-        partnerAvatar: pAvatar,
-        monthly_budget: Number(profileData.monthly_budget) || 0
-      };
-
-      try {
-        localStorage.setItem(`confere_profile_${currentUser.id}`, JSON.stringify(finalProfile));
-      } catch (e) {}
-
-      return finalProfile;
-    } catch (e) {
-      console.error("Erro ao buscar perfil:", e);
-      return null;
-    }
-  }, []);
-
-  // FUNÇÃO FORÇADA DE LOGOUT
   const performSignOut = async () => {
     try { await supabase.auth.signOut(); } catch (e) {}
     forceClearCache();
-    window.location.href = '/auth'; // Redirecionamento brutal direto para a página de login
+    window.location.replace('/auth');
   };
+
+  const fetchProfile = useCallback(async (currentUser: User) => {
+    const { data: dbProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .maybeSingle();
+    
+    if (fetchError) throw fetchError;
+    
+    // RECUPERAÇÃO SEGURA DE CONTA FANTASMA
+    if (!dbProfile) {
+      console.warn("Conta sem perfil detectada. Restaurando...");
+      const fallbackName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
+      
+      const { error: insertError } = await supabase.from('profiles').insert({
+        id: currentUser.id,
+        user_id: currentUser.id,
+        email: currentUser.email,
+        name: fallbackName,
+        monthly_budget: 0
+      });
+
+      if (insertError) {
+        throw new Error("Erro ao restaurar perfil: " + insertError.message);
+      }
+      
+      return {
+        name: fallbackName,
+        avatar_url: null,
+        linked_user_id: null,
+        partnerName: null,
+        partnerAvatar: null,
+        monthly_budget: 0
+      };
+    }
+
+    const profileData = dbProfile as any;
+    let pName: string | null = null;
+    let pAvatar: string | null = null;
+
+    if (profileData.linked_user_id) {
+      const { data: partner } = await supabase
+        .from('profiles')
+        .select('name, email, avatar_url')
+        .eq('id', profileData.linked_user_id)
+        .maybeSingle();
+      if (partner) {
+        pName = (partner as any).name || (partner as any).email?.split('@')[0];
+        pAvatar = (partner as any).avatar_url;
+      }
+    }
+
+    const finalProfile = {
+      name: profileData.name || currentUser.email?.split('@')[0] || 'Usuário',
+      avatar_url: profileData.avatar_url,
+      linked_user_id: profileData.linked_user_id,
+      partnerName: pName,
+      partnerAvatar: pAvatar,
+      monthly_budget: Number(profileData.monthly_budget) || 0
+    };
+
+    try {
+      localStorage.setItem(`confere_profile_${currentUser.id}`, JSON.stringify(finalProfile));
+    } catch (e) {}
+
+    return finalProfile;
+  }, []);
 
   const signOut = async () => {
     setLoading(true);
@@ -118,24 +133,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isInitialized = false;
 
     const loadUserData = async (newUser: User, newSession: Session | null) => {
-      // 1. Pega o perfil no banco de dados.
-      const p = await fetchProfile(newUser);
-      
-      if (!mounted) return;
-
-      // 2. Se a conta for fantasma / não tiver perfil, expulsa pro Login Imediatamente!
-      if (!p) {
-        console.error("Conta inválida detectada. Expulsando para o Login...");
+      try {
+        const p = await fetchProfile(newUser);
+        if (!mounted) return;
+        
+        setUser(newUser);
+        setSession(newSession);
+        setProfile(p);
+        setLoading(false);
+        isInitialized = true;
+      } catch (e: any) {
+        console.error("Falha crítica ao carregar usuário:", e);
+        toast.error("Erro ao carregar sua conta. Refazendo login...");
         await performSignOut();
-        return;
       }
-
-      // 3. Se tudo estiver OK, libera o acesso
-      setUser(newUser);
-      setSession(newSession);
-      setProfile(p);
-      setLoading(false);
-      isInitialized = true;
     };
 
     const initializeAuth = async () => {
@@ -146,7 +157,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentSession?.user && mounted) {
           await loadUserData(currentSession.user, currentSession);
         } else if (mounted) {
-          forceClearCache(); // Limpeza de segurança extra
           setLoading(false);
           isInitialized = true;
         }
@@ -185,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted && !isInitialized) {
         setLoading(false);
       }
-    }, 4000);
+    }, 5000);
 
     return () => {
       mounted = false;
