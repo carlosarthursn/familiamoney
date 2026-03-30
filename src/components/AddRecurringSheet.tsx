@@ -19,6 +19,7 @@ import { useRecurring } from '@/hooks/useRecurring';
 import { Plus, TrendingUp, TrendingDown, Repeat, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SuccessOverlay } from './SuccessOverlay';
+import { toast } from 'sonner';
 
 export function AddRecurringSheet() {
   const [open, setOpen] = useState(false);
@@ -34,24 +35,58 @@ export function AddRecurringSheet() {
   const { addRecurring } = useRecurring();
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
+  const resetForm = () => {
+    setName('');
+    setAmount('');
+    setCategory('');
+    setDueDay('10');
+    setIsInstallment(false);
+    setTotalInstallments('12');
+  };
+
   const handleSubmit = async () => {
-    if (!name || !amount || !category) return;
+    // Validações explícitas com avisos (toasts)
+    if (!name.trim()) return toast.error("Por favor, digite o nome do lançamento.");
+    if (!amount.trim()) return toast.error("Por favor, digite o valor.");
+    if (!category) return toast.error("Por favor, selecione uma categoria.");
+    if (!dueDay.trim()) return toast.error("Por favor, informe o dia de vencimento.");
+
     const numAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
     const numDueDay = parseInt(dueDay);
 
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return toast.error("Valor inválido. Digite um valor maior que zero.");
+    }
+    
+    if (isNaN(numDueDay) || numDueDay < 1 || numDueDay > 31) {
+      return toast.error("Dia de vencimento inválido. Use um número de 1 a 31.");
+    }
+
+    let parsedInstallments = null;
+    if (type === 'expense' && isInstallment) {
+      parsedInstallments = parseInt(totalInstallments);
+      if (isNaN(parsedInstallments) || parsedInstallments < 1) {
+        return toast.error("Número de parcelas inválido.");
+      }
+    }
+
     try {
       await addRecurring.mutateAsync({
-        name,
+        name: name.trim(),
         amount: numAmount,
         category,
         due_day: numDueDay,
         type,
         is_installment: type === 'expense' ? isInstallment : false,
-        total_installments: (type === 'expense' && isInstallment) ? parseInt(totalInstallments) : null,
+        total_installments: parsedInstallments,
         current_installment: (type === 'expense' && isInstallment) ? 1 : null,
       });
+      
       setShowSuccess(true);
-    } catch (e) {}
+      resetForm();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao salvar o planejamento. Tente novamente.");
+    }
   };
 
   return (

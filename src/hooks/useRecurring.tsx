@@ -69,35 +69,43 @@ export function useRecurring() {
         ...expense,
         user_id: user.id
       });
-      if (error) throw error;
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurringExpenses'] });
-      toast.success('Configurado com sucesso!');
     },
+    onError: (error: any) => {
+      toast.error('Erro ao adicionar lançamento: ' + error.message);
+    }
   });
 
   const updateRecurring = useMutation({
     mutationFn: async (expense: Partial<RecurringExpense> & { id: string }) => {
       const { id, ...updates } = expense;
       const { error } = await supabase.from('recurring_expenses').update(updates).eq('id', id);
-      if (error) throw error;
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurringExpenses'] });
       toast.success('Atualizado com sucesso!');
     },
+    onError: (error: any) => {
+      toast.error('Erro ao atualizar lançamento: ' + error.message);
+    }
   });
 
   const deleteRecurring = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('recurring_expenses').delete().eq('id', id);
-      if (error) throw error;
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurringExpenses'] });
       toast.success('Removido com sucesso!');
     },
+    onError: (error: any) => {
+      toast.error('Erro ao remover lançamento: ' + error.message);
+    }
   });
 
   const markAsPaid = useMutation({
@@ -113,7 +121,7 @@ export function useRecurring() {
         description: `${item.name} (${item.type === 'income' ? 'Recebido' : 'Pago'})`
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
 
       if (item.is_installment && item.current_installment !== null && item.total_installments !== null) {
         if (item.current_installment < item.total_installments) {
@@ -156,7 +164,7 @@ export function useRecurring() {
 
       if (trans && trans.length > 0) {
         const { error } = await supabase.from('transactions').delete().eq('id', trans[0].id);
-        if (error) throw error;
+        if (error) throw new Error(error.message);
 
         // Reverte parcela se necessário
         if (item.is_installment && item.current_installment !== null) {
@@ -174,6 +182,9 @@ export function useRecurring() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['recurringExpenses'] });
       toast.success('Lançamento removido.');
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao desmarcar lançamento: ' + error.message);
     }
   });
 
