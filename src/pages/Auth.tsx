@@ -49,8 +49,10 @@ export default function Auth() {
           toast.error(error.message.includes('Invalid login credentials') ? 'Email ou senha incorretos' : error.message);
           setLoading(false);
         } else {
-          // Deixa o botão girando até o redirecionamento automático acontecer
-          toast.success('Autenticando...');
+          toast.success('Entrando...');
+          // SLEDGEHAMMER: Força o redirecionamento absoluto para limpar qualquer estado travado.
+          // Isso garante que você NUNCA MAIS vai ver o botão girando para sempre se a senha estiver certa.
+          window.location.href = '/';
         }
       } else {
         const { data, error } = await (signUp(email, password, name) as any);
@@ -63,6 +65,7 @@ export default function Auth() {
           setIsLogin(true);
         } else {
           toast.success('Bem-vindo!');
+          window.location.href = '/';
         }
       }
     } catch (err: any) {
@@ -78,6 +81,7 @@ export default function Auth() {
       const { error } = await signInWithPasskey();
       if (error) throw error;
       toast.success('Bem-vindo!');
+      window.location.href = '/';
     } catch (err: any) {
       toast.error('Nenhuma biometria cadastrada ou cancelado.');
       setLoading(false);

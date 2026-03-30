@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const performSignOut = async () => {
     try { await supabase.auth.signOut(); } catch (e) {}
     forceClearCache();
-    window.location.replace('/auth');
+    window.location.href = '/auth'; // Redirecionamento brutal e imediato
   };
 
   const fetchProfile = useCallback(async (currentUser: User) => {
@@ -64,28 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (fetchError) throw fetchError;
       
-      // BLINDAGEM: Se não tem perfil, cria um na memória e tenta salvar em background.
       if (!dbProfile) {
-        console.warn("Perfil não encontrado. Liberando acesso em modo de segurança...");
         const fallbackName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuário';
-        
-        // Tenta inserir (sem travar o usuário se falhar)
+        // Tenta recriar o perfil em silêncio se for uma conta recuperada
         supabase.from('profiles').insert({
           id: currentUser.id,
           user_id: currentUser.id,
           email: currentUser.email,
           name: fallbackName,
           monthly_budget: 0
-        }).then(({ error }) => {
-          if (error) console.error("Aviso: Falha ao persistir perfil novo.", error.message);
-        });
+        }).catch(() => {});
         
         return {
           name: fallbackName,
-          avatar_url: null,
-          linked_user_id: null,
-          partnerName: null,
-          partnerAvatar: null,
           monthly_budget: 0
         };
       }
@@ -121,8 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return finalProfile;
     } catch (e) {
-      console.error("Erro ao buscar perfil:", e);
-      // Se houver qualquer erro maluco, deixa entrar com perfil básico.
+      console.error("Erro em background ao buscar perfil:", e);
       return {
         name: currentUser.email?.split('@')[0] || 'Usuário',
         monthly_budget: 0
@@ -140,15 +130,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isInitialized = false;
 
     const loadUserData = async (newUser: User, newSession: Session | null) => {
-      const p = await fetchProfile(newUser);
-      
-      if (!mounted) return;
-
+      // 1. DESTRAVAMENTO IMEDIATO!
+      // Libera o login na hora sem esperar a foto ou o nome carregarem.
       setUser(newUser);
       setSession(newSession);
-      setProfile(p);
       setLoading(false);
       isInitialized = true;
+
+      // 2. BUSCA EM SEGUNDO PLANO
+      // Busca o perfil silenciosamente. Se o banco de dados demorar 10 segundos para acordar,
+      // o usuário não ficará travado, apenas verá "Olá, Usuário" por alguns segundos.
+      const p = await fetchProfile(newUser);
+      if (mounted && p) {
+        setProfile(p);
+      }
     };
 
     const initializeAuth = async () => {
@@ -194,12 +189,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Aumentamos esse failsafe de 4s para 15s para dar tempo do BD acordar!
     const failsafeTimeout = setTimeout(() => {
       if (mounted && !isInitialized) {
         setLoading(false);
       }
-    }, 15000);
+    }, 4000);
 
     return () => {
       mounted = false;
